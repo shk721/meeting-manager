@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Meeting Management System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: meetings
+    description: Meeting management
+  - name: minutes
+    description: Meeting minutes
+  - name: decisions
+    description: Meeting decisions
+  - name: tasks
+    description: Task management
+  - name: dashboard
+    description: Dashboard statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,508 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with credentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current user
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+
+  /users:
+    get:
+      operationId: getUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /meetings:
+    get:
+      operationId: getMeetings
+      tags: [meetings]
+      summary: List meetings
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: projectId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meeting"
+    post:
+      operationId: createMeeting
+      tags: [meetings]
+      summary: Create a new meeting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+
+  /meetings/{id}:
+    get:
+      operationId: getMeeting
+      tags: [meetings]
+      summary: Get a meeting by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Meeting details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateMeeting
+      tags: [meetings]
+      summary: Update a meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+    delete:
+      operationId: deleteMeeting
+      tags: [meetings]
+      summary: Delete a meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /meetings/{id}/minutes:
+    get:
+      operationId: getMeetingMinutes
+      tags: [minutes]
+      summary: Get minutes for a meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Meeting minutes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Minutes"
+        "404":
+          description: Not found
+    post:
+      operationId: createMeetingMinutes
+      tags: [minutes]
+      summary: Create or update minutes for a meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MinutesInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Minutes"
+
+  /minutes/{id}/approve:
+    post:
+      operationId: approveMinutes
+      tags: [minutes]
+      summary: Approve meeting minutes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Minutes approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Minutes"
+
+  /decisions:
+    get:
+      operationId: getDecisions
+      tags: [decisions]
+      summary: List all decisions
+      parameters:
+        - name: meetingId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of decisions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Decision"
+    post:
+      operationId: createDecision
+      tags: [decisions]
+      summary: Create a decision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Decision"
+
+  /decisions/{id}:
+    patch:
+      operationId: updateDecision
+      tags: [decisions]
+      summary: Update a decision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Decision"
+    delete:
+      operationId: deleteDecision
+      tags: [decisions]
+      summary: Delete a decision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /tasks:
+    get:
+      operationId: getTasks
+      tags: [tasks]
+      summary: List tasks
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+        - name: assigneeId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: meetingId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: dueBefore
+          in: query
+          schema:
+            type: string
+        - name: dueAfter
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Create a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /tasks/{id}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      summary: Get a task by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      summary: Update a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Delete a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /tasks/{id}/comments:
+    post:
+      operationId: addTaskComment
+      tags: [tasks]
+      summary: Add a comment to a task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentInput"
+      responses:
+        "201":
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskComment"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/upcoming-meetings:
+    get:
+      operationId: getUpcomingMeetings
+      tags: [dashboard]
+      summary: Get upcoming meetings for dashboard
+      responses:
+        "200":
+          description: Upcoming meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meeting"
+
+  /dashboard/pending-minutes:
+    get:
+      operationId: getPendingMinutes
+      tags: [dashboard]
+      summary: Get minutes pending approval
+      responses:
+        "200":
+          description: Pending minutes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MinutesSummary"
+
+  /dashboard/overdue-tasks:
+    get:
+      operationId: getOverdueTasks
+      tags: [dashboard]
+      summary: Get overdue tasks
+      responses:
+        "200":
+          description: Overdue tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +549,490 @@ components:
       required:
         - status
 
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+
+    User:
+      type: object
+      required: [id, username, fullName, role, email]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, manager, member, viewer]
+        department:
+          type: ["string", "null"]
+        avatar:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    Meeting:
+      type: object
+      required: [id, title, date, time, status, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed, cancelled, postponed]
+        project:
+          type: ["string", "null"]
+        team:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        chairperson:
+          $ref: "#/components/schemas/User"
+        attendeeCount:
+          type: integer
+        taskCount:
+          type: integer
+        hasMinutes:
+          type: boolean
+        minutesApproved:
+          type: boolean
+        createdAt:
+          type: string
+
+    MeetingDetail:
+      type: object
+      required: [id, title, date, time, status, createdAt, attendees, agendaItems]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed, cancelled, postponed]
+        project:
+          type: ["string", "null"]
+        team:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        objectives:
+          type: ["string", "null"]
+        chairperson:
+          $ref: "#/components/schemas/User"
+        attendees:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        agendaItems:
+          type: array
+          items:
+            type: string
+        minutes:
+          $ref: "#/components/schemas/Minutes"
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Decision"
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        createdAt:
+          type: string
+
+    MeetingInput:
+      type: object
+      required: [title, date, time, status]
+      properties:
+        title:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        status:
+          type: string
+        project:
+          type: string
+        team:
+          type: string
+        location:
+          type: string
+        objectives:
+          type: string
+        chairpersonId:
+          type: integer
+        attendeeIds:
+          type: array
+          items:
+            type: integer
+        agendaItems:
+          type: array
+          items:
+            type: string
+
+    MeetingUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        status:
+          type: string
+        project:
+          type: string
+        team:
+          type: string
+        location:
+          type: string
+        objectives:
+          type: string
+        chairpersonId:
+          type: ["integer", "null"]
+        attendeeIds:
+          type: array
+          items:
+            type: integer
+        agendaItems:
+          type: array
+          items:
+            type: string
+
+    Minutes:
+      type: object
+      required: [id, meetingId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        meetingId:
+          type: integer
+        executiveSummary:
+          type: ["string", "null"]
+        discussionItems:
+          type: ["string", "null"]
+        risks:
+          type: ["string", "null"]
+        previousFollowUp:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, pending_approval, approved]
+        approvedBy:
+          $ref: "#/components/schemas/User"
+        approvedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    MinutesInput:
+      type: object
+      properties:
+        executiveSummary:
+          type: string
+        discussionItems:
+          type: string
+        risks:
+          type: string
+        previousFollowUp:
+          type: string
+        status:
+          type: string
+
+    MinutesSummary:
+      type: object
+      required: [id, meetingId, meetingTitle, meetingDate, status]
+      properties:
+        id:
+          type: integer
+        meetingId:
+          type: integer
+        meetingTitle:
+          type: string
+        meetingDate:
+          type: string
+        status:
+          type: string
+
+    Decision:
+      type: object
+      required: [id, meetingId, content, createdAt]
+      properties:
+        id:
+          type: integer
+        meetingId:
+          type: integer
+        agendaItem:
+          type: ["string", "null"]
+        content:
+          type: string
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    DecisionInput:
+      type: object
+      required: [meetingId, content]
+      properties:
+        meetingId:
+          type: integer
+        agendaItem:
+          type: string
+        content:
+          type: string
+        notes:
+          type: string
+
+    DecisionUpdate:
+      type: object
+      properties:
+        agendaItem:
+          type: string
+        content:
+          type: string
+        notes:
+          type: string
+
+    Task:
+      type: object
+      required: [id, title, status, priority, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [open, in_progress, completed, cancelled, on_hold]
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        completionPercent:
+          type: integer
+        dueDate:
+          type: ["string", "null"]
+        meetingId:
+          type: ["integer", "null"]
+        decisionId:
+          type: ["integer", "null"]
+        assignee:
+          $ref: "#/components/schemas/User"
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    TaskDetail:
+      type: object
+      required: [id, title, status, priority, createdAt, comments, changelog]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [open, in_progress, completed, cancelled, on_hold]
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        completionPercent:
+          type: integer
+        dueDate:
+          type: ["string", "null"]
+        meetingId:
+          type: ["integer", "null"]
+        decisionId:
+          type: ["integer", "null"]
+        assignee:
+          $ref: "#/components/schemas/User"
+        tags:
+          type: array
+          items:
+            type: string
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskComment"
+        changelog:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangelogEntry"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    TaskInput:
+      type: object
+      required: [title, status, priority]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        completionPercent:
+          type: integer
+        dueDate:
+          type: string
+        meetingId:
+          type: ["integer", "null"]
+        decisionId:
+          type: ["integer", "null"]
+        assigneeId:
+          type: ["integer", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        completionPercent:
+          type: integer
+        dueDate:
+          type: ["string", "null"]
+        assigneeId:
+          type: ["integer", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+
+    TaskComment:
+      type: object
+      required: [id, taskId, content, createdAt]
+      properties:
+        id:
+          type: integer
+        taskId:
+          type: integer
+        content:
+          type: string
+        author:
+          $ref: "#/components/schemas/User"
+        createdAt:
+          type: string
+
+    CommentInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+
+    ChangelogEntry:
+      type: object
+      required: [id, taskId, field, createdAt]
+      properties:
+        id:
+          type: integer
+        taskId:
+          type: integer
+        field:
+          type: string
+        oldValue:
+          type: ["string", "null"]
+        newValue:
+          type: ["string", "null"]
+        changedBy:
+          $ref: "#/components/schemas/User"
+        createdAt:
+          type: string
+
+    DashboardStats:
+      type: object
+      required: [totalMeetings, upcomingMeetings, pendingMinutes, openTasks, overdueTasks, completedTasks, completionRate, tasksByStatus, tasksByPriority, meetingsByStatus]
+      properties:
+        totalMeetings:
+          type: integer
+        upcomingMeetings:
+          type: integer
+        pendingMinutes:
+          type: integer
+        openTasks:
+          type: integer
+        overdueTasks:
+          type: integer
+        completedTasks:
+          type: integer
+        completionRate:
+          type: number
+        tasksByStatus:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatItem"
+        tasksByPriority:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatItem"
+        meetingsByStatus:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatItem"
+
+    StatItem:
+      type: object
+      required: [label, value, color]
+      properties:
+        label:
+          type: string
+        value:
+          type: integer
+        color:
+          type: string

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "نظام إدارة الاجتماعات"
+version = "1.0.0"
+id = "artifacts/meeting-manager"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25641
+
+[services.development]
+run = "pnpm --filter @workspace/meeting-manager run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/meeting-manager", "run", "build" ]
+publicDir = "artifacts/meeting-manager/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25641"
+BASE_PATH = "/"

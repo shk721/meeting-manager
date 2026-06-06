@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (username: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -30,14 +30,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useLogin();
   const logoutMutation = useLogout();
 
-  const handleLogin = async (username: string) => {
+  const handleLogin = async (username: string, password: string) => {
     try {
-      await loginMutation.mutateAsync({ data: { username, password: "password" } });
+      await loginMutation.mutateAsync({ data: { username, password } });
       await queryClient.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() });
       toast({ title: "تم تسجيل الدخول بنجاح" });
       setLocation("/");
     } catch (e) {
-      toast({ title: "فشل تسجيل الدخول", variant: "destructive" });
+      toast({
+        title: "فشل تسجيل الدخول",
+        description: "اسم المستخدم أو كلمة المرور غير صحيحة. يرجى المحاولة مجدداً.",
+        variant: "destructive",
+      });
     }
   };
 

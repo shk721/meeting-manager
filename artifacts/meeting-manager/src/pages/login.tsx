@@ -4,10 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const USERS = [
-  { username: "admin", name: "أحمد المدير", role: "مدير النظام", roleId: "admin" },
-  { username: "manager", name: "سارة المديرة", role: "مدير", roleId: "manager" },
-  { username: "member", name: "محمد العضو", role: "عضو", roleId: "member" },
-  { username: "viewer", name: "فاطمة المراقبة", role: "مراقب", roleId: "viewer" },
+  { username: "admin",   password: "admin123",   name: "أحمد المنصوري", role: "مدير النظام", roleId: "admin" },
+  { username: "manager", password: "manager123", name: "سارة القحطاني", role: "مدير",        roleId: "manager" },
+  { username: "member1", password: "member123",  name: "محمد العتيبي",  role: "عضو",         roleId: "member" },
+  { username: "viewer",  password: "viewer123",  name: "نورة الشمري",   role: "مراقب",       roleId: "viewer" },
 ];
 
 export default function Login() {
@@ -32,7 +32,7 @@ export default function Login() {
               </div>
             </CardHeader>
             <CardContent className="flex justify-center pt-4">
-              <Button onClick={() => login(user.username)} className="w-full">
+              <Button onClick={() => login(user.username, user.password)} className="w-full">
                 تسجيل الدخول
               </Button>
             </CardContent>

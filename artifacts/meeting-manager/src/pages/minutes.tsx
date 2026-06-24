@@ -1,11 +1,17 @@
-import { useGetPendingMinutes } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useGetPendingMinutes, useApproveMinutes, getGetPendingMinutesQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
   draft: { label: "مسودة", variant: "secondary" },
@@ -14,10 +20,34 @@ const statusMap: Record<string, { label: string; variant: "default" | "secondary
 };
 
 export default function Minutes() {
-  // We're using useGetPendingMinutes here as a placeholder for a theoretical useGetAllMinutes 
-  // since the API might only expose pending minutes for the dashboard, 
-  // but if it's the only hook available for listing minutes, we'll use it.
-  const { data: minutes, isLoading } = useGetPendingMinutes();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const canApprove = user?.role === "admin" || user?.role === "manager";
+
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+
+  const { data: allMinutes = [], isLoading } = useGetPendingMinutes();
+  const approveMutation = useApproveMinutes();
+
+  const minutes = debouncedSearch
+    ? allMinutes.filter(
+        (m) =>
+          m.meetingTitle.toLowerCase().includes(debouncedSearch.toLowerCase())
+      )
+    : allMinutes;
+
+  const handleApprove = async (minutesId: number) => {
+    try {
+      await approveMutation.mutateAsync({ id: minutesId });
+      queryClient.invalidateQueries({ queryKey: getGetPendingMinutesQueryKey() });
+      toast({ title: "تم اعتماد المحضر بنجاح" });
+    } catch {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -28,10 +58,15 @@ export default function Minutes() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <CardTitle>قائمة المحاضر</CardTitle>
+            <CardTitle>محاضر بانتظار الاعتماد</CardTitle>
             <div className="relative w-full sm:w-64">
               <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="بحث..." className="pr-8" />
+              <Input
+                placeholder="بحث باسم الاجتماع..."
+                className="pr-8"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           </div>
         </CardHeader>
@@ -40,20 +75,21 @@ export default function Minutes() {
             <div className="flex justify-center p-8">
               <Spinner />
             </div>
-          ) : minutes && minutes.length > 0 ? (
+          ) : minutes.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>عنوان الاجتماع</TableHead>
                   <TableHead>التاريخ</TableHead>
                   <TableHead>الحالة</TableHead>
+                  {canApprove && <TableHead className="w-24"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {minutes.map((minute) => (
-                  <TableRow key={minute.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow key={minute.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium">
-                      <Link href={`/meetings/${minute.meetingId}`} className="block w-full h-full">
+                      <Link href={`/meetings/${minute.meetingId}`} className="block w-full h-full hover:underline">
                         {minute.meetingTitle}
                       </Link>
                     </TableCell>
@@ -65,13 +101,29 @@ export default function Minutes() {
                         {statusMap[minute.status]?.label || minute.status}
                       </Badge>
                     </TableCell>
+                    {canApprove && (
+                      <TableCell>
+                        {minute.status === "pending_approval" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={approveMutation.isPending}
+                            onClick={() => handleApprove(minute.id)}
+                          >
+                            <Check className="h-3 w-3 ml-1" />
+                            اعتماد
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           ) : (
             <div className="text-center p-8 text-muted-foreground">
-              لا توجد محاضر لعرضها.
+              {search ? "لا توجد نتائج مطابقة." : "لا توجد محاضر بانتظار الاعتماد."}
             </div>
           )}
         </CardContent>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useGetMeetings } from "@workspace/api-client-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "wouter";
@@ -7,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { MeetingFormDialog } from "@/components/meetings/MeetingFormDialog";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
   scheduled: { label: "مجدول", variant: "default" },
@@ -17,13 +20,19 @@ const statusMap: Record<string, { label: string; variant: "default" | "secondary
 };
 
 export default function Meetings() {
-  const { data: meetings, isLoading } = useGetMeetings({});
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+
+  const { data: meetings, isLoading } = useGetMeetings({
+    search: debouncedSearch || undefined,
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight">الاجتماعات</h1>
-        <Button>
+        <Button onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 ml-2" />
           اجتماع جديد
         </Button>
@@ -35,7 +44,12 @@ export default function Meetings() {
             <CardTitle>قائمة الاجتماعات</CardTitle>
             <div className="relative w-full sm:w-64">
               <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="بحث..." className="pr-8" />
+              <Input
+                placeholder="بحث..."
+                className="pr-8"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           </div>
         </CardHeader>
@@ -79,11 +93,13 @@ export default function Meetings() {
             </Table>
           ) : (
             <div className="text-center p-8 text-muted-foreground">
-              لا توجد اجتماعات لعرضها.
+              {search ? "لا توجد نتائج مطابقة للبحث." : "لا توجد اجتماعات لعرضها."}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <MeetingFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

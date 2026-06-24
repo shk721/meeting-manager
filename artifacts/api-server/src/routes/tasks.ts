@@ -1,12 +1,14 @@
 import { Router, type IRouter } from "express";
-import { eq, and, lte, gte } from "drizzle-orm";
+import { and, eq, ilike, lte, gte, or } from "drizzle-orm";
 import { db, tasksTable, usersTable, taskCommentsTable, taskChangelogTable } from "@workspace/db";
 import {
   GetTasksQueryParams, CreateTaskBody,
-  GetTaskParams, UpdateTaskParams, UpdateTaskBody,
-  AddTaskCommentParams, AddTaskCommentBody,
+  UpdateTaskBody,
+  AddTaskCommentBody,
 } from "@workspace/api-zod";
 import { formatUser } from "./users";
+import { requireRole } from "../middleware/auth";
+import { sendTaskAssignedEmail } from "../lib/mailer";
 
 const router: IRouter = Router();
 
@@ -29,18 +31,28 @@ router.get("/tasks", async (req, res): Promise<void> => {
   const query = GetTasksQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
-  let tasks = await db.select().from(tasksTable).orderBy(tasksTable.createdAt);
+  const { status, priority, assigneeId, meetingId, search, dueBefore, dueAfter } = query.data;
 
-  if (query.data.status) tasks = tasks.filter(t => t.status === query.data.status);
-  if (query.data.priority) tasks = tasks.filter(t => t.priority === query.data.priority);
-  if (query.data.assigneeId) tasks = tasks.filter(t => t.assigneeId === query.data.assigneeId);
-  if (query.data.meetingId) tasks = tasks.filter(t => t.meetingId === query.data.meetingId);
-  if (query.data.search) {
-    const s = query.data.search.toLowerCase();
-    tasks = tasks.filter(t => t.title.toLowerCase().includes(s) || (t.description ?? "").toLowerCase().includes(s));
-  }
-  if (query.data.dueBefore) tasks = tasks.filter(t => t.dueDate && t.dueDate <= query.data.dueBefore!);
-  if (query.data.dueAfter) tasks = tasks.filter(t => t.dueDate && t.dueDate >= query.data.dueAfter!);
+  const searchFilter = search
+    ? or(
+        ilike(tasksTable.title, `%${search}%`),
+        ilike(tasksTable.description, `%${search}%`),
+      )
+    : undefined;
+
+  const tasks = await db
+    .select()
+    .from(tasksTable)
+    .where(and(
+      status ? eq(tasksTable.status, status) : undefined,
+      priority ? eq(tasksTable.priority, priority) : undefined,
+      assigneeId ? eq(tasksTable.assigneeId, assigneeId) : undefined,
+      meetingId ? eq(tasksTable.meetingId, meetingId) : undefined,
+      dueBefore ? lte(tasksTable.dueDate, dueBefore) : undefined,
+      dueAfter ? gte(tasksTable.dueDate, dueAfter) : undefined,
+      searchFilter,
+    ))
+    .orderBy(tasksTable.createdAt);
 
   const results = await Promise.all(tasks.map(formatTask));
   res.json(results);
@@ -52,6 +64,20 @@ router.post("/tasks", async (req, res): Promise<void> => {
 
   const { tags, ...rest } = parsed.data;
   const [task] = await db.insert(tasksTable).values({ ...rest, tags: tags ?? [] }).returning();
+
+  // Notify new assignee
+  if (task.assigneeId) {
+    const [assignee] = await db.select().from(usersTable).where(eq(usersTable.id, task.assigneeId));
+    if (assignee?.email) {
+      sendTaskAssignedEmail({
+        toEmail: assignee.email,
+        toName: assignee.fullName,
+        taskTitle: task.title,
+        assignerName: "النظام",
+      }).catch(() => {});
+    }
+  }
+
   res.status(201).json(await formatTask(task));
 });
 
@@ -117,7 +143,6 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
 
   const sessionUserId = (req.session as any).userId;
 
-  // Record changelog for changed fields
   const trackFields = ["status", "priority", "completionPercent", "assigneeId", "dueDate"] as const;
   const changeEntries: any[] = [];
   for (const field of trackFields) {
@@ -139,10 +164,33 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
   if (tags !== undefined) updateData.tags = tags;
 
   const [task] = await db.update(tasksTable).set(updateData).where(eq(tasksTable.id, id)).returning();
+
+  // Notify new assignee if assigneeId changed
+  if (
+    parsed.data.assigneeId !== undefined &&
+    parsed.data.assigneeId !== existing.assigneeId &&
+    parsed.data.assigneeId != null
+  ) {
+    const [[assignee], [changer]] = await Promise.all([
+      db.select().from(usersTable).where(eq(usersTable.id, parsed.data.assigneeId)),
+      sessionUserId
+        ? db.select().from(usersTable).where(eq(usersTable.id, sessionUserId))
+        : Promise.resolve([null]),
+    ]);
+    if (assignee?.email) {
+      sendTaskAssignedEmail({
+        toEmail: assignee.email,
+        toName: assignee.fullName,
+        taskTitle: task.title,
+        assignerName: changer?.fullName ?? "مستخدم",
+      }).catch(() => {});
+    }
+  }
+
   res.json(await formatTask(task));
 });
 
-router.delete("/tasks/:id", async (req, res): Promise<void> => {
+router.delete("/tasks/:id", requireRole("admin", "manager"), async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   await db.delete(taskCommentsTable).where(eq(taskCommentsTable.taskId, id));

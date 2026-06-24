@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, decisionsTable } from "@workspace/db";
-import { GetDecisionsQueryParams, CreateDecisionBody, UpdateDecisionParams, UpdateDecisionBody } from "@workspace/api-zod";
+import { GetDecisionsQueryParams, CreateDecisionBody, UpdateDecisionBody } from "@workspace/api-zod";
+import { requireRole } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -40,7 +41,7 @@ router.patch("/decisions/:id", async (req, res): Promise<void> => {
   res.json(fmt(d));
 });
 
-router.delete("/decisions/:id", async (req, res): Promise<void> => {
+router.delete("/decisions/:id", requireRole("admin", "manager"), async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   await db.delete(decisionsTable).where(eq(decisionsTable.id, parseInt(raw, 10)));
   res.sendStatus(204);

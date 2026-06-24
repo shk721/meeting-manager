@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Calendar, Clock, MapPin, Users, Target, CheckSquare, FileText,
-  Briefcase, Plus, Edit2, Trash2, Check,
+  Briefcase, Plus, Edit2, Trash2, Check, Download,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
@@ -320,6 +320,16 @@ export default function MeetingDetail({ id }: { id: string }) {
                     <Button size="sm" variant="outline" onClick={handleApproveMinutes}>
                       <Check className="h-4 w-4 ml-1" />
                       اعتماد
+                    </Button>
+                  )}
+                  {minutes && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(`/api/meetings/${meetingId}/minutes/export`, "_blank")}
+                    >
+                      <Download className="h-4 w-4 ml-1" />
+                      تصدير PDF
                     </Button>
                   )}
                   <Button size="sm" onClick={() => setMinutesOpen(true)}>

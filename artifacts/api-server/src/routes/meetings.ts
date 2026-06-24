@@ -1,17 +1,19 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import {
   db, meetingsTable, meetingAttendeesTable,
   usersTable, minutesTable, tasksTable, decisionsTable,
 } from "@workspace/db";
 import {
   GetMeetingsQueryParams, CreateMeetingBody,
-  GetMeetingParams, UpdateMeetingParams, UpdateMeetingBody,
+  UpdateMeetingBody,
 } from "@workspace/api-zod";
 import { formatUser } from "./users";
+import { requireRole } from "../middleware/auth";
 
 const router: IRouter = Router();
 
+// Fetch a single meeting with all related data (used for single-meeting endpoints)
 async function getMeetingWithMeta(meetingId: number) {
   const [meeting] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, meetingId));
   if (!meeting) return null;
@@ -48,6 +50,7 @@ async function getMeetingWithMeta(meetingId: number) {
   };
 }
 
+// GET /meetings — optimised: 5 queries total instead of 4×N
 router.get("/meetings", async (req, res): Promise<void> => {
   const query = GetMeetingsQueryParams.safeParse(req.query);
   if (!query.success) {
@@ -55,25 +58,82 @@ router.get("/meetings", async (req, res): Promise<void> => {
     return;
   }
 
-  let meetings = await db.select().from(meetingsTable).orderBy(meetingsTable.date);
+  const { status, search } = query.data;
 
-  if (query.data.status) {
-    meetings = meetings.filter(m => m.status === query.data.status);
-  }
-  if (query.data.search) {
-    const s = query.data.search.toLowerCase();
-    meetings = meetings.filter(m =>
-      m.title.toLowerCase().includes(s) ||
-      (m.project ?? "").toLowerCase().includes(s) ||
-      (m.team ?? "").toLowerCase().includes(s)
-    );
+  const searchFilter = search
+    ? or(
+        ilike(meetingsTable.title, `%${search}%`),
+        ilike(meetingsTable.project, `%${search}%`),
+        ilike(meetingsTable.team, `%${search}%`),
+      )
+    : undefined;
+
+  const meetings = await db
+    .select()
+    .from(meetingsTable)
+    .where(and(
+      status ? eq(meetingsTable.status, status) : undefined,
+      searchFilter,
+    ))
+    .orderBy(meetingsTable.date);
+
+  if (meetings.length === 0) {
+    res.json([]);
+    return;
   }
 
-  const results = await Promise.all(meetings.map(m => getMeetingWithMeta(m.id)));
-  res.json(results.filter(Boolean));
+  const meetingIds = meetings.map(m => m.id);
+
+  // Batch-fetch all related data in 4 queries
+  const chairpersonIds = [...new Set(meetings.map(m => m.chairpersonId).filter((id): id is number => id != null))];
+  const [chairpersons, allAttendees, allMinutes, allTasks] = await Promise.all([
+    chairpersonIds.length > 0
+      ? db.select().from(usersTable).where(inArray(usersTable.id, chairpersonIds))
+      : Promise.resolve([]),
+    db.select({ meetingId: meetingAttendeesTable.meetingId })
+      .from(meetingAttendeesTable)
+      .where(inArray(meetingAttendeesTable.meetingId, meetingIds)),
+    db.select({ meetingId: minutesTable.meetingId, status: minutesTable.status })
+      .from(minutesTable)
+      .where(inArray(minutesTable.meetingId, meetingIds)),
+    db.select({ meetingId: tasksTable.meetingId })
+      .from(tasksTable)
+      .where(inArray(tasksTable.meetingId, meetingIds)),
+  ]);
+
+  // Build lookup maps
+  const chairpersonMap = new Map(chairpersons.map(u => [u.id, u]));
+  const attendeeCountMap = new Map<number, number>();
+  for (const a of allAttendees) {
+    attendeeCountMap.set(a.meetingId, (attendeeCountMap.get(a.meetingId) ?? 0) + 1);
+  }
+  const minutesMap = new Map(allMinutes.map(m => [m.meetingId, m]));
+  const taskCountMap = new Map<number, number>();
+  for (const t of allTasks) {
+    if (t.meetingId != null) {
+      taskCountMap.set(t.meetingId, (taskCountMap.get(t.meetingId) ?? 0) + 1);
+    }
+  }
+
+  res.json(meetings.map(m => ({
+    id: m.id,
+    title: m.title,
+    date: m.date,
+    time: m.time,
+    status: m.status,
+    project: m.project ?? null,
+    team: m.team ?? null,
+    location: m.location ?? null,
+    chairperson: m.chairpersonId ? formatUser(chairpersonMap.get(m.chairpersonId)!) : null,
+    attendeeCount: attendeeCountMap.get(m.id) ?? 0,
+    taskCount: taskCountMap.get(m.id) ?? 0,
+    hasMinutes: minutesMap.has(m.id),
+    minutesApproved: minutesMap.get(m.id)?.status === "approved",
+    createdAt: m.createdAt.toISOString(),
+  })));
 });
 
-router.post("/meetings", async (req, res): Promise<void> => {
+router.post("/meetings", requireRole("admin", "manager"), async (req, res): Promise<void> => {
   const parsed = CreateMeetingBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -166,7 +226,7 @@ router.get("/meetings/:id", async (req, res): Promise<void> => {
   });
 });
 
-router.patch("/meetings/:id", async (req, res): Promise<void> => {
+router.patch("/meetings/:id", requireRole("admin", "manager"), async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -195,7 +255,7 @@ router.patch("/meetings/:id", async (req, res): Promise<void> => {
   res.json(result);
 });
 
-router.delete("/meetings/:id", async (req, res): Promise<void> => {
+router.delete("/meetings/:id", requireRole("admin", "manager"), async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   await db.delete(meetingAttendeesTable).where(eq(meetingAttendeesTable.meetingId, id));

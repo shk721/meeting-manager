@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useCreateMeeting, useUpdateMeeting, useGetUsers,
+  useCreateMeeting, useUpdateMeeting, useGetUsers, useGetCommittees,
   getGetMeetingsQueryKey, getGetMeetingQueryKey,
 } from "@workspace/api-client-react";
 import type { Meeting, MeetingDetail } from "@workspace/api-client-react";
@@ -16,10 +16,10 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { meetingTemplates } from "@/lib/meeting-templates";
 
@@ -39,28 +39,44 @@ interface FormValues {
   team: string;
   objectives: string;
   chairpersonId: string;
+  committeeId: string;
+  recurringType: string;
+}
+
+interface GuestEntry {
+  userId: number;
+  fullName: string;
+  forAgendaItem: string;
 }
 
 export function MeetingFormDialog({ open, onOpenChange, meeting }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: users = [] } = useGetUsers();
+  const { data: committees = [] } = useGetCommittees();
 
   const [attendeeIds, setAttendeeIds] = useState<number[]>([]);
+  const [guestAttendees, setGuestAttendees] = useState<GuestEntry[]>([]);
   const [agendaItems, setAgendaItems] = useState<string[]>([]);
   const [newAgendaItem, setNewAgendaItem] = useState("");
+  const [newGuestUserId, setNewGuestUserId] = useState("");
+  const [newGuestAgendaItem, setNewGuestAgendaItem] = useState("");
 
   const isEdit = !!meeting;
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       title: "", date: "", time: "", status: "scheduled",
-      location: "", project: "", team: "", objectives: "", chairpersonId: "",
+      location: "", project: "", team: "", objectives: "",
+      chairpersonId: "", committeeId: "", recurringType: "none",
     },
   });
 
+  const selectedCommitteeId = watch("committeeId");
+
   useEffect(() => {
     if (open && meeting) {
+      const detail = meeting as MeetingDetail;
       reset({
         title: meeting.title,
         date: meeting.date,
@@ -69,19 +85,36 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: Props) {
         location: meeting.location ?? "",
         project: meeting.project ?? "",
         team: meeting.team ?? "",
-        objectives: (meeting as MeetingDetail).objectives ?? "",
+        objectives: detail.objectives ?? "",
         chairpersonId: meeting.chairperson?.id?.toString() ?? "",
+        committeeId: (meeting as any).committeeId?.toString() ?? "",
+        recurringType: (meeting as any).recurringType ?? "none",
       });
-      setAgendaItems((meeting as MeetingDetail).agendaItems ?? []);
-      const detail = meeting as MeetingDetail;
-      setAttendeeIds(detail.attendees?.map((a) => a.id) ?? []);
+      setAgendaItems(detail.agendaItems ?? []);
+      const attendees = detail.attendees ?? [];
+      setAttendeeIds(
+        attendees
+          .filter((a) => (a as any).attendeeType !== "guest")
+          .map((a) => a.id)
+      );
+      setGuestAttendees(
+        attendees
+          .filter((a) => (a as any).attendeeType === "guest")
+          .map((a) => ({
+            userId: a.id,
+            fullName: a.fullName,
+            forAgendaItem: (a as any).forAgendaItem ?? "",
+          }))
+      );
     } else if (open && !meeting) {
       reset({
         title: "", date: "", time: "", status: "scheduled",
-        location: "", project: "", team: "", objectives: "", chairpersonId: "",
+        location: "", project: "", team: "", objectives: "",
+        chairpersonId: "", committeeId: "", recurringType: "none",
       });
       setAgendaItems([]);
       setAttendeeIds([]);
+      setGuestAttendees([]);
     }
   }, [open, meeting, reset]);
 
@@ -90,7 +123,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: Props) {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      const payload = {
+      const payload: any = {
         title: values.title,
         date: values.date,
         time: values.time,
@@ -100,7 +133,13 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: Props) {
         team: values.team || undefined,
         objectives: values.objectives || undefined,
         chairpersonId: values.chairpersonId ? parseInt(values.chairpersonId) : undefined,
+        committeeId: values.committeeId ? parseInt(values.committeeId) : null,
+        recurringType: values.recurringType || "none",
         attendeeIds,
+        guestAttendees: guestAttendees.map((g) => ({
+          userId: g.userId,
+          forAgendaItem: g.forAgendaItem || undefined,
+        })),
         agendaItems,
       };
 
@@ -153,7 +192,29 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: Props) {
     );
   };
 
+  const addGuest = () => {
+    if (!newGuestUserId) return;
+    const uid = parseInt(newGuestUserId);
+    if (guestAttendees.some((g) => g.userId === uid)) return;
+    const userObj = users.find((u) => u.id === uid);
+    if (!userObj) return;
+    setGuestAttendees((prev) => [...prev, {
+      userId: uid,
+      fullName: userObj.fullName,
+      forAgendaItem: newGuestAgendaItem,
+    }]);
+    setNewGuestUserId("");
+    setNewGuestAgendaItem("");
+  };
+
+  const removeGuest = (userId: number) => {
+    setGuestAttendees((prev) => prev.filter((g) => g.userId !== userId));
+  };
+
   const isPending = createMutation.isPending || updateMutation.isPending;
+
+  // Users already added as regular attendees or guests
+  const usedUserIds = new Set([...attendeeIds, ...guestAttendees.map((g) => g.userId)]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -223,6 +284,48 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: Props) {
               </Select>
             </div>
 
+            {/* Committee & Recurring */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>اللجنة / الفريق</Label>
+                <Select
+                  defaultValue={(meeting as any)?.committeeId?.toString() ?? "none"}
+                  onValueChange={(v) => setValue("committeeId", v === "none" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر لجنة (اختياري)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— بدون لجنة —</SelectItem>
+                    {committees.map((c) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedCommitteeId && selectedCommitteeId !== "none" && (
+                  <p className="text-xs text-muted-foreground">سيُضاف أعضاء اللجنة تلقائياً</p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label>تكرار الاجتماع</Label>
+                <Select
+                  defaultValue={(meeting as any)?.recurringType ?? "none"}
+                  onValueChange={(v) => setValue("recurringType", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">غير متكرر</SelectItem>
+                    <SelectItem value="weekly">أسبوعي</SelectItem>
+                    <SelectItem value="biweekly">كل أسبوعين</SelectItem>
+                    <SelectItem value="monthly">شهري</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             {/* Location, Project, Team */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -244,13 +347,14 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: Props) {
             <div className="space-y-1">
               <Label>رئيس الاجتماع</Label>
               <Select
-                defaultValue={meeting?.chairperson?.id?.toString() ?? ""}
-                onValueChange={(v) => setValue("chairpersonId", v)}
+                defaultValue={meeting?.chairperson?.id?.toString() ?? "none"}
+                onValueChange={(v) => setValue("chairpersonId", v === "none" ? "" : v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="اختر رئيس الاجتماع..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">— لا يوجد —</SelectItem>
                   {users.map((u) => (
                     <SelectItem key={u.id} value={u.id.toString()}>{u.fullName}</SelectItem>
                   ))}
@@ -264,22 +368,80 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: Props) {
               <Textarea id="objectives" {...register("objectives")} placeholder="أهداف الاجتماع..." rows={2} />
             </div>
 
-            {/* Attendees */}
+            {/* Attendees (permanent members) */}
             <div className="space-y-2">
-              <Label>المشاركون</Label>
+              <Label>المشاركون الدائمون</Label>
               <div className="grid grid-cols-2 gap-2 rounded-md border p-3 max-h-40 overflow-y-auto">
                 {users.map((u) => (
                   <div key={u.id} className="flex items-center gap-2">
-                    <Checkbox
+                    <input
+                      type="checkbox"
                       id={`attendee-${u.id}`}
                       checked={attendeeIds.includes(u.id)}
-                      onCheckedChange={() => toggleAttendee(u.id)}
+                      onChange={() => toggleAttendee(u.id)}
+                      className="h-4 w-4 rounded border-gray-300"
                     />
                     <label htmlFor={`attendee-${u.id}`} className="text-sm cursor-pointer">
                       {u.fullName}
                     </label>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Guest Attendees */}
+            <div className="space-y-2">
+              <Label>ضيوف الاجتماع</Label>
+              {guestAttendees.length > 0 && (
+                <div className="space-y-1">
+                  {guestAttendees.map((g) => (
+                    <div key={g.userId} className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+                      <Badge variant="outline" className="text-xs">ضيف</Badge>
+                      <span className="text-sm flex-1">{g.fullName}</span>
+                      {g.forAgendaItem && (
+                        <span className="text-xs text-muted-foreground truncate max-w-[120px]">{g.forAgendaItem}</span>
+                      )}
+                      <Button
+                        type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                        onClick={() => removeGuest(g.userId)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2 items-end">
+                <div className="flex-1 space-y-1">
+                  <Select value={newGuestUserId} onValueChange={setNewGuestUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر ضيفاً..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users
+                        .filter((u) => !usedUserIds.has(u.id))
+                        .map((u) => (
+                          <SelectItem key={u.id} value={u.id.toString()}>{u.fullName}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <Select value={newGuestAgendaItem} onValueChange={setNewGuestAgendaItem}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="بند الأجندة (اختياري)..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">— بدون بند محدد —</SelectItem>
+                      {agendaItems.map((item, i) => (
+                        <SelectItem key={i} value={item}>{item}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="button" variant="outline" size="icon" onClick={addGuest} disabled={!newGuestUserId}>
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 

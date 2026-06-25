@@ -5,6 +5,7 @@
  * Meeting Management System API
  * OpenAPI spec version: 0.1.0
  */
+import type { GuestAttendee } from './guestAttendee';
 
 export interface MeetingInput {
   title: string;
@@ -16,6 +17,10 @@ export interface MeetingInput {
   location?: string;
   objectives?: string;
   chairpersonId?: number;
+  /** @nullable */
+  committeeId?: number | null;
+  recurringType?: string;
   attendeeIds?: number[];
+  guestAttendees?: GuestAttendee[];
   agendaItems?: string[];
 }

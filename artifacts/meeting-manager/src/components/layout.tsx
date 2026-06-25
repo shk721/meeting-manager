@@ -12,12 +12,13 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, Users2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const navItems = [
   { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
   { title: "الاجتماعات", href: "/meetings", icon: Users },
+  { title: "اللجان", href: "/committees", icon: Users2 },
   { title: "المهام", href: "/tasks", icon: CheckSquare },
   { title: "المحاضر", href: "/minutes", icon: FileText },
 ];

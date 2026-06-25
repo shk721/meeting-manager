@@ -98,6 +98,8 @@ export const GetMeetingsResponseItem = zod.object({
   "avatar": zod.string().nullish(),
   "createdAt": zod.string().optional()
 }).optional(),
+  "committeeId": zod.number().nullish(),
+  "recurringType": zod.enum(['none', 'weekly', 'biweekly', 'monthly']).optional(),
   "attendeeCount": zod.number().optional(),
   "taskCount": zod.number().optional(),
   "hasMinutes": zod.boolean().optional(),
@@ -120,7 +122,13 @@ export const CreateMeetingBody = zod.object({
   "location": zod.string().optional(),
   "objectives": zod.string().optional(),
   "chairpersonId": zod.number().optional(),
+  "committeeId": zod.number().nullish(),
+  "recurringType": zod.string().optional(),
   "attendeeIds": zod.array(zod.number()).optional(),
+  "guestAttendees": zod.array(zod.object({
+  "userId": zod.number(),
+  "forAgendaItem": zod.string().optional()
+})).optional(),
   "agendaItems": zod.array(zod.string()).optional()
 })
 
@@ -152,15 +160,19 @@ export const GetMeetingResponse = zod.object({
   "avatar": zod.string().nullish(),
   "createdAt": zod.string().optional()
 }).optional(),
+  "committeeId": zod.number().nullish(),
+  "recurringType": zod.enum(['none', 'weekly', 'biweekly', 'monthly']).optional(),
   "attendees": zod.array(zod.object({
   "id": zod.number(),
   "username": zod.string(),
   "fullName": zod.string(),
   "email": zod.string(),
-  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "role": zod.string(),
   "department": zod.string().nullish(),
   "avatar": zod.string().nullish(),
-  "createdAt": zod.string().optional()
+  "attended": zod.boolean(),
+  "attendeeType": zod.enum(['member', 'guest']),
+  "forAgendaItem": zod.string().nullish()
 })),
   "agendaItems": zod.array(zod.string()),
   "minutes": zod.object({
@@ -238,7 +250,13 @@ export const UpdateMeetingBody = zod.object({
   "location": zod.string().optional(),
   "objectives": zod.string().optional(),
   "chairpersonId": zod.number().nullish(),
+  "committeeId": zod.number().nullish(),
+  "recurringType": zod.string().optional(),
   "attendeeIds": zod.array(zod.number()).optional(),
+  "guestAttendees": zod.array(zod.object({
+  "userId": zod.number(),
+  "forAgendaItem": zod.string().optional()
+})).optional(),
   "agendaItems": zod.array(zod.string()).optional()
 })
 
@@ -261,6 +279,8 @@ export const UpdateMeetingResponse = zod.object({
   "avatar": zod.string().nullish(),
   "createdAt": zod.string().optional()
 }).optional(),
+  "committeeId": zod.number().nullish(),
+  "recurringType": zod.enum(['none', 'weekly', 'biweekly', 'monthly']).optional(),
   "attendeeCount": zod.number().optional(),
   "taskCount": zod.number().optional(),
   "hasMinutes": zod.boolean().optional(),
@@ -654,6 +674,8 @@ export const GetUpcomingMeetingsResponseItem = zod.object({
   "avatar": zod.string().nullish(),
   "createdAt": zod.string().optional()
 }).optional(),
+  "committeeId": zod.number().nullish(),
+  "recurringType": zod.enum(['none', 'weekly', 'biweekly', 'monthly']).optional(),
   "attendeeCount": zod.number().optional(),
   "taskCount": zod.number().optional(),
   "hasMinutes": zod.boolean().optional(),
@@ -704,5 +726,329 @@ export const GetOverdueTasksResponseItem = zod.object({
   "updatedAt": zod.string().optional()
 })
 export const GetOverdueTasksResponse = zod.array(GetOverdueTasksResponseItem)
+
+
+/**
+ * @summary List all committees
+ */
+export const GetCommitteesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "type": zod.enum(['committee', 'team', 'board', 'working_group']),
+  "chairperson": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "secretary": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "memberCount": zod.number().optional(),
+  "meetingCount": zod.number().optional(),
+  "createdAt": zod.string()
+})
+export const GetCommitteesResponse = zod.array(GetCommitteesResponseItem)
+
+
+/**
+ * @summary Create a new committee
+ */
+export const CreateCommitteeBody = zod.object({
+  "name": zod.string(),
+  "description": zod.string().optional(),
+  "type": zod.string().optional(),
+  "chairpersonId": zod.number().nullish(),
+  "secretaryId": zod.number().nullish()
+})
+
+
+/**
+ * @summary Get committee details
+ */
+export const GetCommitteeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCommitteeResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "type": zod.string(),
+  "chairperson": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "secretary": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "members": zod.array(zod.object({
+  "id": zod.number(),
+  "committeeId": zod.number(),
+  "user": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "role": zod.enum(['chair', 'secretary', 'member']),
+  "joinedAt": zod.string().nullish()
+})),
+  "recentMeetings": zod.array(zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "date": zod.string(),
+  "time": zod.string(),
+  "status": zod.enum(['scheduled', 'in_progress', 'completed', 'cancelled', 'postponed']),
+  "project": zod.string().nullish(),
+  "team": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "chairperson": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "committeeId": zod.number().nullish(),
+  "recurringType": zod.enum(['none', 'weekly', 'biweekly', 'monthly']).optional(),
+  "attendeeCount": zod.number().optional(),
+  "taskCount": zod.number().optional(),
+  "hasMinutes": zod.boolean().optional(),
+  "minutesApproved": zod.boolean().optional(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a committee
+ */
+export const UpdateCommitteeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCommitteeBody = zod.object({
+  "name": zod.string().optional(),
+  "description": zod.string().optional(),
+  "type": zod.string().optional(),
+  "chairpersonId": zod.number().nullish(),
+  "secretaryId": zod.number().nullish()
+})
+
+export const UpdateCommitteeResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "type": zod.enum(['committee', 'team', 'board', 'working_group']),
+  "chairperson": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "secretary": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "memberCount": zod.number().optional(),
+  "meetingCount": zod.number().optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a committee
+ */
+export const DeleteCommitteeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List committee members
+ */
+export const GetCommitteeMembersParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCommitteeMembersResponseItem = zod.object({
+  "id": zod.number(),
+  "committeeId": zod.number(),
+  "user": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'manager', 'member', 'viewer']),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+}).optional(),
+  "role": zod.enum(['chair', 'secretary', 'member']),
+  "joinedAt": zod.string().nullish()
+})
+export const GetCommitteeMembersResponse = zod.array(GetCommitteeMembersResponseItem)
+
+
+/**
+ * @summary Add a member to a committee
+ */
+export const AddCommitteeMemberParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddCommitteeMemberBody = zod.object({
+  "userId": zod.number(),
+  "role": zod.string().optional()
+})
+
+
+/**
+ * @summary Remove a member from a committee
+ */
+export const RemoveCommitteeMemberParams = zod.object({
+  "id": zod.coerce.number(),
+  "userId": zod.coerce.number()
+})
+
+
+/**
+ * @summary Create the next session in a recurring series
+ */
+export const CreateNextMeetingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Send invitation emails to all attendees
+ */
+export const SendMeetingInvitationsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SendMeetingInvitationsResponse = zod.object({
+  "sent": zod.number()
+})
+
+
+/**
+ * @summary Update attendance records for a meeting
+ */
+export const UpdateMeetingAttendanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateMeetingAttendanceBody = zod.object({
+  "attendances": zod.array(zod.object({
+  "userId": zod.number(),
+  "attended": zod.boolean()
+}))
+})
+
+export const UpdateMeetingAttendanceResponseItem = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "fullName": zod.string(),
+  "email": zod.string(),
+  "role": zod.string(),
+  "department": zod.string().nullish(),
+  "avatar": zod.string().nullish(),
+  "attended": zod.boolean(),
+  "attendeeType": zod.enum(['member', 'guest']),
+  "forAgendaItem": zod.string().nullish()
+})
+export const UpdateMeetingAttendanceResponse = zod.array(UpdateMeetingAttendanceResponseItem)
+
+
+/**
+ * @summary List attachments for a meeting
+ */
+export const GetMeetingAttachmentsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetMeetingAttachmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "meetingId": zod.number(),
+  "originalName": zod.string(),
+  "mimeType": zod.string(),
+  "sizeBytes": zod.number(),
+  "uploadedById": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+export const GetMeetingAttachmentsResponse = zod.array(GetMeetingAttachmentsResponseItem)
+
+
+/**
+ * @summary Upload a file attachment to a meeting
+ */
+export const UploadMeetingAttachmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UploadMeetingAttachmentBody = zod.object({
+  "file": zod.instanceof(File).optional()
+})
+
+
+/**
+ * @summary Delete an attachment
+ */
+export const DeleteMeetingAttachmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Download an attachment file
+ */
+export const DownloadMeetingAttachmentParams = zod.object({
+  "id": zod.coerce.number()
+})
 
 

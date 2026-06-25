@@ -23,6 +23,10 @@ tags:
     description: Task management
   - name: dashboard
     description: Dashboard statistics
+  - name: committees
+    description: Committee and team management
+  - name: attachments
+    description: File attachments
 
 paths:
   /healthz:
@@ -539,6 +543,307 @@ paths:
                 items:
                   $ref: "#/components/schemas/Task"
 
+  /committees:
+    get:
+      operationId: getCommittees
+      tags: [committees]
+      summary: List all committees
+      responses:
+        "200":
+          description: List of committees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Committee"
+    post:
+      operationId: createCommittee
+      tags: [committees]
+      summary: Create a new committee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommitteeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Committee"
+
+  /committees/{id}:
+    get:
+      operationId: getCommittee
+      tags: [committees]
+      summary: Get committee details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Committee details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommitteeDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCommittee
+      tags: [committees]
+      summary: Update a committee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommitteeUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Committee"
+    delete:
+      operationId: deleteCommittee
+      tags: [committees]
+      summary: Delete a committee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /committees/{id}/members:
+    get:
+      operationId: getCommitteeMembers
+      tags: [committees]
+      summary: List committee members
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Members list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommitteeMember"
+    post:
+      operationId: addCommitteeMember
+      tags: [committees]
+      summary: Add a member to a committee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMemberInput"
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommitteeMember"
+
+  /committees/{id}/members/{userId}:
+    delete:
+      operationId: removeCommitteeMember
+      tags: [committees]
+      summary: Remove a member from a committee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  /meetings/{id}/next:
+    post:
+      operationId: createNextMeeting
+      tags: [meetings]
+      summary: Create the next session in a recurring series
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Next meeting created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+
+  /meetings/{id}/send-invitations:
+    post:
+      operationId: sendMeetingInvitations
+      tags: [meetings]
+      summary: Send invitation emails to all attendees
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invitations sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendInvitationsResult"
+
+  /meetings/{id}/attendance:
+    patch:
+      operationId: updateMeetingAttendance
+      tags: [meetings]
+      summary: Update attendance records for a meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceUpdate"
+      responses:
+        "200":
+          description: Attendance updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendeeWithAttendance"
+
+  /meetings/{id}/attachments:
+    get:
+      operationId: getMeetingAttachments
+      tags: [attachments]
+      summary: List attachments for a meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Attachments list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingAttachment"
+    post:
+      operationId: uploadMeetingAttachment
+      tags: [attachments]
+      summary: Upload a file attachment to a meeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingAttachment"
+
+  /attachments/{id}:
+    delete:
+      operationId: deleteMeetingAttachment
+      tags: [attachments]
+      summary: Delete an attachment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /attachments/{id}/download:
+    get:
+      operationId: downloadMeetingAttachment
+      tags: [attachments]
+      summary: Download an attachment file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
 components:
   schemas:
     HealthStatus:
@@ -612,6 +917,11 @@ components:
           type: ["string", "null"]
         chairperson:
           $ref: "#/components/schemas/User"
+        committeeId:
+          type: ["integer", "null"]
+        recurringType:
+          type: string
+          enum: [none, weekly, biweekly, monthly]
         attendeeCount:
           type: integer
         taskCount:
@@ -648,10 +958,15 @@ components:
           type: ["string", "null"]
         chairperson:
           $ref: "#/components/schemas/User"
+        committeeId:
+          type: ["integer", "null"]
+        recurringType:
+          type: string
+          enum: [none, weekly, biweekly, monthly]
         attendees:
           type: array
           items:
-            $ref: "#/components/schemas/User"
+            $ref: "#/components/schemas/AttendeeWithAttendance"
         agendaItems:
           type: array
           items:
@@ -691,10 +1006,18 @@ components:
           type: string
         chairpersonId:
           type: integer
+        committeeId:
+          type: ["integer", "null"]
+        recurringType:
+          type: string
         attendeeIds:
           type: array
           items:
             type: integer
+        guestAttendees:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuestAttendee"
         agendaItems:
           type: array
           items:
@@ -721,10 +1044,18 @@ components:
           type: string
         chairpersonId:
           type: ["integer", "null"]
+        committeeId:
+          type: ["integer", "null"]
+        recurringType:
+          type: string
         attendeeIds:
           type: array
           items:
             type: integer
+        guestAttendees:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuestAttendee"
         agendaItems:
           type: array
           items:
@@ -1036,3 +1367,184 @@ components:
           type: integer
         color:
           type: string
+
+    Committee:
+      type: object
+      required: [id, name, type, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [committee, team, board, working_group]
+        chairperson:
+          $ref: "#/components/schemas/User"
+        secretary:
+          $ref: "#/components/schemas/User"
+        memberCount:
+          type: integer
+        meetingCount:
+          type: integer
+        createdAt:
+          type: string
+
+    CommitteeDetail:
+      type: object
+      required: [id, name, type, members, recentMeetings, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+        chairperson:
+          $ref: "#/components/schemas/User"
+        secretary:
+          $ref: "#/components/schemas/User"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommitteeMember"
+        recentMeetings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meeting"
+        createdAt:
+          type: string
+
+    CommitteeMember:
+      type: object
+      required: [id, committeeId, userId, role]
+      properties:
+        id:
+          type: integer
+        committeeId:
+          type: integer
+        user:
+          $ref: "#/components/schemas/User"
+        role:
+          type: string
+          enum: [chair, secretary, member]
+        joinedAt:
+          type: ["string", "null"]
+
+    CommitteeInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        chairpersonId:
+          type: ["integer", "null"]
+        secretaryId:
+          type: ["integer", "null"]
+
+    CommitteeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        chairpersonId:
+          type: ["integer", "null"]
+        secretaryId:
+          type: ["integer", "null"]
+
+    AddMemberInput:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: integer
+        role:
+          type: string
+
+    AttendeeWithAttendance:
+      type: object
+      required: [id, username, fullName, email, role, attended, attendeeType]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        department:
+          type: ["string", "null"]
+        avatar:
+          type: ["string", "null"]
+        attended:
+          type: boolean
+        attendeeType:
+          type: string
+          enum: [member, guest]
+        forAgendaItem:
+          type: ["string", "null"]
+
+    AttendanceUpdate:
+      type: object
+      required: [attendances]
+      properties:
+        attendances:
+          type: array
+          items:
+            type: object
+            required: [userId, attended]
+            properties:
+              userId:
+                type: integer
+              attended:
+                type: boolean
+
+    GuestAttendee:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: integer
+        forAgendaItem:
+          type: string
+
+    MeetingAttachment:
+      type: object
+      required: [id, meetingId, originalName, mimeType, sizeBytes, createdAt]
+      properties:
+        id:
+          type: integer
+        meetingId:
+          type: integer
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        sizeBytes:
+          type: integer
+        uploadedById:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    SendInvitationsResult:
+      type: object
+      required: [sent]
+      properties:
+        sent:
+          type: integer

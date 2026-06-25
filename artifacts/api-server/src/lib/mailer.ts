@@ -44,6 +44,35 @@ export async function sendTaskAssignedEmail(opts: {
   );
 }
 
+export async function sendMeetingInvitationEmail(opts: {
+  toEmails: string[];
+  meetingTitle: string;
+  date: string;
+  time: string;
+  location?: string | null;
+  agendaItems: string[];
+  organizerName: string;
+}) {
+  const agendaHtml = opts.agendaItems.length > 0
+    ? `<ul>${opts.agendaItems.map(item => `<li>${item}</li>`).join("")}</ul>`
+    : "<p>لا توجد بنود محددة</p>";
+
+  const html = `
+<p>مرحباً،</p>
+<p>يدعوكم <strong>${opts.organizerName}</strong> لحضور الاجتماع التالي:</p>
+<h3>${opts.meetingTitle}</h3>
+<p><strong>التاريخ:</strong> ${opts.date}</p>
+<p><strong>الوقت:</strong> ${opts.time}</p>
+${opts.location ? `<p><strong>المكان:</strong> ${opts.location}</p>` : ""}
+<p><strong>بنود الأجندة:</strong></p>
+${agendaHtml}
+<p>يرجى تأكيد حضوركم.</p>`;
+
+  for (const email of opts.toEmails) {
+    await send(email, `دعوة اجتماع: ${opts.meetingTitle}`, html);
+  }
+}
+
 export async function sendMinutesApprovedEmail(opts: {
   toEmails: string[];
   meetingTitle: string;

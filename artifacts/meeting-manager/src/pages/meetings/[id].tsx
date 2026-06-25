@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Link } from "wouter";
 import {
   useGetMeeting, useGetMeetingMinutes, useGetDecisions, useGetTasks,
   useUpdateMeeting, useDeleteDecision, useApproveMinutes,
+  useCreateNextMeeting, useSendMeetingInvitations, useUpdateMeetingAttendance,
+  useGetMeetingAttachments, useDeleteMeetingAttachment,
   getGetMeetingQueryKey, getGetMeetingMinutesQueryKey,
   getGetDecisionsQueryKey, getGetTasksQueryKey, getGetMeetingsQueryKey,
+  getGetMeetingAttachmentsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,10 +17,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Calendar, Clock, MapPin, Users, Target, CheckSquare, FileText,
-  Briefcase, Plus, Edit2, Trash2, Check, Download,
+  Briefcase, Plus, Edit2, Trash2, Check, Download, RefreshCw,
+  Mail, Paperclip, UserCheck,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -54,11 +60,18 @@ const taskStatusMap: Record<string, string> = {
   on_hold: "معلق",
 };
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function MeetingDetail({ id }: { id: string }) {
   const meetingId = parseInt(id, 10);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canManage = user?.role === "admin" || user?.role === "manager";
   const canApprove = canManage;
@@ -68,6 +81,7 @@ export default function MeetingDetail({ id }: { id: string }) {
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
   const [editDecision, setEditDecision] = useState<any>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   const { data: meeting, isLoading: isLoadingMeeting } = useGetMeeting(meetingId, {
     query: { enabled: !!meetingId, queryKey: getGetMeetingQueryKey(meetingId) }
@@ -89,9 +103,17 @@ export default function MeetingDetail({ id }: { id: string }) {
     query: { enabled: !!meetingId, queryKey: getGetTasksQueryKey({ meetingId }) }
   });
 
+  const { data: attachments = [], isLoading: isLoadingAttachments } = useGetMeetingAttachments(meetingId, {
+    query: { enabled: !!meetingId, queryKey: getGetMeetingAttachmentsQueryKey(meetingId) }
+  });
+
   const updateMeeting = useUpdateMeeting();
   const deleteDecision = useDeleteDecision();
   const approveMinutes = useApproveMinutes();
+  const createNextMeeting = useCreateNextMeeting();
+  const sendInvitations = useSendMeetingInvitations();
+  const updateAttendance = useUpdateMeetingAttendance();
+  const deleteAttachment = useDeleteMeetingAttachment();
 
   const handleStatusChange = async (status: string) => {
     try {
@@ -125,6 +147,69 @@ export default function MeetingDetail({ id }: { id: string }) {
     }
   };
 
+  const handleCreateNextMeeting = async () => {
+    try {
+      await createNextMeeting.mutateAsync({ id: meetingId });
+      queryClient.invalidateQueries({ queryKey: getGetMeetingsQueryKey() });
+      toast({ title: "تم إنشاء الجلسة التالية بنجاح" });
+    } catch {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    }
+  };
+
+  const handleSendInvitations = async () => {
+    try {
+      const result = await sendInvitations.mutateAsync({ id: meetingId });
+      toast({ title: `تم إرسال ${result.sent} دعوة بنجاح` });
+    } catch {
+      toast({ title: "حدث خطأ أثناء إرسال الدعوات", variant: "destructive" });
+    }
+  };
+
+  const handleAttendanceChange = async (userId: number, attended: boolean) => {
+    try {
+      await updateAttendance.mutateAsync({
+        id: meetingId,
+        data: { attendances: [{ userId, attended }] },
+      });
+      queryClient.invalidateQueries({ queryKey: getGetMeetingQueryKey(meetingId) });
+    } catch {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      await fetch(`/api/meetings/${meetingId}/attachments`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      queryClient.invalidateQueries({ queryKey: getGetMeetingAttachmentsQueryKey(meetingId) });
+      toast({ title: "تم رفع الملف بنجاح" });
+    } catch {
+      toast({ title: "حدث خطأ أثناء رفع الملف", variant: "destructive" });
+    } finally {
+      setIsUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteAttachment = async (attachId: number) => {
+    try {
+      await deleteAttachment.mutateAsync({ id: attachId });
+      queryClient.invalidateQueries({ queryKey: getGetMeetingAttachmentsQueryKey(meetingId) });
+      toast({ title: "تم حذف الملف" });
+    } catch {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    }
+  };
+
   if (isLoadingMeeting) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -137,11 +222,23 @@ export default function MeetingDetail({ id }: { id: string }) {
     return <div>الاجتماع غير موجود.</div>;
   }
 
+  const showAttendanceTab = meeting.status === "in_progress" || meeting.status === "completed";
+  const tabCount = 4 + (showAttendanceTab ? 1 : 0) + 1;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{meeting.title}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-bold tracking-tight">{meeting.title}</h1>
+            {meeting.committeeId && (
+              <Link href={`/committees/${meeting.committeeId}`}>
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted text-sm">
+                  اللجنة #{meeting.committeeId}
+                </Badge>
+              </Link>
+            )}
+          </div>
           <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
@@ -160,7 +257,28 @@ export default function MeetingDetail({ id }: { id: string }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {canManage && meeting.recurringType && meeting.recurringType !== "none" && (
+            <Button
+              variant="outline" size="sm"
+              onClick={handleCreateNextMeeting}
+              disabled={createNextMeeting.isPending}
+            >
+              {createNextMeeting.isPending ? <Spinner className="h-4 w-4 ml-1" /> : <RefreshCw className="h-4 w-4 ml-1" />}
+              الجلسة التالية
+            </Button>
+          )}
+          {canManage && (
+            <Button
+              variant="outline" size="sm"
+              onClick={handleSendInvitations}
+              disabled={sendInvitations.isPending}
+            >
+              {sendInvitations.isPending ? <Spinner className="h-4 w-4 ml-1" /> : <Mail className="h-4 w-4 ml-1" />}
+              إرسال دعوات
+            </Button>
+          )}
+
           {/* Status change dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -206,11 +324,16 @@ export default function MeetingDetail({ id }: { id: string }) {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+        <TabsList className={`grid w-full grid-cols-${tabCount} lg:w-auto lg:inline-grid`}>
           <TabsTrigger value="overview">بيانات الاجتماع</TabsTrigger>
           <TabsTrigger value="minutes">المحضر</TabsTrigger>
           <TabsTrigger value="decisions">القرارات</TabsTrigger>
           <TabsTrigger value="tasks">المهام</TabsTrigger>
+          {showAttendanceTab && <TabsTrigger value="attendance">الحضور</TabsTrigger>}
+          <TabsTrigger value="attachments">
+            <Paperclip className="h-4 w-4 ml-1" />
+            المرفقات {attachments.length > 0 && `(${attachments.length})`}
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -240,6 +363,14 @@ export default function MeetingDetail({ id }: { id: string }) {
                   <span className="font-semibold block text-sm text-muted-foreground">رئيس الاجتماع</span>
                   <span>{meeting.chairperson?.fullName || "-"}</span>
                 </div>
+                {(meeting as any).recurringType && (meeting as any).recurringType !== "none" && (
+                  <div>
+                    <span className="font-semibold block text-sm text-muted-foreground">تكرار</span>
+                    <Badge variant="secondary">
+                      {(({ weekly: "أسبوعي", biweekly: "كل أسبوعين", monthly: "شهري" } as Record<string, string>)[(meeting as any).recurringType]) ?? (meeting as any).recurringType}
+                    </Badge>
+                  </div>
+                )}
                 {meeting.objectives && (
                   <div>
                     <span className="font-semibold block text-sm text-muted-foreground">الأهداف</span>
@@ -261,8 +392,22 @@ export default function MeetingDetail({ id }: { id: string }) {
                   <ul className="space-y-2">
                     {meeting.attendees.map((attendee) => (
                       <li key={attendee.id} className="flex justify-between items-center py-1 border-b last:border-0">
-                        <span>{attendee.fullName}</span>
-                        <span className="text-sm text-muted-foreground">{attendee.role}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{attendee.fullName}</span>
+                          {(attendee as any).attendeeType === "guest" && (
+                            <Badge variant="outline" className="text-xs">ضيف</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {(attendee as any).forAgendaItem && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[120px]" title={(attendee as any).forAgendaItem}>
+                              {(attendee as any).forAgendaItem}
+                            </span>
+                          )}
+                          {(attendee as any).attended && (
+                            <Check className="h-4 w-4 text-green-600" />
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -521,6 +666,190 @@ export default function MeetingDetail({ id }: { id: string }) {
                 <div className="text-center p-8 text-muted-foreground">
                   لا توجد مهام مرتبطة بهذا الاجتماع.
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Attendance Tab */}
+        {showAttendanceTab && (
+          <TabsContent value="attendance" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCheck className="h-5 w-5" />
+                  تسجيل الحضور
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!meeting.attendees || meeting.attendees.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">لا يوجد مشاركون مسجلون.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Permanent members */}
+                    {meeting.attendees.some((a) => (a as any).attendeeType === "member") && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-muted-foreground mb-2">الأعضاء الدائمون</h3>
+                        <div className="space-y-2">
+                          {meeting.attendees
+                            .filter((a) => (a as any).attendeeType === "member")
+                            .map((attendee) => (
+                              <div key={attendee.id} className="flex items-center justify-between p-3 rounded-lg border">
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    id={`att-${attendee.id}`}
+                                    checked={(attendee as any).attended ?? false}
+                                    onCheckedChange={(checked) =>
+                                      canManage && handleAttendanceChange(attendee.id, !!checked)
+                                    }
+                                    disabled={!canManage}
+                                  />
+                                  <label htmlFor={`att-${attendee.id}`} className="text-sm font-medium cursor-pointer">
+                                    {attendee.fullName}
+                                  </label>
+                                </div>
+                                {(attendee as any).attended ? (
+                                  <Badge className="bg-green-100 text-green-800 border-green-200">حضر</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-muted-foreground">غائب</Badge>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Guests */}
+                    {meeting.attendees.some((a) => (a as any).attendeeType === "guest") && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-muted-foreground mb-2">الضيوف</h3>
+                        <div className="space-y-2">
+                          {meeting.attendees
+                            .filter((a) => (a as any).attendeeType === "guest")
+                            .map((attendee) => (
+                              <div key={attendee.id} className="flex items-center justify-between p-3 rounded-lg border">
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    id={`guest-${attendee.id}`}
+                                    checked={(attendee as any).attended ?? false}
+                                    onCheckedChange={(checked) =>
+                                      canManage && handleAttendanceChange(attendee.id, !!checked)
+                                    }
+                                    disabled={!canManage}
+                                  />
+                                  <div>
+                                    <label htmlFor={`guest-${attendee.id}`} className="text-sm font-medium cursor-pointer">
+                                      {attendee.fullName}
+                                    </label>
+                                    {(attendee as any).forAgendaItem && (
+                                      <p className="text-xs text-muted-foreground">بند: {(attendee as any).forAgendaItem}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                {(attendee as any).attended ? (
+                                  <Badge className="bg-green-100 text-green-800 border-green-200">حضر</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-muted-foreground">غائب</Badge>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Attachments Tab */}
+        <TabsContent value="attachments" className="mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center gap-2">
+                  <Paperclip className="h-5 w-5" />
+                  المرفقات
+                </CardTitle>
+                {canManage && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingFile}
+                    >
+                      {isUploadingFile ? <Spinner className="h-4 w-4 ml-1" /> : <Plus className="h-4 w-4 ml-1" />}
+                      رفع ملف
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoadingAttachments ? (
+                <div className="flex justify-center p-4"><Spinner /></div>
+              ) : attachments.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground">
+                  لا توجد مرفقات لهذا الاجتماع.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>اسم الملف</TableHead>
+                      <TableHead>النوع</TableHead>
+                      <TableHead>الحجم</TableHead>
+                      <TableHead>تاريخ الرفع</TableHead>
+                      <TableHead className="w-24"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {attachments.map((attachment) => (
+                      <TableRow key={attachment.id}>
+                        <TableCell className="font-medium">{attachment.originalName}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{attachment.mimeType}</TableCell>
+                        <TableCell>{formatFileSize(attachment.sizeBytes)}</TableCell>
+                        <TableCell>{new Date(attachment.createdAt).toLocaleDateString("ar-SA")}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost" size="icon" className="h-7 w-7"
+                              onClick={() => window.open(`/api/attachments/${attachment.id}/download`, "_blank")}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                            {canManage && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>حذف المرفق</AlertDialogTitle>
+                                    <AlertDialogDescription>هل أنت متأكد من حذف هذا الملف؟</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteAttachment(attachment.id)}>حذف</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>

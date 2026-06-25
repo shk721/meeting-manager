@@ -5,6 +5,7 @@
  * Meeting Management System API
  * OpenAPI spec version: 0.1.0
  */
+import type { MeetingRecurringType } from './meetingRecurringType';
 import type { MeetingStatus } from './meetingStatus';
 import type { User } from './user';
 
@@ -21,6 +22,9 @@ export interface Meeting {
   /** @nullable */
   location?: string | null;
   chairperson?: User;
+  /** @nullable */
+  committeeId?: number | null;
+  recurringType?: MeetingRecurringType;
   attendeeCount?: number;
   taskCount?: number;
   hasMinutes?: boolean;

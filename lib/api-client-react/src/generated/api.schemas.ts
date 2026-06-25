@@ -53,6 +53,16 @@ export const MeetingStatus = {
   postponed: 'postponed',
 } as const;
 
+export type MeetingRecurringType = typeof MeetingRecurringType[keyof typeof MeetingRecurringType];
+
+
+export const MeetingRecurringType = {
+  none: 'none',
+  weekly: 'weekly',
+  biweekly: 'biweekly',
+  monthly: 'monthly',
+} as const;
+
 export interface Meeting {
   id: number;
   title: string;
@@ -66,6 +76,9 @@ export interface Meeting {
   /** @nullable */
   location?: string | null;
   chairperson?: User;
+  /** @nullable */
+  committeeId?: number | null;
+  recurringType?: MeetingRecurringType;
   attendeeCount?: number;
   taskCount?: number;
   hasMinutes?: boolean;
@@ -83,6 +96,40 @@ export const MeetingDetailStatus = {
   cancelled: 'cancelled',
   postponed: 'postponed',
 } as const;
+
+export type MeetingDetailRecurringType = typeof MeetingDetailRecurringType[keyof typeof MeetingDetailRecurringType];
+
+
+export const MeetingDetailRecurringType = {
+  none: 'none',
+  weekly: 'weekly',
+  biweekly: 'biweekly',
+  monthly: 'monthly',
+} as const;
+
+export type AttendeeWithAttendanceAttendeeType = typeof AttendeeWithAttendanceAttendeeType[keyof typeof AttendeeWithAttendanceAttendeeType];
+
+
+export const AttendeeWithAttendanceAttendeeType = {
+  member: 'member',
+  guest: 'guest',
+} as const;
+
+export interface AttendeeWithAttendance {
+  id: number;
+  username: string;
+  fullName: string;
+  email: string;
+  role: string;
+  /** @nullable */
+  department?: string | null;
+  /** @nullable */
+  avatar?: string | null;
+  attended: boolean;
+  attendeeType: AttendeeWithAttendanceAttendeeType;
+  /** @nullable */
+  forAgendaItem?: string | null;
+}
 
 export type MinutesStatus = typeof MinutesStatus[keyof typeof MinutesStatus];
 
@@ -179,12 +226,20 @@ export interface MeetingDetail {
   /** @nullable */
   objectives?: string | null;
   chairperson?: User;
-  attendees: User[];
+  /** @nullable */
+  committeeId?: number | null;
+  recurringType?: MeetingDetailRecurringType;
+  attendees: AttendeeWithAttendance[];
   agendaItems: string[];
   minutes?: Minutes;
   decisions?: Decision[];
   tasks?: Task[];
   createdAt: string;
+}
+
+export interface GuestAttendee {
+  userId: number;
+  forAgendaItem?: string;
 }
 
 export interface MeetingInput {
@@ -197,7 +252,11 @@ export interface MeetingInput {
   location?: string;
   objectives?: string;
   chairpersonId?: number;
+  /** @nullable */
+  committeeId?: number | null;
+  recurringType?: string;
   attendeeIds?: number[];
+  guestAttendees?: GuestAttendee[];
   agendaItems?: string[];
 }
 
@@ -212,7 +271,11 @@ export interface MeetingUpdate {
   objectives?: string;
   /** @nullable */
   chairpersonId?: number | null;
+  /** @nullable */
+  committeeId?: number | null;
+  recurringType?: string;
   attendeeIds?: number[];
+  guestAttendees?: GuestAttendee[];
   agendaItems?: string[];
 }
 
@@ -360,6 +423,109 @@ export interface DashboardStats {
   meetingsByStatus: StatItem[];
 }
 
+export type CommitteeType = typeof CommitteeType[keyof typeof CommitteeType];
+
+
+export const CommitteeType = {
+  committee: 'committee',
+  team: 'team',
+  board: 'board',
+  working_group: 'working_group',
+} as const;
+
+export interface Committee {
+  id: number;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  type: CommitteeType;
+  chairperson?: User;
+  secretary?: User;
+  memberCount?: number;
+  meetingCount?: number;
+  createdAt: string;
+}
+
+export type CommitteeMemberRole = typeof CommitteeMemberRole[keyof typeof CommitteeMemberRole];
+
+
+export const CommitteeMemberRole = {
+  chair: 'chair',
+  secretary: 'secretary',
+  member: 'member',
+} as const;
+
+export interface CommitteeMember {
+  id: number;
+  committeeId: number;
+  user?: User;
+  role: CommitteeMemberRole;
+  /** @nullable */
+  joinedAt?: string | null;
+}
+
+export interface CommitteeDetail {
+  id: number;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  type: string;
+  chairperson?: User;
+  secretary?: User;
+  members: CommitteeMember[];
+  recentMeetings: Meeting[];
+  createdAt: string;
+}
+
+export interface CommitteeInput {
+  name: string;
+  description?: string;
+  type?: string;
+  /** @nullable */
+  chairpersonId?: number | null;
+  /** @nullable */
+  secretaryId?: number | null;
+}
+
+export interface CommitteeUpdate {
+  name?: string;
+  description?: string;
+  type?: string;
+  /** @nullable */
+  chairpersonId?: number | null;
+  /** @nullable */
+  secretaryId?: number | null;
+}
+
+export interface AddMemberInput {
+  userId: number;
+  role?: string;
+}
+
+export type AttendanceUpdateAttendancesItem = {
+  userId: number;
+  attended: boolean;
+};
+
+export interface AttendanceUpdate {
+  attendances: AttendanceUpdateAttendancesItem[];
+}
+
+export interface MeetingAttachment {
+  id: number;
+  meetingId: number;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  /** @nullable */
+  uploadedById?: number | null;
+  createdAt: string;
+}
+
+export interface SendInvitationsResult {
+  sent: number;
+}
+
 export type GetMeetingsParams = {
 status?: string;
 /**
@@ -390,5 +556,9 @@ meetingId?: number | null;
 search?: string;
 dueBefore?: string;
 dueAfter?: string;
+};
+
+export type UploadMeetingAttachmentBody = {
+  file?: Blob;
 };
 

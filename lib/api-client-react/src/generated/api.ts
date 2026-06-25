@@ -20,8 +20,16 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AddMemberInput,
+  AttendanceUpdate,
+  AttendeeWithAttendance,
   AuthResponse,
   CommentInput,
+  Committee,
+  CommitteeDetail,
+  CommitteeInput,
+  CommitteeMember,
+  CommitteeUpdate,
   DashboardStats,
   Decision,
   DecisionInput,
@@ -32,17 +40,20 @@ import type {
   HealthStatus,
   LoginInput,
   Meeting,
+  MeetingAttachment,
   MeetingDetail,
   MeetingInput,
   MeetingUpdate,
   Minutes,
   MinutesInput,
   MinutesSummary,
+  SendInvitationsResult,
   Task,
   TaskComment,
   TaskDetail,
   TaskInput,
   TaskUpdate,
+  UploadMeetingAttachmentBody,
   User
 } from './api.schemas';
 
@@ -2062,6 +2073,1106 @@ export function useGetOverdueTasks<TData = Awaited<ReturnType<typeof getOverdueT
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetOverdueTasksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetCommitteesUrl = () => {
+
+
+
+
+  return `/api/committees`
+}
+
+/**
+ * @summary List all committees
+ */
+export const getCommittees = async ( options?: RequestInit): Promise<Committee[]> => {
+
+  return customFetch<Committee[]>(getGetCommitteesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCommitteesQueryKey = () => {
+    return [
+    `/api/committees`
+    ] as const;
+    }
+
+
+export const getGetCommitteesQueryOptions = <TData = Awaited<ReturnType<typeof getCommittees>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommittees>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCommitteesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCommittees>>> = ({ signal }) => getCommittees({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCommittees>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCommitteesQueryResult = NonNullable<Awaited<ReturnType<typeof getCommittees>>>
+export type GetCommitteesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all committees
+ */
+
+export function useGetCommittees<TData = Awaited<ReturnType<typeof getCommittees>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommittees>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCommitteesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateCommitteeUrl = () => {
+
+
+
+
+  return `/api/committees`
+}
+
+/**
+ * @summary Create a new committee
+ */
+export const createCommittee = async (committeeInput: CommitteeInput, options?: RequestInit): Promise<Committee> => {
+
+  return customFetch<Committee>(getCreateCommitteeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      committeeInput,)
+  }
+);}
+
+
+
+
+export const getCreateCommitteeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCommittee>>, TError,{data: BodyType<CommitteeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCommittee>>, TError,{data: BodyType<CommitteeInput>}, TContext> => {
+
+const mutationKey = ['createCommittee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCommittee>>, {data: BodyType<CommitteeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCommittee(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCommitteeMutationResult = NonNullable<Awaited<ReturnType<typeof createCommittee>>>
+    export type CreateCommitteeMutationBody = BodyType<CommitteeInput>
+    export type CreateCommitteeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new committee
+ */
+export const useCreateCommittee = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCommittee>>, TError,{data: BodyType<CommitteeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCommittee>>,
+        TError,
+        {data: BodyType<CommitteeInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCommitteeMutationOptions(options));
+    }
+
+export const getGetCommitteeUrl = (id: number,) => {
+
+
+
+
+  return `/api/committees/${id}`
+}
+
+/**
+ * @summary Get committee details
+ */
+export const getCommittee = async (id: number, options?: RequestInit): Promise<CommitteeDetail> => {
+
+  return customFetch<CommitteeDetail>(getGetCommitteeUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCommitteeQueryKey = (id: number,) => {
+    return [
+    `/api/committees/${id}`
+    ] as const;
+    }
+
+
+export const getGetCommitteeQueryOptions = <TData = Awaited<ReturnType<typeof getCommittee>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommittee>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCommitteeQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCommittee>>> = ({ signal }) => getCommittee(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCommittee>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCommitteeQueryResult = NonNullable<Awaited<ReturnType<typeof getCommittee>>>
+export type GetCommitteeQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get committee details
+ */
+
+export function useGetCommittee<TData = Awaited<ReturnType<typeof getCommittee>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommittee>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCommitteeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateCommitteeUrl = (id: number,) => {
+
+
+
+
+  return `/api/committees/${id}`
+}
+
+/**
+ * @summary Update a committee
+ */
+export const updateCommittee = async (id: number,
+    committeeUpdate: CommitteeUpdate, options?: RequestInit): Promise<Committee> => {
+
+  return customFetch<Committee>(getUpdateCommitteeUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      committeeUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateCommitteeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCommittee>>, TError,{id: number;data: BodyType<CommitteeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCommittee>>, TError,{id: number;data: BodyType<CommitteeUpdate>}, TContext> => {
+
+const mutationKey = ['updateCommittee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCommittee>>, {id: number;data: BodyType<CommitteeUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCommittee(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCommitteeMutationResult = NonNullable<Awaited<ReturnType<typeof updateCommittee>>>
+    export type UpdateCommitteeMutationBody = BodyType<CommitteeUpdate>
+    export type UpdateCommitteeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a committee
+ */
+export const useUpdateCommittee = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCommittee>>, TError,{id: number;data: BodyType<CommitteeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCommittee>>,
+        TError,
+        {id: number;data: BodyType<CommitteeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCommitteeMutationOptions(options));
+    }
+
+export const getDeleteCommitteeUrl = (id: number,) => {
+
+
+
+
+  return `/api/committees/${id}`
+}
+
+/**
+ * @summary Delete a committee
+ */
+export const deleteCommittee = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCommitteeUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCommitteeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCommittee>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCommittee>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteCommittee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCommittee>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCommittee(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCommitteeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCommittee>>>
+
+    export type DeleteCommitteeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a committee
+ */
+export const useDeleteCommittee = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCommittee>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCommittee>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteCommitteeMutationOptions(options));
+    }
+
+export const getGetCommitteeMembersUrl = (id: number,) => {
+
+
+
+
+  return `/api/committees/${id}/members`
+}
+
+/**
+ * @summary List committee members
+ */
+export const getCommitteeMembers = async (id: number, options?: RequestInit): Promise<CommitteeMember[]> => {
+
+  return customFetch<CommitteeMember[]>(getGetCommitteeMembersUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCommitteeMembersQueryKey = (id: number,) => {
+    return [
+    `/api/committees/${id}/members`
+    ] as const;
+    }
+
+
+export const getGetCommitteeMembersQueryOptions = <TData = Awaited<ReturnType<typeof getCommitteeMembers>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommitteeMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCommitteeMembersQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCommitteeMembers>>> = ({ signal }) => getCommitteeMembers(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCommitteeMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCommitteeMembersQueryResult = NonNullable<Awaited<ReturnType<typeof getCommitteeMembers>>>
+export type GetCommitteeMembersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List committee members
+ */
+
+export function useGetCommitteeMembers<TData = Awaited<ReturnType<typeof getCommitteeMembers>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommitteeMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCommitteeMembersQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAddCommitteeMemberUrl = (id: number,) => {
+
+
+
+
+  return `/api/committees/${id}/members`
+}
+
+/**
+ * @summary Add a member to a committee
+ */
+export const addCommitteeMember = async (id: number,
+    addMemberInput: AddMemberInput, options?: RequestInit): Promise<CommitteeMember> => {
+
+  return customFetch<CommitteeMember>(getAddCommitteeMemberUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      addMemberInput,)
+  }
+);}
+
+
+
+
+export const getAddCommitteeMemberMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCommitteeMember>>, TError,{id: number;data: BodyType<AddMemberInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addCommitteeMember>>, TError,{id: number;data: BodyType<AddMemberInput>}, TContext> => {
+
+const mutationKey = ['addCommitteeMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addCommitteeMember>>, {id: number;data: BodyType<AddMemberInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addCommitteeMember(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddCommitteeMemberMutationResult = NonNullable<Awaited<ReturnType<typeof addCommitteeMember>>>
+    export type AddCommitteeMemberMutationBody = BodyType<AddMemberInput>
+    export type AddCommitteeMemberMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a member to a committee
+ */
+export const useAddCommitteeMember = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCommitteeMember>>, TError,{id: number;data: BodyType<AddMemberInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addCommitteeMember>>,
+        TError,
+        {id: number;data: BodyType<AddMemberInput>},
+        TContext
+      > => {
+      return useMutation(getAddCommitteeMemberMutationOptions(options));
+    }
+
+export const getRemoveCommitteeMemberUrl = (id: number,
+    userId: number,) => {
+
+
+
+
+  return `/api/committees/${id}/members/${userId}`
+}
+
+/**
+ * @summary Remove a member from a committee
+ */
+export const removeCommitteeMember = async (id: number,
+    userId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRemoveCommitteeMemberUrl(id,userId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getRemoveCommitteeMemberMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeCommitteeMember>>, TError,{id: number;userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeCommitteeMember>>, TError,{id: number;userId: number}, TContext> => {
+
+const mutationKey = ['removeCommitteeMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeCommitteeMember>>, {id: number;userId: number}> = (props) => {
+          const {id,userId} = props ?? {};
+
+          return  removeCommitteeMember(id,userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveCommitteeMemberMutationResult = NonNullable<Awaited<ReturnType<typeof removeCommitteeMember>>>
+
+    export type RemoveCommitteeMemberMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a member from a committee
+ */
+export const useRemoveCommitteeMember = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeCommitteeMember>>, TError,{id: number;userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeCommitteeMember>>,
+        TError,
+        {id: number;userId: number},
+        TContext
+      > => {
+      return useMutation(getRemoveCommitteeMemberMutationOptions(options));
+    }
+
+export const getCreateNextMeetingUrl = (id: number,) => {
+
+
+
+
+  return `/api/meetings/${id}/next`
+}
+
+/**
+ * @summary Create the next session in a recurring series
+ */
+export const createNextMeeting = async (id: number, options?: RequestInit): Promise<Meeting> => {
+
+  return customFetch<Meeting>(getCreateNextMeetingUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getCreateNextMeetingMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNextMeeting>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createNextMeeting>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['createNextMeeting'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNextMeeting>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  createNextMeeting(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateNextMeetingMutationResult = NonNullable<Awaited<ReturnType<typeof createNextMeeting>>>
+
+    export type CreateNextMeetingMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create the next session in a recurring series
+ */
+export const useCreateNextMeeting = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNextMeeting>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createNextMeeting>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCreateNextMeetingMutationOptions(options));
+    }
+
+export const getSendMeetingInvitationsUrl = (id: number,) => {
+
+
+
+
+  return `/api/meetings/${id}/send-invitations`
+}
+
+/**
+ * @summary Send invitation emails to all attendees
+ */
+export const sendMeetingInvitations = async (id: number, options?: RequestInit): Promise<SendInvitationsResult> => {
+
+  return customFetch<SendInvitationsResult>(getSendMeetingInvitationsUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSendMeetingInvitationsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendMeetingInvitations>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendMeetingInvitations>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['sendMeetingInvitations'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendMeetingInvitations>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  sendMeetingInvitations(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendMeetingInvitationsMutationResult = NonNullable<Awaited<ReturnType<typeof sendMeetingInvitations>>>
+
+    export type SendMeetingInvitationsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Send invitation emails to all attendees
+ */
+export const useSendMeetingInvitations = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendMeetingInvitations>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendMeetingInvitations>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getSendMeetingInvitationsMutationOptions(options));
+    }
+
+export const getUpdateMeetingAttendanceUrl = (id: number,) => {
+
+
+
+
+  return `/api/meetings/${id}/attendance`
+}
+
+/**
+ * @summary Update attendance records for a meeting
+ */
+export const updateMeetingAttendance = async (id: number,
+    attendanceUpdate: AttendanceUpdate, options?: RequestInit): Promise<AttendeeWithAttendance[]> => {
+
+  return customFetch<AttendeeWithAttendance[]>(getUpdateMeetingAttendanceUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      attendanceUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateMeetingAttendanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeetingAttendance>>, TError,{id: number;data: BodyType<AttendanceUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMeetingAttendance>>, TError,{id: number;data: BodyType<AttendanceUpdate>}, TContext> => {
+
+const mutationKey = ['updateMeetingAttendance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMeetingAttendance>>, {id: number;data: BodyType<AttendanceUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateMeetingAttendance(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMeetingAttendanceMutationResult = NonNullable<Awaited<ReturnType<typeof updateMeetingAttendance>>>
+    export type UpdateMeetingAttendanceMutationBody = BodyType<AttendanceUpdate>
+    export type UpdateMeetingAttendanceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update attendance records for a meeting
+ */
+export const useUpdateMeetingAttendance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeetingAttendance>>, TError,{id: number;data: BodyType<AttendanceUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMeetingAttendance>>,
+        TError,
+        {id: number;data: BodyType<AttendanceUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateMeetingAttendanceMutationOptions(options));
+    }
+
+export const getGetMeetingAttachmentsUrl = (id: number,) => {
+
+
+
+
+  return `/api/meetings/${id}/attachments`
+}
+
+/**
+ * @summary List attachments for a meeting
+ */
+export const getMeetingAttachments = async (id: number, options?: RequestInit): Promise<MeetingAttachment[]> => {
+
+  return customFetch<MeetingAttachment[]>(getGetMeetingAttachmentsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMeetingAttachmentsQueryKey = (id: number,) => {
+    return [
+    `/api/meetings/${id}/attachments`
+    ] as const;
+    }
+
+
+export const getGetMeetingAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof getMeetingAttachments>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMeetingAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMeetingAttachmentsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMeetingAttachments>>> = ({ signal }) => getMeetingAttachments(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMeetingAttachments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMeetingAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof getMeetingAttachments>>>
+export type GetMeetingAttachmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List attachments for a meeting
+ */
+
+export function useGetMeetingAttachments<TData = Awaited<ReturnType<typeof getMeetingAttachments>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMeetingAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMeetingAttachmentsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUploadMeetingAttachmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/meetings/${id}/attachments`
+}
+
+/**
+ * @summary Upload a file attachment to a meeting
+ */
+export const uploadMeetingAttachment = async (id: number,
+    uploadMeetingAttachmentBody: UploadMeetingAttachmentBody, options?: RequestInit): Promise<MeetingAttachment> => {
+    const formData = new FormData();
+if(uploadMeetingAttachmentBody.file !== undefined) {
+ formData.append(`file`, uploadMeetingAttachmentBody.file);
+ }
+
+  return customFetch<MeetingAttachment>(getUploadMeetingAttachmentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body:
+      formData,
+  }
+);}
+
+
+
+
+export const getUploadMeetingAttachmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadMeetingAttachment>>, TError,{id: number;data: BodyType<UploadMeetingAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadMeetingAttachment>>, TError,{id: number;data: BodyType<UploadMeetingAttachmentBody>}, TContext> => {
+
+const mutationKey = ['uploadMeetingAttachment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadMeetingAttachment>>, {id: number;data: BodyType<UploadMeetingAttachmentBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  uploadMeetingAttachment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadMeetingAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof uploadMeetingAttachment>>>
+    export type UploadMeetingAttachmentMutationBody = BodyType<UploadMeetingAttachmentBody>
+    export type UploadMeetingAttachmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Upload a file attachment to a meeting
+ */
+export const useUploadMeetingAttachment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadMeetingAttachment>>, TError,{id: number;data: BodyType<UploadMeetingAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadMeetingAttachment>>,
+        TError,
+        {id: number;data: BodyType<UploadMeetingAttachmentBody>},
+        TContext
+      > => {
+      return useMutation(getUploadMeetingAttachmentMutationOptions(options));
+    }
+
+export const getDeleteMeetingAttachmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/attachments/${id}`
+}
+
+/**
+ * @summary Delete an attachment
+ */
+export const deleteMeetingAttachment = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteMeetingAttachmentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteMeetingAttachmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeetingAttachment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMeetingAttachment>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteMeetingAttachment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMeetingAttachment>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteMeetingAttachment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMeetingAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMeetingAttachment>>>
+
+    export type DeleteMeetingAttachmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an attachment
+ */
+export const useDeleteMeetingAttachment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeetingAttachment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMeetingAttachment>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteMeetingAttachmentMutationOptions(options));
+    }
+
+export const getDownloadMeetingAttachmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/attachments/${id}/download`
+}
+
+/**
+ * @summary Download an attachment file
+ */
+export const downloadMeetingAttachment = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadMeetingAttachmentUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadMeetingAttachmentQueryKey = (id: number,) => {
+    return [
+    `/api/attachments/${id}/download`
+    ] as const;
+    }
+
+
+export const getDownloadMeetingAttachmentQueryOptions = <TData = Awaited<ReturnType<typeof downloadMeetingAttachment>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadMeetingAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadMeetingAttachmentQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadMeetingAttachment>>> = ({ signal }) => downloadMeetingAttachment(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadMeetingAttachment>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadMeetingAttachmentQueryResult = NonNullable<Awaited<ReturnType<typeof downloadMeetingAttachment>>>
+export type DownloadMeetingAttachmentQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Download an attachment file
+ */
+
+export function useDownloadMeetingAttachment<TData = Awaited<ReturnType<typeof downloadMeetingAttachment>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadMeetingAttachment>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadMeetingAttachmentQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

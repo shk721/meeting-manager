@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { db, usersTable } from "@workspace/db";
 import { LoginBody } from "@workspace/api-zod";
 import { formatUser } from "./users";
@@ -16,7 +17,26 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const { username, password } = parsed.data;
   const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username));
 
-  if (!user || user.password !== password) {
+  if (!user) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  const isHashed = user.password.startsWith("$2");
+  let valid: boolean;
+
+  if (isHashed) {
+    valid = await bcrypt.compare(password, user.password);
+  } else {
+    // Plain-text password — validate and auto-upgrade to bcrypt
+    valid = user.password === password;
+    if (valid) {
+      const hashed = await bcrypt.hash(password, 10);
+      await db.update(usersTable).set({ password: hashed }).where(eq(usersTable.id, user.id));
+    }
+  }
+
+  if (!valid) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }

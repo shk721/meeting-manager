@@ -38,7 +38,7 @@ app.use(
     secret: process.env.SESSION_SECRET ?? "meeting-manager-secret-key-2024",
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
+    cookie: { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: "none", secure: true },
   }),
 );
 

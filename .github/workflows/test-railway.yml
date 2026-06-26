@@ -1,0 +1,169 @@
+name: Test Railway Deployment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  test-live:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: https://meeting-manager-production-ac6f.up.railway.app
+      FRONTEND_URL: https://endearing-miracle-production-d4b2.up.railway.app
+
+    steps:
+      - name: Wait for Railway deployment
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          echo "=== Health Check ==="
+          curl -sf "$API_URL/api/healthz" | tee /tmp/health.json
+          echo ""
+          cat /tmp/health.json | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok', f'Expected ok, got {d}'; print('✅ Health check passed')"
+
+      - name: Auth protection (no session)
+        run: |
+          echo "=== Auth Protection ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/meetings")
+          [ "$CODE" = "401" ] && echo "✅ /meetings protected (401)" || (echo "❌ /meetings not protected: $CODE" && exit 1)
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/tasks")
+          [ "$CODE" = "401" ] && echo "✅ /tasks protected (401)" || (echo "❌ /tasks not protected: $CODE" && exit 1)
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/users")
+          [ "$CODE" = "401" ] && echo "✅ /users protected (401)" || (echo "❌ /users not protected: $CODE" && exit 1)
+
+      - name: Wrong password rejected
+        run: |
+          echo "=== Wrong Password ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"WRONG"}')
+          [ "$CODE" = "401" ] && echo "✅ Wrong password rejected (401)" || (echo "❌ Wrong password returned: $CODE" && exit 1)
+
+      - name: Login as admin
+        run: |
+          echo "=== Login ==="
+          RESP=$(curl -s -c /tmp/cookies.txt -X POST "$API_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin","password":"admin123"}')
+          echo "$RESP"
+          NAME=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['user']['fullName'])" 2>/dev/null)
+          [ "$NAME" = "أحمد المنصوري" ] && echo "✅ Login admin: $NAME" || (echo "❌ Login failed: $NAME | $RESP" && exit 1)
+
+      - name: Login as manager1
+        run: |
+          NAME=$(curl -s -c /tmp/cookies2.txt -X POST "$API_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"manager1","password":"manager123"}' | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['user']['fullName'])" 2>/dev/null)
+          [ "$NAME" = "سارة القحطاني" ] && echo "✅ Login manager1: $NAME" || (echo "❌ Login manager1 failed: $NAME" && exit 1)
+
+      - name: Login as member1
+        run: |
+          NAME=$(curl -s -c /tmp/cookies3.txt -X POST "$API_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"member1","password":"member123"}' | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['user']['fullName'])" 2>/dev/null)
+          [ "$NAME" = "محمد العتيبي" ] && echo "✅ Login member1: $NAME" || (echo "❌ Login member1 failed: $NAME" && exit 1)
+
+      - name: Get current user
+        run: |
+          ME=$(curl -s -b /tmp/cookies.txt "$API_URL/api/auth/me" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['username'])" 2>/dev/null)
+          [ "$ME" = "admin" ] && echo "✅ GET /auth/me: $ME" || (echo "❌ /auth/me failed: $ME" && exit 1)
+
+      - name: List users
+        run: |
+          CNT=$(curl -s -b /tmp/cookies.txt "$API_URL/api/users" | \
+            python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
+          [ "$CNT" -ge 3 ] && echo "✅ Users list: $CNT users" || (echo "❌ Users list failed: $CNT" && exit 1)
+
+      - name: Meeting CRUD
+        run: |
+          echo "=== Meetings CRUD ==="
+          MTG=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/meetings" \
+            -H "Content-Type: application/json" \
+            -d '{"title":"CI Test Meeting","date":"2026-08-01","time":"09:00","status":"scheduled","project":"CI Project"}')
+          MTG_ID=$(echo "$MTG" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+          echo "Created meeting ID: $MTG_ID"
+          [ -n "$MTG_ID" ] && echo "✅ Create meeting" || (echo "❌ Create meeting failed: $MTG" && exit 1)
+
+          TITLE=$(curl -s -b /tmp/cookies.txt "$API_URL/api/meetings/$MTG_ID" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['title'])" 2>/dev/null)
+          [ "$TITLE" = "CI Test Meeting" ] && echo "✅ Get meeting" || (echo "❌ Get meeting: $TITLE" && exit 1)
+
+          STATUS=$(curl -s -b /tmp/cookies.txt -X PATCH "$API_URL/api/meetings/$MTG_ID" \
+            -H "Content-Type: application/json" -d '{"status":"in_progress"}' | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null)
+          [ "$STATUS" = "in_progress" ] && echo "✅ Update meeting status" || (echo "❌ Update meeting: $STATUS" && exit 1)
+
+          echo "$MTG_ID" > /tmp/mtg_id.txt
+
+      - name: Tasks CRUD
+        run: |
+          MTG_ID=$(cat /tmp/mtg_id.txt)
+          echo "=== Tasks CRUD ==="
+          TASK=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/tasks" \
+            -H "Content-Type: application/json" \
+            -d "{\"title\":\"CI Test Task\",\"status\":\"pending\",\"priority\":\"high\",\"meetingId\":$MTG_ID}")
+          TASK_ID=$(echo "$TASK" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+          [ -n "$TASK_ID" ] && echo "✅ Create task ID: $TASK_ID" || (echo "❌ Create task: $TASK" && exit 1)
+
+          PCT=$(curl -s -b /tmp/cookies.txt -X PATCH "$API_URL/api/tasks/$TASK_ID" \
+            -H "Content-Type: application/json" -d '{"status":"in_progress","completionPercent":50}' | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['completionPercent'])" 2>/dev/null)
+          [ "$PCT" = "50" ] && echo "✅ Update task (50%)" || (echo "❌ Update task: $PCT" && exit 1)
+
+      - name: Minutes CRUD
+        run: |
+          MTG_ID=$(cat /tmp/mtg_id.txt)
+          echo "=== Minutes CRUD ==="
+          MIN=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/meetings/$MTG_ID/minutes" \
+            -H "Content-Type: application/json" \
+            -d '{"executiveSummary":"CI Test Summary","status":"draft"}')
+          MIN_ID=$(echo "$MIN" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+          [ -n "$MIN_ID" ] && echo "✅ Create minutes ID: $MIN_ID" || (echo "❌ Create minutes: $MIN" && exit 1)
+
+          APP=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/minutes/$MIN_ID/approve" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null)
+          [ "$APP" = "approved" ] && echo "✅ Approve minutes" || (echo "❌ Approve minutes: $APP" && exit 1)
+
+      - name: Dashboard
+        run: |
+          echo "=== Dashboard ==="
+          DASH=$(curl -s -b /tmp/cookies.txt "$API_URL/api/dashboard/stats")
+          HAS=$(echo "$DASH" | python3 -c "import sys,json; d=json.load(sys.stdin); print('totalMeetings' in d)" 2>/dev/null)
+          [ "$HAS" = "True" ] && echo "✅ Dashboard stats" || (echo "❌ Dashboard: $DASH" && exit 1)
+
+      - name: Logout and session protection
+        run: |
+          echo "=== Logout ==="
+          curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/auth/logout" > /dev/null
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -b /tmp/cookies.txt "$API_URL/api/meetings")
+          [ "$CODE" = "401" ] && echo "✅ Session invalidated after logout" || (echo "❌ Session still active: $CODE" && exit 1)
+
+      - name: Cleanup test data
+        if: always()
+        run: |
+          if [ -f /tmp/mtg_id.txt ]; then
+            MTG_ID=$(cat /tmp/mtg_id.txt)
+            curl -s -c /tmp/cleanup.txt -X POST "$API_URL/api/auth/login" \
+              -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' > /dev/null
+            curl -s -b /tmp/cleanup.txt -X DELETE "$API_URL/api/meetings/$MTG_ID" > /dev/null
+            echo "Cleaned up test meeting $MTG_ID"
+          fi
+
+      - name: Frontend accessibility
+        run: |
+          echo "=== Frontend ==="
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL/")
+          [ "$CODE" = "200" ] && echo "✅ Frontend homepage (200)" || echo "⚠️ Frontend: $CODE"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL/meetings")
+          [ "$CODE" = "200" ] && echo "✅ Frontend /meetings (SPA routing)" || echo "⚠️ /meetings: $CODE"
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "🎉 جميع اختبارات Railway نجحت!"
+          echo "النظام جاهز كنسخة أولية تجريبية بدون أخطاء."

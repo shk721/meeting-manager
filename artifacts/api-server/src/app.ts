@@ -2,6 +2,9 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -35,10 +38,28 @@ app.use(
     secret: process.env.SESSION_SECRET ?? "meeting-manager-secret-key-2024",
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
+    cookie: {
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
+    },
   }),
 );
 
 app.use("/api", router);
+
+// Serve frontend static files if built
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const frontendDist = path.resolve(
+  __dirname,
+  "../../meeting-manager/dist/public",
+);
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get("/{*splat}", (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 export default app;

@@ -2,4 +2,4 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "DIR=$(find /app -type d -name 'public' -path '*/dist/*' 2>/dev/null | head -1) && echo \"Serving: $DIR\" && npx serve \"$DIR\" -l $PORT"
+startCommand = "DIR=$(find /app -type d -name 'public' -path '*/dist/*' 2>/dev/null | head -1) && echo \"Serving: $DIR\" && npx serve --single \"$DIR\" -l $PORT"

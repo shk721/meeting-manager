@@ -8,4 +8,4 @@ cmds = ["cd /app && pnpm install --no-frozen-lockfile"]
 cmds = ["cd /app && pnpm --filter @workspace/meeting-manager run build"]
 
 [start]
-cmd = "DIR=$(find /app -type d -name 'public' -path '*/dist/*' 2>/dev/null | head -1) && echo \"Serving: $DIR\" && npx serve \"$DIR\" -l $PORT"
+cmd = "DIR=$(find /app -type d -name 'public' -path '*/dist/*' 2>/dev/null | head -1) && echo \"Serving: $DIR\" && npx serve --single \"$DIR\" -l $PORT"

@@ -7,10 +7,12 @@ import minutesRouter from "./minutes";
 import decisionsRouter from "./decisions";
 import tasksRouter from "./tasks";
 import dashboardRouter from "./dashboard";
+import seedRouter from "./seed";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(seedRouter);
 router.use(authRouter);
 router.use(usersRouter);
 router.use(meetingsRouter);

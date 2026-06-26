@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_24"]
+nixPkgs = ["nodejs_22"]
 cmds = ["npm install -g pnpm"]
 
 [phases.install]

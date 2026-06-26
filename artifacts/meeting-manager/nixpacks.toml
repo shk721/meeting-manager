@@ -1,0 +1,8 @@
+[phases.install]
+cmds = ["npm install -g pnpm@10", "pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm --filter @workspace/meeting-manager run build"]
+
+[start]
+cmd = "npx serve artifacts/meeting-manager/dist/public -l $PORT"

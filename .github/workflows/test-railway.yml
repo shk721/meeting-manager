@@ -13,8 +13,21 @@ jobs:
       FRONTEND_URL: https://endearing-miracle-production-d4b2.up.railway.app
 
     steps:
-      - name: Wait for Railway deployment
-        run: sleep 30
+      - name: Wait for Railway deployment (poll until new code active)
+        run: |
+          echo "Polling Railway until new auth middleware is active (max 8 min)..."
+          for i in $(seq 1 48); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo "000")
+            echo "Attempt $i: GET /api/meetings → $CODE"
+            if [ "$CODE" = "401" ]; then
+              echo "✅ New deployment detected (401 returned) after $((i * 10))s"
+              break
+            fi
+            if [ "$i" = "48" ]; then
+              echo "⚠️ Timeout waiting for deployment. Proceeding with tests anyway."
+            fi
+            sleep 10
+          done
 
       - name: Health check
         run: |

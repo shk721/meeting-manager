@@ -4,10 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const USERS = [
-  { username: "admin",   password: "admin123",   name: "أحمد المنصوري", role: "مدير النظام", roleId: "admin" },
-  { username: "manager", password: "manager123", name: "سارة القحطاني", role: "مدير",        roleId: "manager" },
-  { username: "member1", password: "member123",  name: "محمد العتيبي",  role: "عضو",         roleId: "member" },
-  { username: "viewer",  password: "viewer123",  name: "نورة الشمري",   role: "مراقب",       roleId: "viewer" },
+  { username: "admin",    password: "admin123",   name: "أحمد المنصوري", role: "مدير النظام", roleId: "admin" },
+  { username: "manager1", password: "manager123", name: "سارة القحطاني", role: "مدير",        roleId: "manager" },
+  { username: "member1",  password: "member123",  name: "محمد العتيبي",  role: "عضو",         roleId: "member" },
 ];
 
 export default function Login() {

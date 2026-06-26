@@ -8,4 +8,4 @@ cmds = ["cd /app && pnpm install --no-frozen-lockfile"]
 cmds = ["cd /app && pnpm --filter @workspace/meeting-manager run build"]
 
 [start]
-cmd = "npx serve dist/public -l $PORT"
+cmd = "npx serve artifacts/meeting-manager/dist/public -l $PORT"

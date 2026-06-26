@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import session from "express-session";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -44,8 +45,9 @@ app.use(
 app.use("/api", router);
 
 // Serve frontend static files if built
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontendDist = path.resolve(
-  import.meta.dirname,
+  __dirname,
   "../../meeting-manager/dist/public",
 );
 if (fs.existsSync(frontendDist)) {

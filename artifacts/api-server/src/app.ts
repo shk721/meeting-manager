@@ -2,6 +2,8 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
+import path from "path";
+import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -40,5 +42,17 @@ app.use(
 );
 
 app.use("/api", router);
+
+// Serve frontend static files if built
+const frontendDist = path.resolve(
+  import.meta.dirname,
+  "../../meeting-manager/dist/public",
+);
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 export default app;

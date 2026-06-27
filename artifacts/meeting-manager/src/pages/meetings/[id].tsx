@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   useGetMeeting, useGetMeetingMinutes, useGetDecisions, useGetTasks,
-  useCreateTask, useCreateMeetingMinutes, useApproveMinutes, useCreateDecision,
   getGetMeetingQueryKey, getGetMeetingMinutesQueryKey, getGetDecisionsQueryKey, getGetTasksQueryKey,
   useGetUsers,
 } from "@workspace/api-client-react";
@@ -64,10 +63,10 @@ export default function MeetingDetail({ id }: { id: string }) {
   });
   const { data: users } = useGetUsers();
 
-  const { mutate: createTask, isPending: isCreatingTask } = useCreateTask();
-  const { mutate: createMinutes, isPending: isCreatingMinutes } = useCreateMeetingMinutes();
-  const { mutate: approveMinutes, isPending: isApprovingMinutes } = useApproveMinutes();
-  const { mutate: createDecision, isPending: isCreatingDecision } = useCreateDecision();
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [isCreatingMinutes, setIsCreatingMinutes] = useState(false);
+  const [isApprovingMinutes, setIsApprovingMinutes] = useState(false);
+  const [isCreatingDecision, setIsCreatingDecision] = useState(false);
 
   const [taskOpen, setTaskOpen] = useState(false);
   const [minutesOpen, setMinutesOpen] = useState(false);
@@ -95,73 +94,94 @@ export default function MeetingDetail({ id }: { id: string }) {
     notes: "",
   });
 
-  const handleCreateTask = () => {
+  async function apiFetch(path: string, method: string, body?: any) {
+    const res = await fetch(path, {
+      method,
+      credentials: "include",
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? JSON.stringify(err) ?? `HTTP ${res.status}`);
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  }
+
+  const handleCreateTask = async () => {
     if (!taskForm.title) return;
-    createTask(
-      {
-        data: {
-          title: taskForm.title,
-          description: taskForm.description || undefined,
-          status: taskForm.status,
-          priority: taskForm.priority,
-          meetingId,
-          dueDate: taskForm.dueDate || undefined,
-          assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
-        },
-      },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey({ meetingId }) });
-          setTaskOpen(false);
-          setTaskForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "" });
-        },
-      }
-    );
+    setIsCreatingTask(true);
+    try {
+      await apiFetch("/api/tasks", "POST", {
+        title: taskForm.title,
+        description: taskForm.description || undefined,
+        status: taskForm.status,
+        priority: taskForm.priority,
+        meetingId,
+        dueDate: taskForm.dueDate || undefined,
+        assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey({ meetingId }) });
+      setTaskOpen(false);
+      setTaskForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "" });
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsCreatingTask(false);
+    }
   };
 
-  const handleSaveMinutes = () => {
-    const data = {
-      executiveSummary: minutesForm.executiveSummary || undefined,
-      discussionItems: minutesForm.discussionItems || undefined,
-      risks: minutesForm.risks || undefined,
-      previousFollowUp: minutesForm.previousFollowUp || undefined,
-      status: "draft",
-    };
-    createMinutes(
-      { id: meetingId, data },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetMeetingMinutesQueryKey(meetingId) });
-          setMinutesOpen(false);
-        },
-      }
-    );
+  const handleSaveMinutes = async () => {
+    setIsCreatingMinutes(true);
+    try {
+      await apiFetch(`/api/meetings/${meetingId}/minutes`, "POST", {
+        executiveSummary: minutesForm.executiveSummary || undefined,
+        discussionItems: minutesForm.discussionItems || undefined,
+        risks: minutesForm.risks || undefined,
+        previousFollowUp: minutesForm.previousFollowUp || undefined,
+        status: "draft",
+      });
+      queryClient.invalidateQueries({ queryKey: getGetMeetingMinutesQueryKey(meetingId) });
+      setMinutesOpen(false);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsCreatingMinutes(false);
+    }
   };
 
-  const handleApproveMinutes = () => {
+  const handleApproveMinutes = async () => {
     if (!minutes) return;
-    approveMinutes(
-      { id: (minutes as any).id },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetMeetingMinutesQueryKey(meetingId) });
-        },
-      }
-    );
+    setIsApprovingMinutes(true);
+    try {
+      await apiFetch(`/api/minutes/${(minutes as any).id}/approve`, "POST");
+      queryClient.invalidateQueries({ queryKey: getGetMeetingMinutesQueryKey(meetingId) });
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsApprovingMinutes(false);
+    }
   };
 
-  const handleCreateDecision = () => {
+  const handleCreateDecision = async () => {
     if (!decisionForm.content) return;
-    createDecision(
-      { data: { content: decisionForm.content, meetingId, agendaItem: decisionForm.agendaItem || undefined, notes: decisionForm.notes || undefined } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetDecisionsQueryKey({ meetingId }) });
-          setDecisionOpen(false);
-          setDecisionForm({ content: "", agendaItem: "", notes: "" });
-        },
-      }
-    );
+    setIsCreatingDecision(true);
+    try {
+      await apiFetch("/api/decisions", "POST", {
+        content: decisionForm.content,
+        meetingId,
+        agendaItem: decisionForm.agendaItem || undefined,
+        notes: decisionForm.notes || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: getGetDecisionsQueryKey({ meetingId }) });
+      setDecisionOpen(false);
+      setDecisionForm({ content: "", agendaItem: "", notes: "" });
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsCreatingDecision(false);
+    }
   };
 
   if (isLoadingMeeting) {

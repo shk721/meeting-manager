@@ -10,6 +10,7 @@ export const tasksTable = pgTable("tasks", {
   priority: text("priority").notNull().default("medium"),
   completionPercent: integer("completion_percent").notNull().default(0),
   dueDate: date("due_date", { mode: "string" }),
+  agendaItem: text("agenda_item"),
   meetingId: integer("meeting_id"),
   decisionId: integer("decision_id"),
   assigneeId: integer("assignee_id"),

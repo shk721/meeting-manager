@@ -131,6 +131,7 @@ router.get("/meetings/:id", async (req, res): Promise<void> => {
       id: task.id, title: task.title, description: task.description ?? null,
       status: task.status, priority: task.priority,
       completionPercent: task.completionPercent, dueDate: task.dueDate ?? null,
+      agendaItem: task.agendaItem ?? null,
       meetingId: task.meetingId ?? null, decisionId: task.decisionId ?? null,
       assignee: assignee ? formatUser(assignee) : null,
       tags: task.tags ?? [], createdAt: task.createdAt.toISOString(),

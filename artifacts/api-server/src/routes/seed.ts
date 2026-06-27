@@ -4,7 +4,8 @@ import { db, usersTable } from "@workspace/db";
 const router: IRouter = Router();
 
 router.post("/seed", async (req, res): Promise<void> => {
-  if (process.env.NODE_ENV !== "development" && req.headers["x-seed-key"] !== process.env.SESSION_SECRET) {
+  const expectedKey = process.env.SESSION_SECRET ?? "meeting-manager-secret-key-2024";
+  if (process.env.NODE_ENV !== "development" && req.headers["x-seed-key"] !== expectedKey) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -13,7 +14,7 @@ router.post("/seed", async (req, res): Promise<void> => {
     {
       username: "admin",
       password: "admin123",
-      fullName: "مدير النظام",
+      fullName: "أحمد المنصوري",
       email: "admin@meeting-manager.com",
       role: "admin",
       department: "الإدارة",
@@ -21,7 +22,7 @@ router.post("/seed", async (req, res): Promise<void> => {
     {
       username: "manager1",
       password: "manager123",
-      fullName: "أحمد المدير",
+      fullName: "سارة القحطاني",
       email: "manager1@meeting-manager.com",
       role: "manager",
       department: "تقنية المعلومات",
@@ -29,7 +30,7 @@ router.post("/seed", async (req, res): Promise<void> => {
     {
       username: "member1",
       password: "member123",
-      fullName: "سارة العضو",
+      fullName: "محمد العتيبي",
       email: "member1@meeting-manager.com",
       role: "member",
       department: "الموارد البشرية",

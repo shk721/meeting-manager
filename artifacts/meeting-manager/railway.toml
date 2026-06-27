@@ -1,0 +1,5 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npx serve -s /app/artifacts/meeting-manager/dist/public -l $PORT"

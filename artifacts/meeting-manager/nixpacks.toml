@@ -1,0 +1,11 @@
+[phases.setup]
+cmds = ["corepack enable && corepack prepare pnpm@10 --activate"]
+
+[phases.install]
+cmds = ["cd /app && pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["cd /app && pnpm --filter @workspace/meeting-manager run build"]
+
+[start]
+cmd = "DIR=$(find /app -type d -name 'public' -path '*/dist/*' 2>/dev/null | head -1) && echo \"Serving: $DIR\" && npx serve --single \"$DIR\" -l $PORT"

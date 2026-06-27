@@ -1,14 +1,7 @@
-import { Router, type IRouter } from "express";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable } from "./index.js";
 
-const router: IRouter = Router();
-
-router.post("/seed", async (req, res): Promise<void> => {
-  const expectedKey = process.env.SESSION_SECRET ?? "meeting-manager-secret-key-2024";
-  if (process.env.NODE_ENV !== "development" && req.headers["x-seed-key"] !== expectedKey) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+async function seed() {
+  console.log("Seeding database...");
 
   await db.insert(usersTable).values([
     {
@@ -20,10 +13,10 @@ router.post("/seed", async (req, res): Promise<void> => {
       department: "الإدارة",
     },
     {
-      username: "manager1",
+      username: "manager",
       password: "manager123",
       fullName: "سارة القحطاني",
-      email: "manager1@meeting-manager.com",
+      email: "manager@meeting-manager.com",
       role: "manager",
       department: "تقنية المعلومات",
     },
@@ -35,9 +28,21 @@ router.post("/seed", async (req, res): Promise<void> => {
       role: "member",
       department: "الموارد البشرية",
     },
+    {
+      username: "viewer",
+      password: "viewer123",
+      fullName: "نورة الشمري",
+      email: "viewer@meeting-manager.com",
+      role: "viewer",
+      department: "المالية",
+    },
   ]).onConflictDoNothing();
 
-  res.json({ success: true, message: "Database seeded successfully" });
-});
+  console.log("Seed complete.");
+  process.exit(0);
+}
 
-export default router;
+seed().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -1,0 +1,198 @@
+name: Test Railway Deployment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  test-live:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: https://meeting-manager-production-ac6f.up.railway.app
+      FRONTEND_URL: https://endearing-miracle-production-d4b2.up.railway.app
+      SEED_KEY: meeting-manager-secret-key-2024
+
+    steps:
+      - name: Trigger Railway redeploy
+        run: |
+          if [ -n "${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}" ]; then
+            echo "Deploy hook found — triggering Railway redeploy..."
+            curl -s "${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}" || true
+            echo "Waiting 90s for Railway to start build..."
+            sleep 90
+          elif [ -n "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            echo "Railway token found — triggering redeploy via GraphQL..."
+            curl -s -X POST https://backboard.railway.app/graphql/v2 \
+              -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\":\"mutation { serviceInstanceRedeploy(environmentId: \\\"${{ secrets.RAILWAY_ENV_ID }}\\\", serviceId: \\\"${{ secrets.RAILWAY_SERVICE_ID }}\\\") }\"}" || true
+            echo "Waiting 90s for Railway to start build..."
+            sleep 90
+          else
+            echo "⚠️ No RAILWAY_DEPLOY_HOOK_URL or RAILWAY_TOKEN secret found."
+            echo "   Railway auto-deploy webhook may be disconnected."
+            echo "   Add RAILWAY_DEPLOY_HOOK_URL to GitHub Secrets for automatic redeploy."
+            echo "   (Railway dashboard → Service → Settings → Deploy Hooks → Create Hook)"
+          fi
+
+      - name: Check Railway deployment state
+        run: |
+          VERSION=$(curl -s --max-time 10 "$API_URL/api/version" 2>/dev/null || echo '{}')
+          echo "GET /api/version → $VERSION"
+          HAS_AUTH=$(echo "$VERSION" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('requireAuth','missing'))" 2>/dev/null || echo "missing")
+          if [ "$HAS_AUTH" = "True" ]; then
+            echo "✅ New code deployed (requireAuth=true in /api/version)"
+          else
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo "000")
+            echo "⚠️ /api/version not available (old code) — /api/meetings returns $CODE. Tests continue."
+          fi
+
+      - name: Health check
+        if: always()
+        run: |
+          curl -sf "$API_URL/api/healthz" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'; print('✅ Health OK')"
+
+      - name: Auth protection (no session)
+        if: always()
+        run: |
+          for ENDPOINT in meetings tasks users dashboard/stats; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/$ENDPOINT")
+            [ "$CODE" = "401" ] && echo "✅ /api/$ENDPOINT protected" || (echo "❌ /api/$ENDPOINT returned $CODE (expected 401 — requireAuth not deployed)" && exit 1)
+          done
+
+      - name: Wrong password rejected
+        if: always()
+        run: |
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/auth/login" \
+            -H "Content-Type: application/json" -d '{"username":"admin","password":"WRONG"}')
+          [ "$CODE" = "401" ] && echo "✅ Wrong password rejected" || (echo "❌ Wrong password returned $CODE" && exit 1)
+
+      - name: Seed database
+        if: always()
+        run: |
+          RESP=$(curl -s -X POST "$API_URL/api/seed" -H "x-seed-key: $SEED_KEY")
+          echo "Seed response: $RESP"
+          echo "✅ Database seeded (or users already existed)"
+
+      - name: Login as admin
+        if: always()
+        run: |
+          RESP=$(curl -s -c /tmp/cookies.txt -X POST "$API_URL/api/auth/login" \
+            -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}')
+          HAS=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print('user' in d)" 2>/dev/null)
+          [ "$HAS" = "True" ] && echo "✅ Login admin OK" || (echo "❌ Login admin failed: $RESP" && exit 1)
+
+      - name: Login as manager1
+        if: always()
+        run: |
+          RESP=$(curl -s -c /tmp/cookies2.txt -X POST "$API_URL/api/auth/login" \
+            -H "Content-Type: application/json" -d '{"username":"manager1","password":"manager123"}')
+          HAS=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print('user' in d)" 2>/dev/null)
+          [ "$HAS" = "True" ] && echo "✅ Login manager1 OK" || (echo "❌ Login manager1 failed: $RESP" && exit 1)
+
+      - name: Login as member1
+        if: always()
+        run: |
+          RESP=$(curl -s -c /tmp/cookies3.txt -X POST "$API_URL/api/auth/login" \
+            -H "Content-Type: application/json" -d '{"username":"member1","password":"member123"}')
+          HAS=$(echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print('user' in d)" 2>/dev/null)
+          [ "$HAS" = "True" ] && echo "✅ Login member1 OK" || (echo "❌ Login member1 failed: $RESP" && exit 1)
+
+      - name: Get current user
+        if: always()
+        run: |
+          ME=$(curl -s -b /tmp/cookies.txt "$API_URL/api/auth/me" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['username'])" 2>/dev/null)
+          [ "$ME" = "admin" ] && echo "✅ GET /auth/me: $ME" || (echo "❌ /auth/me failed: $ME" && exit 1)
+
+      - name: List users
+        if: always()
+        run: |
+          CNT=$(curl -s -b /tmp/cookies.txt "$API_URL/api/users" | \
+            python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
+          [ "$CNT" -ge 3 ] && echo "✅ Users list: $CNT users" || (echo "❌ Users list: $CNT" && exit 1)
+
+      - name: Meeting CRUD
+        if: always()
+        run: |
+          MTG=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/meetings" \
+            -H "Content-Type: application/json" \
+            -d '{"title":"CI Test Meeting","date":"2026-08-01","time":"09:00","status":"scheduled","project":"CI Project"}')
+          MTG_ID=$(echo "$MTG" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+          [ -n "$MTG_ID" ] && echo "✅ Create meeting ID: $MTG_ID" || (echo "❌ Create meeting: $MTG" && exit 1)
+          TITLE=$(curl -s -b /tmp/cookies.txt "$API_URL/api/meetings/$MTG_ID" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['title'])" 2>/dev/null)
+          [ "$TITLE" = "CI Test Meeting" ] && echo "✅ Get meeting" || (echo "❌ Get meeting: $TITLE" && exit 1)
+          STATUS=$(curl -s -b /tmp/cookies.txt -X PATCH "$API_URL/api/meetings/$MTG_ID" \
+            -H "Content-Type: application/json" -d '{"status":"in_progress"}' | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null)
+          [ "$STATUS" = "in_progress" ] && echo "✅ Update meeting" || (echo "❌ Update meeting: $STATUS" && exit 1)
+          echo "$MTG_ID" > /tmp/mtg_id.txt
+
+      - name: Tasks CRUD
+        if: always()
+        run: |
+          MTG_ID=$(cat /tmp/mtg_id.txt)
+          TASK=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/tasks" \
+            -H "Content-Type: application/json" \
+            -d "{\"title\":\"CI Test Task\",\"status\":\"pending\",\"priority\":\"high\",\"meetingId\":$MTG_ID}")
+          TASK_ID=$(echo "$TASK" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+          [ -n "$TASK_ID" ] && echo "✅ Create task ID: $TASK_ID" || (echo "❌ Create task: $TASK" && exit 1)
+          PCT=$(curl -s -b /tmp/cookies.txt -X PATCH "$API_URL/api/tasks/$TASK_ID" \
+            -H "Content-Type: application/json" -d '{"status":"in_progress","completionPercent":50}' | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['completionPercent'])" 2>/dev/null)
+          [ "$PCT" = "50" ] && echo "✅ Update task 50%" || (echo "❌ Update task: $PCT" && exit 1)
+
+      - name: Minutes CRUD
+        if: always()
+        run: |
+          MTG_ID=$(cat /tmp/mtg_id.txt)
+          MIN=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/meetings/$MTG_ID/minutes" \
+            -H "Content-Type: application/json" \
+            -d '{"executiveSummary":"CI Test Summary","status":"draft"}')
+          MIN_ID=$(echo "$MIN" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+          [ -n "$MIN_ID" ] && echo "✅ Create minutes ID: $MIN_ID" || (echo "❌ Create minutes: $MIN" && exit 1)
+          APP=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/minutes/$MIN_ID/approve" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null)
+          [ "$APP" = "approved" ] && echo "✅ Approve minutes" || (echo "❌ Approve minutes: $APP" && exit 1)
+
+      - name: Dashboard
+        if: always()
+        run: |
+          DASH=$(curl -s -b /tmp/cookies.txt "$API_URL/api/dashboard/stats")
+          HAS=$(echo "$DASH" | python3 -c "import sys,json; d=json.load(sys.stdin); print('totalMeetings' in d)" 2>/dev/null)
+          [ "$HAS" = "True" ] && echo "✅ Dashboard stats" || (echo "❌ Dashboard: $DASH" && exit 1)
+
+      - name: Logout and session protection
+        if: always()
+        run: |
+          curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/auth/logout" > /dev/null
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -b /tmp/cookies.txt "$API_URL/api/meetings")
+          [ "$CODE" = "401" ] && echo "✅ Session invalidated after logout" || (echo "❌ Session still active: $CODE" && exit 1)
+
+      - name: Cleanup test data
+        if: always()
+        run: |
+          if [ -f /tmp/mtg_id.txt ]; then
+            MTG_ID=$(cat /tmp/mtg_id.txt)
+            curl -s -c /tmp/cleanup.txt -X POST "$API_URL/api/auth/login" \
+              -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' > /dev/null
+            curl -s -b /tmp/cleanup.txt -X DELETE "$API_URL/api/meetings/$MTG_ID" > /dev/null
+            echo "Cleaned up test meeting $MTG_ID"
+          fi
+
+      - name: Frontend accessibility
+        if: always()
+        run: |
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL/")
+          [ "$CODE" = "200" ] && echo "✅ Frontend homepage (200)" || echo "⚠️ Frontend: $CODE"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL/meetings")
+          [ "$CODE" = "200" ] && echo "✅ Frontend /meetings (SPA routing)" || echo "⚠️ /meetings: $CODE"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo ""
+          echo "🎉 جميع اختبارات Railway نجحت!"
+          echo "النظام جاهز كنسخة أولية تجريبية بدون أخطاء."

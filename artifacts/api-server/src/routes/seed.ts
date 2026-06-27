@@ -4,7 +4,7 @@ import { db, usersTable } from "@workspace/db";
 const router: IRouter = Router();
 
 router.post("/seed", async (req, res): Promise<void> => {
-  if (process.env.NODE_ENV !== "development" && req.headers["x-seed-key"] !== process.env.SESSION_SECRET) {
+  if (process.env.NODE_ENV !== "development" && req.headers["x-seed-key"] !== (process.env.SESSION_SECRET ?? "meeting-manager-secret-key-2024")) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

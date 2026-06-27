@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGetMeetings, useCreateMeeting, getGetMeetingsQueryKey } from "@workspace/api-client-react";
+import { useGetMeetings, getGetMeetingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "wouter";
@@ -25,12 +25,27 @@ const statusMap: Record<string, { label: string; variant: "default" | "secondary
   postponed: { label: "مؤجل", variant: "secondary" },
 };
 
+async function apiFetch(path: string, method: string, body?: any) {
+  const res = await fetch(path, {
+    method,
+    credentials: "include",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? JSON.stringify(err) ?? `HTTP ${res.status}`);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
 export default function Meetings() {
   const queryClient = useQueryClient();
   const { data: meetings, isLoading } = useGetMeetings({});
-  const { mutate: createMeeting, isPending } = useCreateMeeting();
 
   const [open, setOpen] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [search, setSearch] = useState("");
   const [apiError, setApiError] = useState("");
   const [form, setForm] = useState({
@@ -41,22 +56,26 @@ export default function Meetings() {
     project: "",
   });
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.title || !form.date || !form.time) return;
     setApiError("");
-    createMeeting(
-      { data: { title: form.title, date: form.date, time: form.time, status: form.status, project: form.project || undefined } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetMeetingsQueryKey({}) });
-          setOpen(false);
-          setForm({ title: "", date: "", time: "", status: "scheduled", project: "" });
-        },
-        onError: (err: any) => {
-          setApiError(err?.message ?? JSON.stringify(err) ?? "حدث خطأ غير معروف");
-        },
-      }
-    );
+    setIsPending(true);
+    try {
+      await apiFetch("/api/meetings", "POST", {
+        title: form.title,
+        date: form.date,
+        time: form.time,
+        status: form.status,
+        project: form.project || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: getGetMeetingsQueryKey({}) });
+      setOpen(false);
+      setForm({ title: "", date: "", time: "", status: "scheduled", project: "" });
+    } catch (e: any) {
+      setApiError(e.message);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   const filtered = (meetings ?? []).filter((m: any) =>
@@ -194,9 +213,7 @@ export default function Meetings() {
               />
             </div>
           </div>
-          {apiError && (
-            <p className="text-sm text-red-600 px-1">{apiError}</p>
-          )}
+          {apiError && <p className="text-sm text-red-600 px-1">{apiError}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
             <Button onClick={handleCreate} disabled={isPending || !form.title || !form.date || !form.time}>

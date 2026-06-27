@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
-import { z } from "zod";
 
 const router: IRouter = Router();
+
+const VALID_ROLES = ["admin", "manager", "member", "viewer"] as const;
 
 export function formatUser(user: typeof usersTable.$inferSelect) {
   return {
@@ -26,43 +27,52 @@ function requireAdmin(req: any, res: any, next: any) {
   }).catch(next);
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 router.get("/users", async (_req, res): Promise<void> => {
   const users = await db.select().from(usersTable).orderBy(usersTable.fullName);
   res.json(users.map(formatUser));
 });
 
-const CreateUserBody = z.object({
-  username: z.string().min(2),
-  password: z.string().min(4),
-  fullName: z.string().min(2),
-  email: z.string().email(),
-  role: z.enum(["admin", "manager", "member", "viewer"]),
-  department: z.string().optional(),
-});
-
 router.post("/users", requireAdmin, async (req, res): Promise<void> => {
-  const parsed = CreateUserBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const existing = await db.select().from(usersTable).where(eq(usersTable.username, parsed.data.username));
-  if (existing.length > 0) { res.status(409).json({ error: "اسم المستخدم مستخدم بالفعل" }); return; }
-  const [user] = await db.insert(usersTable).values(parsed.data).returning();
-  res.status(201).json(formatUser(user));
-});
+  const { username, password, fullName, email, role, department } = req.body ?? {};
+  if (!username || username.length < 2) { res.status(400).json({ error: "اسم المستخدم قصير جداً" }); return; }
+  if (!password || password.length < 4) { res.status(400).json({ error: "كلمة المرور قصيرة جداً" }); return; }
+  if (!fullName || fullName.length < 2) { res.status(400).json({ error: "الاسم الكامل مطلوب" }); return; }
+  if (!email || !isValidEmail(email)) { res.status(400).json({ error: "البريد الإلكتروني غير صحيح" }); return; }
+  if (!role || !VALID_ROLES.includes(role)) { res.status(400).json({ error: "الدور غير صحيح" }); return; }
 
-const UpdateUserBody = z.object({
-  fullName: z.string().min(2).optional(),
-  email: z.string().email().optional(),
-  role: z.enum(["admin", "manager", "member", "viewer"]).optional(),
-  department: z.string().optional(),
-  password: z.string().min(4).optional(),
+  const existing = await db.select().from(usersTable).where(eq(usersTable.username, username));
+  if (existing.length > 0) { res.status(409).json({ error: "اسم المستخدم مستخدم بالفعل" }); return; }
+
+  const [user] = await db.insert(usersTable).values({ username, password, fullName, email, role, department: department || null }).returning();
+  res.status(201).json(formatUser(user));
 });
 
 router.patch("/users/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const parsed = UpdateUserBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [user] = await db.update(usersTable).set(parsed.data).where(eq(usersTable.id, id)).returning();
+
+  const { fullName, email, role, department, password } = req.body ?? {};
+  const update: any = {};
+  if (fullName) update.fullName = fullName;
+  if (email) {
+    if (!isValidEmail(email)) { res.status(400).json({ error: "البريد الإلكتروني غير صحيح" }); return; }
+    update.email = email;
+  }
+  if (role) {
+    if (!VALID_ROLES.includes(role)) { res.status(400).json({ error: "الدور غير صحيح" }); return; }
+    update.role = role;
+  }
+  if (department !== undefined) update.department = department || null;
+  if (password) {
+    if (password.length < 4) { res.status(400).json({ error: "كلمة المرور قصيرة جداً" }); return; }
+    update.password = password;
+  }
+
+  const [user] = await db.update(usersTable).set(update).where(eq(usersTable.id, id)).returning();
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   res.json(formatUser(user));
 });

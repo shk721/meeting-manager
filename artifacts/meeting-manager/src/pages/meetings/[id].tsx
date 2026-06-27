@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, MapPin, Users, Target, CheckSquare, FileText, Briefcase, Plus } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Target, CheckSquare, FileText, Briefcase, Plus, Pencil, X } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -64,6 +64,12 @@ export default function MeetingDetail({ id }: { id: string }) {
   const { data: users } = useGetUsers();
 
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [attendeesOpen, setAttendeesOpen] = useState(false);
+  const [agendaOpen, setAgendaOpen] = useState(false);
+  const [selectedAttendees, setSelectedAttendees] = useState<number[]>([]);
+  const [agendaItems, setAgendaItems] = useState<string[]>([""]);
+  const [isSavingAttendees, setIsSavingAttendees] = useState(false);
+  const [isSavingAgenda, setIsSavingAgenda] = useState(false);
   const [isCreatingMinutes, setIsCreatingMinutes] = useState(false);
   const [isApprovingMinutes, setIsApprovingMinutes] = useState(false);
   const [isCreatingDecision, setIsCreatingDecision] = useState(false);
@@ -161,6 +167,51 @@ export default function MeetingDetail({ id }: { id: string }) {
       alert(e.message);
     } finally {
       setIsApprovingMinutes(false);
+    }
+  };
+
+  const openAttendeesDialog = () => {
+    const current = ((meeting as any).attendees ?? []).map((a: any) => a.id);
+    setSelectedAttendees(current);
+    setAttendeesOpen(true);
+  };
+
+  const toggleAttendee = (id: number) => {
+    setSelectedAttendees(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSaveAttendees = async () => {
+    setIsSavingAttendees(true);
+    try {
+      await apiFetch(`/api/meetings/${meetingId}`, "PATCH", { attendeeIds: selectedAttendees });
+      queryClient.invalidateQueries({ queryKey: getGetMeetingQueryKey(meetingId) });
+      setAttendeesOpen(false);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsSavingAttendees(false);
+    }
+  };
+
+  const openAgendaDialog = () => {
+    const current = (meeting as any).agendaItems ?? [];
+    setAgendaItems(current.length > 0 ? current : [""]);
+    setAgendaOpen(true);
+  };
+
+  const handleSaveAgenda = async () => {
+    setIsSavingAgenda(true);
+    try {
+      const items = agendaItems.map(s => s.trim()).filter(Boolean);
+      await apiFetch(`/api/meetings/${meetingId}`, "PATCH", { agendaItems: items });
+      queryClient.invalidateQueries({ queryKey: getGetMeetingQueryKey(meetingId) });
+      setAgendaOpen(false);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsSavingAgenda(false);
     }
   };
 
@@ -268,10 +319,16 @@ export default function MeetingDetail({ id }: { id: string }) {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  المشاركون ({(meeting as any).attendees?.length || 0})
-                </CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    المشاركون ({(meeting as any).attendees?.length || 0})
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={openAttendeesDialog}>
+                    <Pencil className="h-4 w-4 ml-1" />
+                    تعديل
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {(meeting as any).attendees && (meeting as any).attendees.length > 0 ? (
@@ -291,10 +348,16 @@ export default function MeetingDetail({ id }: { id: string }) {
 
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  جدول الأعمال
-                </CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    جدول الأعمال
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={openAgendaDialog}>
+                    <Pencil className="h-4 w-4 ml-1" />
+                    تعديل
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {(meeting as any).agendaItems && (meeting as any).agendaItems.length > 0 ? (
@@ -661,6 +724,71 @@ export default function MeetingDetail({ id }: { id: string }) {
             <Button onClick={handleCreateDecision} disabled={isCreatingDecision || !decisionForm.content}>
               {isCreatingDecision ? <Spinner className="h-4 w-4 ml-2" /> : null}
               إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attendees Dialog */}
+      <Dialog open={attendeesOpen} onOpenChange={setAttendeesOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>تعديل المشاركين</DialogTitle></DialogHeader>
+          <div className="py-2 space-y-2 max-h-72 overflow-y-auto">
+            {((users ?? []) as any[]).map((u: any) => (
+              <label key={u.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedAttendees.includes(u.id)}
+                  onChange={() => toggleAttendee(u.id)}
+                  className="w-4 h-4"
+                />
+                <span className="flex-1">{u.fullName}</span>
+                <span className="text-xs text-muted-foreground">{u.department ?? u.role}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAttendeesOpen(false)}>إلغاء</Button>
+            <Button onClick={handleSaveAttendees} disabled={isSavingAttendees}>
+              {isSavingAttendees ? <Spinner className="h-4 w-4 ml-2" /> : null}
+              حفظ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Agenda Dialog */}
+      <Dialog open={agendaOpen} onOpenChange={setAgendaOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>تعديل جدول الأعمال</DialogTitle></DialogHeader>
+          <div className="py-2 space-y-2">
+            {agendaItems.map((item, idx) => (
+              <div key={idx} className="flex gap-2 items-center">
+                <span className="text-muted-foreground text-sm w-5">{idx + 1}.</span>
+                <Input
+                  value={item}
+                  onChange={e => {
+                    const updated = [...agendaItems];
+                    updated[idx] = e.target.value;
+                    setAgendaItems(updated);
+                  }}
+                  placeholder={`البند ${idx + 1}`}
+                />
+                <Button size="icon" variant="ghost" onClick={() => setAgendaItems(agendaItems.filter((_, i) => i !== idx))}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setAgendaItems([...agendaItems, ""])}>
+              <Plus className="h-4 w-4 ml-1" />
+              إضافة بند
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAgendaOpen(false)}>إلغاء</Button>
+            <Button onClick={handleSaveAgenda} disabled={isSavingAgenda}>
+              {isSavingAgenda ? <Spinner className="h-4 w-4 ml-2" /> : null}
+              حفظ
             </Button>
           </DialogFooter>
         </DialogContent>

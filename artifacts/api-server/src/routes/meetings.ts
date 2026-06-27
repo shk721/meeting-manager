@@ -45,6 +45,8 @@ async function getMeetingWithMeta(meetingId: number) {
     taskCount: tasks.length,
     hasMinutes: !!minutes,
     minutesApproved: minutes?.status === "approved",
+    invitationsSentAt: meeting.invitationsSentAt?.toISOString() ?? null,
+    minutesSentAt: meeting.minutesSentAt?.toISOString() ?? null,
     createdAt: meeting.createdAt.toISOString(),
   };
 }
@@ -158,6 +160,8 @@ router.get("/meetings/:id", async (req, res): Promise<void> => {
     location: meeting.location ?? null, objectives: meeting.objectives ?? null,
     chairperson: chairperson ? formatUser(chairperson) : null,
     attendees: attendees.map(formatUser), agendaItems: meeting.agendaItems ?? [],
+    invitationsSentAt: meeting.invitationsSentAt?.toISOString() ?? null,
+    minutesSentAt: meeting.minutesSentAt?.toISOString() ?? null,
     minutes: minutesData,
     decisions: decisions.map(d => ({
       id: d.id, meetingId: d.meetingId, agendaItem: d.agendaItem ?? null,

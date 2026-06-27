@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, minutesTable, usersTable } from "@workspace/db";
+import { db, minutesTable, usersTable, meetingsTable } from "@workspace/db";
 import { CreateMeetingMinutesBody } from "@workspace/api-zod";
 import { formatUser } from "./users";
 
@@ -74,6 +74,25 @@ router.post("/minutes/:id/approve", async (req, res): Promise<void> => {
     : [null];
 
   res.json(formatMinutes(updated, approvedBy ?? null));
+});
+
+router.post("/minutes/:id/send", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const minutesId = parseInt(raw, 10);
+
+  const [minutes] = await db.select().from(minutesTable).where(eq(minutesTable.id, minutesId));
+  if (!minutes) { res.status(404).json({ error: "Minutes not found" }); return; }
+  if (minutes.status !== "approved") { res.status(400).json({ error: "يجب اعتماد المحضر قبل إرساله" }); return; }
+
+  await db.update(meetingsTable)
+    .set({ minutesSentAt: new Date() })
+    .where(eq(meetingsTable.id, minutes.meetingId));
+
+  const [approvedBy] = minutes.approvedById
+    ? await db.select().from(usersTable).where(eq(usersTable.id, minutes.approvedById))
+    : [null];
+
+  res.json(formatMinutes(minutes, approvedBy ?? null));
 });
 
 export default router;

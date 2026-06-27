@@ -32,6 +32,7 @@ export default function Meetings() {
 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [apiError, setApiError] = useState("");
   const [form, setForm] = useState({
     title: "",
     date: "",
@@ -42,6 +43,7 @@ export default function Meetings() {
 
   const handleCreate = () => {
     if (!form.title || !form.date || !form.time) return;
+    setApiError("");
     createMeeting(
       { title: form.title, date: form.date, time: form.time, status: form.status, project: form.project || undefined },
       {
@@ -49,6 +51,9 @@ export default function Meetings() {
           queryClient.invalidateQueries({ queryKey: getGetMeetingsQueryKey({}) });
           setOpen(false);
           setForm({ title: "", date: "", time: "", status: "scheduled", project: "" });
+        },
+        onError: (err: any) => {
+          setApiError(err?.message ?? JSON.stringify(err) ?? "حدث خطأ غير معروف");
         },
       }
     );
@@ -189,6 +194,9 @@ export default function Meetings() {
               />
             </div>
           </div>
+          {apiError && (
+            <p className="text-sm text-red-600 px-1">{apiError}</p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
             <Button onClick={handleCreate} disabled={isPending || !form.title || !form.date || !form.time}>

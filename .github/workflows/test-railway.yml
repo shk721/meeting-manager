@@ -38,13 +38,14 @@ jobs:
 
       - name: Check Railway deployment state
         run: |
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo "000")
-          BODY=$(curl -s --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo 'connection_failed')
-          echo "GET /api/meetings → $CODE | $BODY"
-          if [ "$CODE" = "401" ]; then
-            echo "✅ requireAuth active — new code is deployed"
+          VERSION=$(curl -s --max-time 10 "$API_URL/api/version" 2>/dev/null || echo '{}')
+          echo "GET /api/version → $VERSION"
+          HAS_AUTH=$(echo "$VERSION" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('requireAuth','missing'))" 2>/dev/null || echo "missing")
+          if [ "$HAS_AUTH" = "True" ]; then
+            echo "✅ New code deployed (requireAuth=true in /api/version)"
           else
-            echo "⚠️ Railway returns $CODE — may be old code (no requireAuth). Tests continue anyway."
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo "000")
+            echo "⚠️ /api/version not available (old code) — /api/meetings returns $CODE. Tests continue."
           fi
 
       - name: Health check

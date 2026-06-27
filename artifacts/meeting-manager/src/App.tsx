@@ -10,6 +10,7 @@ import Meetings from "@/pages/meetings";
 import MeetingDetail from "@/pages/meetings/[id]";
 import Tasks from "@/pages/tasks";
 import Minutes from "@/pages/minutes";
+import UsersPage from "@/pages/users";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ function Router() {
             <Route path="/meetings/:id">{(params) => <ProtectedRoute component={MeetingDetail} id={params.id} />}</Route>
             <Route path="/tasks" component={() => <ProtectedRoute component={Tasks} />} />
             <Route path="/minutes" component={() => <ProtectedRoute component={Minutes} />} />
+            <Route path="/users" component={() => <ProtectedRoute component={UsersPage} />} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

@@ -12,21 +12,46 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
-const navItems = [
-  { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
-  { title: "الاجتماعات", href: "/meetings", icon: Users },
-  { title: "المهام", href: "/tasks", icon: CheckSquare },
-  { title: "المحاضر", href: "/minutes", icon: FileText },
-];
+const roleLabels: Record<string, string> = {
+  admin: "مدير النظام",
+  manager: "مدير",
+  member: "عضو",
+  viewer: "مشاهد",
+};
+
+function getNavItems(role: string) {
+  if (role === "admin") {
+    return [
+      { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
+      { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
+    ];
+  }
+  if (role === "manager") {
+    return [
+      { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
+      { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
+      { title: "المهام", href: "/tasks", icon: CheckSquare },
+      { title: "المحاضر", href: "/minutes", icon: FileText },
+    ];
+  }
+  // member / viewer
+  return [
+    { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
+    { title: "مهامي", href: "/tasks", icon: CheckSquare },
+  ];
+}
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
 
   if (!user) return <>{children}</>;
+
+  const navItems = getNavItems(user.role);
 
   return (
     <SidebarProvider>
@@ -61,15 +86,15 @@ export default function Layout({ children }: { children: ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="border-t p-4">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <Avatar className="h-10 w-10 border">
                 <AvatarFallback className="bg-primary/10 text-primary">
                   {user.fullName.substring(0, 2)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-1">
                 <span className="text-sm font-semibold">{user.fullName}</span>
-                <span className="text-xs text-muted-foreground">{user.role}</span>
+                <Badge variant="secondary" className="text-xs w-fit">{roleLabels[user.role] ?? user.role}</Badge>
               </div>
             </div>
             <SidebarMenu>
@@ -82,7 +107,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
-        
+
         <div className="flex flex-1 flex-col overflow-hidden">
           <header className="flex h-14 items-center gap-4 border-b bg-background px-6 lg:h-[60px]">
             <SidebarTrigger />

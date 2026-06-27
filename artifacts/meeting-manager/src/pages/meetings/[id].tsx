@@ -51,6 +51,107 @@ export default function MeetingDetail({ id }: { id: string }) {
   const { data: tasks, isLoading: isLoadingTasks } = useGetTasks({ meetingId }, {
     query: { enabled: !!meetingId, queryKey: getGetTasksQueryKey({ meetingId }) }
   });
+  const { data: users } = useGetUsers();
+
+  const { mutate: createTask, isPending: isCreatingTask } = useCreateTask();
+  const { mutate: createMinutes, isPending: isCreatingMinutes } = useCreateMeetingMinutes();
+  const { mutate: approveMinutes, isPending: isApprovingMinutes } = useApproveMinutes();
+  const { mutate: createDecision, isPending: isCreatingDecision } = useCreateDecision();
+
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [minutesOpen, setMinutesOpen] = useState(false);
+  const [decisionOpen, setDecisionOpen] = useState(false);
+
+  const [taskForm, setTaskForm] = useState({
+    title: "",
+    description: "",
+    status: "open",
+    priority: "medium",
+    dueDate: "",
+    assigneeId: "",
+  });
+
+  const [minutesForm, setMinutesForm] = useState({
+    executiveSummary: "",
+    discussionItems: "",
+    risks: "",
+    previousFollowUp: "",
+  });
+
+  const [decisionForm, setDecisionForm] = useState({
+    content: "",
+    agendaItem: "",
+    notes: "",
+  });
+
+  const handleCreateTask = () => {
+    if (!taskForm.title) return;
+    createTask(
+      {
+        data: {
+          title: taskForm.title,
+          description: taskForm.description || undefined,
+          status: taskForm.status,
+          priority: taskForm.priority,
+          meetingId,
+          dueDate: taskForm.dueDate || undefined,
+          assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey({ meetingId }) });
+          setTaskOpen(false);
+          setTaskForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "" });
+        },
+      }
+    );
+  };
+
+  const handleSaveMinutes = () => {
+    const data = {
+      executiveSummary: minutesForm.executiveSummary || undefined,
+      discussionItems: minutesForm.discussionItems || undefined,
+      risks: minutesForm.risks || undefined,
+      previousFollowUp: minutesForm.previousFollowUp || undefined,
+      status: "draft",
+    };
+    createMinutes(
+      { id: meetingId, data },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeetingMinutesQueryKey(meetingId) });
+          setMinutesOpen(false);
+        },
+      }
+    );
+  };
+
+  const handleApproveMinutes = () => {
+    if (!minutes) return;
+    approveMinutes(
+      { id: (minutes as any).id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeetingMinutesQueryKey(meetingId) });
+        },
+      }
+    );
+  };
+
+  const handleCreateDecision = () => {
+    if (!decisionForm.content) return;
+    createDecision(
+      { data: { content: decisionForm.content, meetingId, agendaItem: decisionForm.agendaItem || undefined, notes: decisionForm.notes || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetDecisionsQueryKey({ meetingId }) });
+          setDecisionOpen(false);
+          setDecisionForm({ content: "", agendaItem: "", notes: "" });
+        },
+      }
+    );
+  };
 
   if (isLoadingMeeting) {
     return (

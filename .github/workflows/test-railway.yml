@@ -27,21 +27,32 @@ jobs:
             echo "No RAILWAY_TOKEN secret — skipping auto-redeploy"
           fi
 
-      - name: Wait for Railway deployment (poll until new code active)
+      - name: Wait for Railway deployment (poll 2 min max)
         run: |
-          echo "Polling Railway until auth middleware is active (max 15 min)..."
-          for i in $(seq 1 90); do
+          echo "Polling Railway until auth middleware is active (max 2 min)..."
+          for i in $(seq 1 12); do
+            BODY=$(curl -s --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo '{"error":"connection_failed"}')
             CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo "000")
-            echo "Attempt $i: GET /api/meetings → $CODE"
+            echo "Attempt $i: GET /api/meetings → $CODE | body: $BODY"
             if [ "$CODE" = "401" ]; then
-              echo "✅ Deployment active (401) after $((i * 10))s"
-              break
-            fi
-            if [ "$i" = "90" ]; then
-              echo "⚠️ Timeout — Railway may not have auto-deployed. Check Railway dashboard."
+              echo "✅ New deployment active after $((i * 10))s"
+              exit 0
             fi
             sleep 10
           done
+          echo ""
+          echo "❌ Timeout: Railway still returns $CODE after 2 min"
+          echo "Response body: $BODY"
+          echo ""
+          echo "=== DIAGNOSIS ==="
+          echo "Railway has NOT deployed the new code with requireAuth middleware."
+          echo "This means Railway's auto-deploy is not triggering from GitHub pushes."
+          echo ""
+          echo "TO FIX — choose one:"
+          echo "1. Manual: Go to railway.app → project → meeting-manager service → Redeploy"
+          echo "2. Automatic: Add RAILWAY_TOKEN to GitHub repo secrets (repo Settings → Secrets)"
+          echo "   Get token from: Railway dashboard → Account Settings → Tokens → Create"
+          exit 1
 
       - name: Health check
         run: |

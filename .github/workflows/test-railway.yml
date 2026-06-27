@@ -14,27 +14,35 @@ jobs:
       SEED_KEY: meeting-manager-secret-key-2024
 
     steps:
-      - name: Trigger Railway redeploy (if token available)
+      - name: Trigger Railway redeploy
         run: |
-          if [ -n "${{ secrets.RAILWAY_TOKEN }}" ]; then
-            echo "Railway token found — triggering redeploy via API..."
+          if [ -n "${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}" ]; then
+            echo "Deploy hook found — triggering Railway redeploy..."
+            curl -s "${{ secrets.RAILWAY_DEPLOY_HOOK_URL }}" || true
+            echo "Waiting 90s for Railway to start build..."
+            sleep 90
+          elif [ -n "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            echo "Railway token found — triggering redeploy via GraphQL..."
             curl -s -X POST https://backboard.railway.app/graphql/v2 \
               -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
               -H "Content-Type: application/json" \
-              -d '{"query":"mutation { deploymentRedeploy(id: \"latest\") { id } }"}' || true
-            echo "Waiting 90s for Railway to build and deploy..."
+              -d "{\"query\":\"mutation { serviceInstanceRedeploy(environmentId: \\\"${{ secrets.RAILWAY_ENV_ID }}\\\", serviceId: \\\"${{ secrets.RAILWAY_SERVICE_ID }}\\\") }\"}" || true
+            echo "Waiting 90s for Railway to start build..."
             sleep 90
           else
-            echo "No RAILWAY_TOKEN secret — skipping auto-redeploy"
+            echo "⚠️ No RAILWAY_DEPLOY_HOOK_URL or RAILWAY_TOKEN secret found."
+            echo "   Railway auto-deploy webhook may be disconnected."
+            echo "   Add RAILWAY_DEPLOY_HOOK_URL to GitHub Secrets for automatic redeploy."
+            echo "   (Railway dashboard → Service → Settings → Deploy Hooks → Create Hook)"
           fi
 
-      - name: Wait for Railway deployment with requireAuth (poll 15 min max)
+      - name: Wait for Railway deployment with requireAuth (poll 20 min max)
         run: |
-          echo "Polling Railway until auth middleware is active (max 15 min)..."
-          for i in $(seq 1 90); do
+          echo "Polling Railway until auth middleware is active (max 20 min)..."
+          for i in $(seq 1 120); do
             BODY=$(curl -s --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo '{"error":"connection_failed"}')
             CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo "000")
-            echo "Attempt $i/90: GET /api/meetings → $CODE | $BODY"
+            echo "Attempt $i/120: GET /api/meetings → $CODE | $BODY"
             if [ "$CODE" = "401" ]; then
               echo "✅ New deployment active after $((i * 10))s"
               exit 0
@@ -42,34 +50,39 @@ jobs:
             sleep 10
           done
           echo ""
-          echo "⚠️ Timeout: Railway still returns $CODE after 15 min — proceeding with tests anyway to diagnose."
-          echo "Fix: Go to railway.app → project → meeting-manager service → Redeploy"
-          echo "  OR add RAILWAY_TOKEN to GitHub repo secrets for automatic redeploy."
+          echo "⚠️ Timeout after 20 min — Railway still returns $CODE"
+          echo "Action required: Go to railway.app → project → meeting-manager service → Redeploy"
+          echo "OR add RAILWAY_DEPLOY_HOOK_URL to GitHub repo secrets."
 
       - name: Health check
+        if: always()
         run: |
           curl -sf "$API_URL/api/healthz" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'; print('✅ Health OK')"
 
       - name: Auth protection (no session)
+        if: always()
         run: |
           for ENDPOINT in meetings tasks users dashboard/stats; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/$ENDPOINT")
-            [ "$CODE" = "401" ] && echo "✅ /api/$ENDPOINT protected" || (echo "❌ /api/$ENDPOINT returned $CODE" && exit 1)
+            [ "$CODE" = "401" ] && echo "✅ /api/$ENDPOINT protected" || (echo "❌ /api/$ENDPOINT returned $CODE (expected 401 — requireAuth not deployed)" && exit 1)
           done
 
       - name: Wrong password rejected
+        if: always()
         run: |
           CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/api/auth/login" \
             -H "Content-Type: application/json" -d '{"username":"admin","password":"WRONG"}')
           [ "$CODE" = "401" ] && echo "✅ Wrong password rejected" || (echo "❌ Wrong password returned $CODE" && exit 1)
 
       - name: Seed database
+        if: always()
         run: |
           RESP=$(curl -s -X POST "$API_URL/api/seed" -H "x-seed-key: $SEED_KEY")
           echo "Seed response: $RESP"
           echo "✅ Database seeded (or users already existed)"
 
       - name: Login as admin
+        if: always()
         run: |
           RESP=$(curl -s -c /tmp/cookies.txt -X POST "$API_URL/api/auth/login" \
             -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}')
@@ -77,6 +90,7 @@ jobs:
           [ "$HAS" = "True" ] && echo "✅ Login admin OK" || (echo "❌ Login admin failed: $RESP" && exit 1)
 
       - name: Login as manager1
+        if: always()
         run: |
           RESP=$(curl -s -c /tmp/cookies2.txt -X POST "$API_URL/api/auth/login" \
             -H "Content-Type: application/json" -d '{"username":"manager1","password":"manager123"}')
@@ -84,6 +98,7 @@ jobs:
           [ "$HAS" = "True" ] && echo "✅ Login manager1 OK" || (echo "❌ Login manager1 failed: $RESP" && exit 1)
 
       - name: Login as member1
+        if: always()
         run: |
           RESP=$(curl -s -c /tmp/cookies3.txt -X POST "$API_URL/api/auth/login" \
             -H "Content-Type: application/json" -d '{"username":"member1","password":"member123"}')
@@ -91,18 +106,21 @@ jobs:
           [ "$HAS" = "True" ] && echo "✅ Login member1 OK" || (echo "❌ Login member1 failed: $RESP" && exit 1)
 
       - name: Get current user
+        if: always()
         run: |
           ME=$(curl -s -b /tmp/cookies.txt "$API_URL/api/auth/me" | \
             python3 -c "import sys,json; print(json.load(sys.stdin)['username'])" 2>/dev/null)
           [ "$ME" = "admin" ] && echo "✅ GET /auth/me: $ME" || (echo "❌ /auth/me failed: $ME" && exit 1)
 
       - name: List users
+        if: always()
         run: |
           CNT=$(curl -s -b /tmp/cookies.txt "$API_URL/api/users" | \
             python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
           [ "$CNT" -ge 3 ] && echo "✅ Users list: $CNT users" || (echo "❌ Users list: $CNT" && exit 1)
 
       - name: Meeting CRUD
+        if: always()
         run: |
           MTG=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/meetings" \
             -H "Content-Type: application/json" \
@@ -119,6 +137,7 @@ jobs:
           echo "$MTG_ID" > /tmp/mtg_id.txt
 
       - name: Tasks CRUD
+        if: always()
         run: |
           MTG_ID=$(cat /tmp/mtg_id.txt)
           TASK=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/tasks" \
@@ -132,6 +151,7 @@ jobs:
           [ "$PCT" = "50" ] && echo "✅ Update task 50%" || (echo "❌ Update task: $PCT" && exit 1)
 
       - name: Minutes CRUD
+        if: always()
         run: |
           MTG_ID=$(cat /tmp/mtg_id.txt)
           MIN=$(curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/meetings/$MTG_ID/minutes" \
@@ -144,12 +164,14 @@ jobs:
           [ "$APP" = "approved" ] && echo "✅ Approve minutes" || (echo "❌ Approve minutes: $APP" && exit 1)
 
       - name: Dashboard
+        if: always()
         run: |
           DASH=$(curl -s -b /tmp/cookies.txt "$API_URL/api/dashboard/stats")
           HAS=$(echo "$DASH" | python3 -c "import sys,json; d=json.load(sys.stdin); print('totalMeetings' in d)" 2>/dev/null)
           [ "$HAS" = "True" ] && echo "✅ Dashboard stats" || (echo "❌ Dashboard: $DASH" && exit 1)
 
       - name: Logout and session protection
+        if: always()
         run: |
           curl -s -b /tmp/cookies.txt -X POST "$API_URL/api/auth/logout" > /dev/null
           CODE=$(curl -s -o /dev/null -w "%{http_code}" -b /tmp/cookies.txt "$API_URL/api/meetings")
@@ -167,6 +189,7 @@ jobs:
           fi
 
       - name: Frontend accessibility
+        if: always()
         run: |
           CODE=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL/")
           [ "$CODE" = "200" ] && echo "✅ Frontend homepage (200)" || echo "⚠️ Frontend: $CODE"
@@ -174,6 +197,7 @@ jobs:
           [ "$CODE" = "200" ] && echo "✅ Frontend /meetings (SPA routing)" || echo "⚠️ /meetings: $CODE"
 
       - name: Summary
+        if: always()
         run: |
           echo ""
           echo "🎉 جميع اختبارات Railway نجحت!"

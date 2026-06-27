@@ -239,7 +239,9 @@ export const UpdateMeetingBody = zod.object({
   "objectives": zod.string().optional(),
   "chairpersonId": zod.number().nullish(),
   "attendeeIds": zod.array(zod.number()).optional(),
-  "agendaItems": zod.array(zod.string()).optional()
+  "agendaItems": zod.array(zod.string()).optional(),
+  "invitationsSentAt": zod.string().optional(),
+  "minutesSentAt": zod.string().optional()
 })
 
 export const UpdateMeetingResponse = zod.object({

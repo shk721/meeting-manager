@@ -14,6 +14,8 @@ export const meetingsTable = pgTable("meetings", {
   objectives: text("objectives"),
   chairpersonId: integer("chairperson_id"),
   agendaItems: text("agenda_items").array().notNull().default([]),
+  invitationsSentAt: timestamp("invitations_sent_at", { withTimezone: true }),
+  minutesSentAt: timestamp("minutes_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

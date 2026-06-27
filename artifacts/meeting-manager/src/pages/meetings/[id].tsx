@@ -20,12 +20,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Calendar, Clock, MapPin, Users, Target, CheckSquare, FileText,
-  Briefcase, Plus, Trash2, Send, Play, CheckCircle2, Circle,
-  ChevronDown, ChevronUp, Edit,
+  Calendar, Clock, MapPin, Users, Target, FileText,
+  Briefcase, Plus, Trash2, Send, Play, CheckCircle2,
+  ChevronDown, ChevronUp, Edit, AlertCircle,
 } from "lucide-react";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
@@ -36,13 +33,13 @@ const statusMap: Record<string, { label: string; variant: "default" | "secondary
   postponed: { label: "مؤجل", variant: "secondary" },
 };
 
-const taskStatusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
-  open: { label: "مفتوح", variant: "default" },
-  in_progress: { label: "قيد التنفيذ", variant: "warning" },
-  completed: { label: "مكتمل", variant: "success" },
-  cancelled: { label: "ملغى", variant: "destructive" },
-  on_hold: { label: "معلق", variant: "secondary" },
-};
+const taskStatusOptions = [
+  { value: "open", label: "مفتوح" },
+  { value: "in_progress", label: "قيد التنفيذ" },
+  { value: "on_hold", label: "معلق" },
+  { value: "completed", label: "مكتمل" },
+  { value: "cancelled", label: "ملغى" },
+];
 
 const priorityMap: Record<string, string> = {
   low: "منخفض", medium: "متوسط", high: "عالٍ", critical: "حرج",
@@ -113,19 +110,19 @@ export default function MeetingDetail({ id }: { id: string }) {
 
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskForm, setTaskForm] = useState({
-    title: "", description: "", status: "open", priority: "medium",
+    title: "", description: "", priority: "medium",
     dueDate: "", assigneeId: "", agendaItem: "",
   });
   const [isCreatingTask, setIsCreatingTask] = useState(false);
 
-  // Minutes dialog
+  // Minutes
   const [minutesOpen, setMinutesOpen] = useState(false);
   const [minutesForm, setMinutesForm] = useState({
-    executiveSummary: "", discussionItems: "", risks: "", previousFollowUp: "",
+    executiveSummary: "", risks: "", previousFollowUp: "",
   });
   const [isSavingMinutes, setIsSavingMinutes] = useState(false);
 
-  // Expanded agenda items for discussion
+  // Expanded agenda items
   const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: getGetMeetingQueryKey(meetingId) });
@@ -172,18 +169,6 @@ export default function MeetingDetail({ id }: { id: string }) {
     finally { setIsSavingAgenda(false); }
   };
 
-  const handleSendInvitations = async () => {
-    await patchMeeting({ invitationsSentAt: new Date().toISOString() });
-  };
-
-  const handleStartMeeting = async () => {
-    await patchMeeting({ status: "in_progress" });
-  };
-
-  const handleCloseMeeting = async () => {
-    await patchMeeting({ status: "completed" });
-  };
-
   const openDecisionDialog = (agendaItem = "") => {
     setDecisionForm({ content: "", agendaItem, notes: "" });
     setDecisionOpen(true);
@@ -206,7 +191,7 @@ export default function MeetingDetail({ id }: { id: string }) {
   };
 
   const openTaskDialog = (agendaItem = "") => {
-    setTaskForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "", agendaItem });
+    setTaskForm({ title: "", description: "", priority: "medium", dueDate: "", assigneeId: "", agendaItem });
     setTaskOpen(true);
   };
 
@@ -217,9 +202,10 @@ export default function MeetingDetail({ id }: { id: string }) {
       await apiFetch(`/api/tasks`, "POST", {
         title: taskForm.title,
         description: taskForm.description || undefined,
-        status: taskForm.status,
+        status: "open",
         priority: taskForm.priority,
         meetingId,
+        agendaItem: taskForm.agendaItem || undefined,
         dueDate: taskForm.dueDate || undefined,
         assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
       });
@@ -237,12 +223,11 @@ export default function MeetingDetail({ id }: { id: string }) {
   };
 
   const openMinutesDialog = () => {
-    const m = (meeting as any)?.minutes;
+    const min = (meeting as any)?.minutes;
     setMinutesForm({
-      executiveSummary: m?.executiveSummary ?? "",
-      discussionItems: m?.discussionItems ?? "",
-      risks: m?.risks ?? "",
-      previousFollowUp: m?.previousFollowUp ?? "",
+      executiveSummary: min?.executiveSummary ?? "",
+      risks: min?.risks ?? "",
+      previousFollowUp: min?.previousFollowUp ?? "",
     });
     setMinutesOpen(true);
   };
@@ -250,9 +235,26 @@ export default function MeetingDetail({ id }: { id: string }) {
   const handleSaveMinutes = async () => {
     setIsSavingMinutes(true);
     try {
+      const m = meeting as any;
+      // Auto-generate discussionItems from agenda items + decisions + tasks
+      const discussionItems = (m.agendaItems ?? []).map((item: string, idx: number) => {
+        const itemDecisions = (m.decisions ?? []).filter((d: any) => d.agendaItem === item);
+        const itemTasks = (m.tasks ?? []).filter((t: any) => t.agendaItem === item);
+        let text = `${idx + 1}. ${item}`;
+        if (itemDecisions.length > 0) {
+          text += "\n   القرارات:";
+          itemDecisions.forEach((d: any) => { text += `\n   - ${d.content}`; });
+        }
+        if (itemTasks.length > 0) {
+          text += "\n   المهام:";
+          itemTasks.forEach((t: any) => { text += `\n   - ${t.title}${t.assignee ? ` (${t.assignee.fullName})` : ""}`; });
+        }
+        return text;
+      }).join("\n\n");
+
       await apiFetch(`/api/meetings/${meetingId}/minutes`, "POST", {
         executiveSummary: minutesForm.executiveSummary || undefined,
-        discussionItems: minutesForm.discussionItems || undefined,
+        discussionItems: discussionItems || undefined,
         risks: minutesForm.risks || undefined,
         previousFollowUp: minutesForm.previousFollowUp || undefined,
         status: "draft",
@@ -264,19 +266,19 @@ export default function MeetingDetail({ id }: { id: string }) {
   };
 
   const handleApproveMinutes = async () => {
-    const m = (meeting as any)?.minutes;
-    if (!m) return;
+    const min = (meeting as any)?.minutes;
+    if (!min) return;
     try {
-      await apiFetch(`/api/minutes/${m.id}/approve`, "POST");
+      await apiFetch(`/api/minutes/${min.id}/approve`, "POST");
       refresh();
     } catch (e: any) { setApiError(e.message); }
   };
 
   const handleSendMinutes = async () => {
-    const m = (meeting as any)?.minutes;
-    if (!m) return;
+    const min = (meeting as any)?.minutes;
+    if (!min) return;
     try {
-      await apiFetch(`/api/minutes/${m.id}/send`, "POST");
+      await apiFetch(`/api/minutes/${min.id}/send`, "POST");
       refresh();
     } catch (e: any) { setApiError(e.message); }
   };
@@ -295,11 +297,9 @@ export default function MeetingDetail({ id }: { id: string }) {
   const minutesApproved = m.minutes?.status === "approved";
   const minutesSent = !!m.minutesSentAt;
   const isClosed = m.status === "completed";
-  const tasks = m.tasks ?? [];
-  const decisions = m.decisions ?? [];
-  const allTasksDone = tasks.length > 0 && tasks.every((t: any) => t.status === "completed" || t.status === "cancelled");
+  const tasks: any[] = m.tasks ?? [];
+  const decisions: any[] = m.decisions ?? [];
 
-  // Compute lifecycle step (1-indexed)
   let currentStep = 1;
   if (hasAgenda) currentStep = 2;
   if (invitationsSent) currentStep = 3;
@@ -308,6 +308,9 @@ export default function MeetingDetail({ id }: { id: string }) {
   if (minutesApproved) currentStep = 6;
   if (minutesSent) currentStep = 7;
   if (isClosed) currentStep = 8;
+
+  const toggleItem = (idx: number) =>
+    setExpandedItems(prev => ({ ...prev, [idx]: !prev[idx] }));
 
   return (
     <div className="space-y-6">
@@ -343,13 +346,13 @@ export default function MeetingDetail({ id }: { id: string }) {
             {statusMap[m.status]?.label || m.status}
           </Badge>
           {m.status === "scheduled" && (
-            <Button onClick={handleStartMeeting} disabled={isPending} size="sm">
+            <Button onClick={() => patchMeeting({ status: "in_progress" })} disabled={isPending} size="sm">
               <Play className="h-4 w-4 ml-1" />
               بدء الاجتماع
             </Button>
           )}
           {m.status === "in_progress" && (
-            <Button onClick={handleCloseMeeting} disabled={isPending} size="sm" variant="destructive">
+            <Button onClick={() => patchMeeting({ status: "completed" })} disabled={isPending} size="sm" variant="destructive">
               <CheckCircle2 className="h-4 w-4 ml-1" />
               إغلاق الاجتماع
             </Button>
@@ -382,126 +385,230 @@ export default function MeetingDetail({ id }: { id: string }) {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Attendees */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="h-4 w-4" />
-                المشاركون ({m.attendees?.length ?? 0})
-                {hasAttendees && !invitationsSent && (
-                  <Badge variant="outline" className="text-xs">لم تُرسَل الدعوات</Badge>
+      {/* PRIMARY: Agenda Card (full-width, dominant) */}
+      <Card className="border-2 border-primary/20">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Target className="h-5 w-5 text-primary" />
+                جدول الأعمال
+                <Badge variant="outline" className="text-xs font-normal">
+                  {m.agendaItems?.length ?? 0} بند
+                </Badge>
+              </CardTitle>
+              {/* Attendees summary inline */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  <span>{m.attendees?.length ?? 0} مشارك</span>
+                </div>
+                {hasAttendees && (
+                  <div className="flex flex-wrap gap-1">
+                    {m.attendees.slice(0, 4).map((a: any) => (
+                      <span key={a.id} className="text-xs bg-muted rounded-full px-2 py-0.5">{a.fullName}</span>
+                    ))}
+                    {m.attendees.length > 4 && (
+                      <span className="text-xs text-muted-foreground">+{m.attendees.length - 4}</span>
+                    )}
+                  </div>
                 )}
                 {invitationsSent && (
                   <Badge variant={"success" as any} className="text-xs">تم إرسال الدعوات</Badge>
                 )}
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={openAttendeesDialog}>
-                  <Edit className="h-3 w-3 ml-1" />
-                  تعديل
-                </Button>
-                {hasAttendees && !invitationsSent && (
-                  <Button size="sm" onClick={handleSendInvitations} disabled={isPending}>
-                    <Send className="h-3 w-3 ml-1" />
-                    إرسال الدعوات
-                  </Button>
-                )}
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            {hasAttendees ? (
-              <ul className="space-y-1">
-                {m.attendees.map((a: any) => (
-                  <li key={a.id} className="flex justify-between items-center py-1 border-b last:border-0 text-sm">
-                    <span>{a.fullName}</span>
-                    <span className="text-muted-foreground">{a.role}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground text-sm">لم يتم تحديد مشاركين بعد.</p>
-            )}
-            {invitationsSent && (
-              <p className="text-xs text-muted-foreground mt-2">
-                أُرسلت الدعوات: {new Date(m.invitationsSentAt).toLocaleString("ar-SA")}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Agenda */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Target className="h-4 w-4" />
-                جدول الأعمال ({m.agendaItems?.length ?? 0} بند)
-              </CardTitle>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={openAttendeesDialog}>
+                <Users className="h-3 w-3 ml-1" />
+                المشاركون
+              </Button>
+              {hasAttendees && !invitationsSent && (
+                <Button size="sm" variant="outline" onClick={() => patchMeeting({ invitationsSentAt: new Date().toISOString() })} disabled={isPending}>
+                  <Send className="h-3 w-3 ml-1" />
+                  إرسال الدعوات
+                </Button>
+              )}
               <Button size="sm" variant="outline" onClick={openAgendaDialog}>
                 <Edit className="h-3 w-3 ml-1" />
-                تعديل
+                تعديل الجدول
               </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            {hasAgenda ? (
-              <ol className="space-y-2">
-                {m.agendaItems.map((item: string, idx: number) => (
-                  <li key={idx} className="border rounded-lg overflow-hidden">
+          </div>
+        </CardHeader>
+        <CardContent>
+          {hasAgenda ? (
+            <ol className="space-y-3">
+              {m.agendaItems.map((item: string, idx: number) => {
+                const itemDecisions = decisions.filter((d: any) => d.agendaItem === item);
+                const itemTasks = tasks.filter((t: any) => t.agendaItem === item);
+                const isExpanded = expandedItems[idx] ?? isStarted;
+                const hasContent = itemDecisions.length > 0 || itemTasks.length > 0;
+
+                return (
+                  <li key={idx} className="border rounded-xl overflow-hidden bg-card">
+                    {/* Agenda item header */}
                     <div
-                      className="flex justify-between items-center p-3 cursor-pointer hover:bg-muted/50"
-                      onClick={() => setExpandedItems(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                      className="flex justify-between items-center p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                      onClick={() => toggleItem(idx)}
                     >
-                      <span className="flex items-center gap-2 text-sm font-medium">
-                        <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{idx + 1}</span>
-                        {item}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
+                          {idx + 1}
+                        </span>
+                        <span className="font-medium">{item}</span>
+                        {hasContent && (
+                          <div className="flex gap-1">
+                            {itemDecisions.length > 0 && (
+                              <Badge variant="secondary" className="text-xs">{itemDecisions.length} قرار</Badge>
+                            )}
+                            {itemTasks.length > 0 && (
+                              <Badge variant="outline" className="text-xs">{itemTasks.length} مهمة</Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         {isStarted && (
                           <>
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={e => { e.stopPropagation(); openDecisionDialog(item); }}>
-                              <Plus className="h-3 w-3 ml-1" />
+                            <Button
+                              size="sm" variant="ghost" className="h-8 text-xs gap-1"
+                              onClick={e => { e.stopPropagation(); openDecisionDialog(item); }}
+                            >
+                              <Plus className="h-3 w-3" />
                               قرار
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={e => { e.stopPropagation(); openTaskDialog(item); }}>
-                              <Plus className="h-3 w-3 ml-1" />
+                            <Button
+                              size="sm" variant="ghost" className="h-8 text-xs gap-1"
+                              onClick={e => { e.stopPropagation(); openTaskDialog(item); }}
+                            >
+                              <Plus className="h-3 w-3" />
                               مهمة
                             </Button>
                           </>
                         )}
-                        {expandedItems[idx] ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                       </div>
                     </div>
-                    {expandedItems[idx] && (
-                      <div className="px-3 pb-3 pt-1 border-t bg-muted/20 space-y-2">
-                        {decisions.filter((d: any) => d.agendaItem === item).length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-1">القرارات:</p>
-                            {decisions.filter((d: any) => d.agendaItem === item).map((d: any) => (
-                              <p key={d.id} className="text-sm pr-2 border-r-2 border-blue-300">{d.content}</p>
-                            ))}
+
+                    {/* Expanded content */}
+                    {isExpanded && (
+                      <div className="border-t bg-muted/10 divide-y">
+                        {/* Decisions for this item */}
+                        {itemDecisions.length > 0 && (
+                          <div className="p-4">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">القرارات</h4>
+                            <ul className="space-y-2">
+                              {itemDecisions.map((d: any, di: number) => (
+                                <li key={d.id} className="flex gap-2 items-start">
+                                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                                    {di + 1}
+                                  </span>
+                                  <div>
+                                    <p className="text-sm">{d.content}</p>
+                                    {d.notes && <p className="text-xs text-muted-foreground mt-0.5">{d.notes}</p>}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         )}
-                        {tasks.filter((t: any) => t.title.includes(item.slice(0, 20))).length === 0 &&
-                         decisions.filter((d: any) => d.agendaItem === item).length === 0 && (
-                          <p className="text-xs text-muted-foreground">لا توجد قرارات أو مهام لهذا البند.</p>
+
+                        {/* Tasks for this item */}
+                        {itemTasks.length > 0 && (
+                          <div className="p-4">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">المهام</h4>
+                            <ul className="space-y-2">
+                              {itemTasks.map((t: any) => (
+                                <li key={t.id} className="flex items-center gap-3 text-sm">
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-medium truncate block">{t.title}</span>
+                                    {t.assignee && (
+                                      <span className="text-xs text-muted-foreground">{t.assignee.fullName}</span>
+                                    )}
+                                  </div>
+                                  {t.dueDate && (
+                                    <span className="text-xs text-muted-foreground shrink-0">
+                                      {new Date(t.dueDate).toLocaleDateString("ar-SA")}
+                                    </span>
+                                  )}
+                                  <Badge variant="outline" className="text-xs shrink-0">
+                                    {priorityMap[t.priority] || t.priority}
+                                  </Badge>
+                                  <div className="shrink-0">
+                                    <Select value={t.status} onValueChange={v => handleUpdateTaskStatus(t.id, v)}>
+                                      <SelectTrigger className="h-7 text-xs w-[110px]">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {taskStatusOptions.map(o => (
+                                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Empty state when started but nothing added */}
+                        {isStarted && itemDecisions.length === 0 && itemTasks.length === 0 && (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            أضف قرارات أو مهام لهذا البند
+                          </div>
+                        )}
+
+                        {/* Unlinked tasks/decisions notice when not started */}
+                        {!isStarted && itemDecisions.length === 0 && itemTasks.length === 0 && (
+                          <div className="p-4 text-center text-xs text-muted-foreground">
+                            ابدأ الاجتماع لتسجيل القرارات والمهام
+                          </div>
                         )}
                       </div>
                     )}
                   </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="text-muted-foreground text-sm">لم يتم تحديد جدول أعمال بعد.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                );
+              })}
+            </ol>
+          ) : (
+            <div className="text-center py-10">
+              <Target className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-muted-foreground mb-4">لم يتم تحديد جدول أعمال بعد</p>
+              <Button onClick={openAgendaDialog}>
+                <Plus className="h-4 w-4 ml-1" />
+                إضافة جدول الأعمال
+              </Button>
+            </div>
+          )}
 
-      {/* Minutes */}
+          {/* Unlinked tasks/decisions (not associated with any agenda item) */}
+          {(() => {
+            const unlinkedDecisions = decisions.filter((d: any) => !d.agendaItem);
+            const unlinkedTasks = tasks.filter((t: any) => !t.agendaItem);
+            if (unlinkedDecisions.length === 0 && unlinkedTasks.length === 0) return null;
+            return (
+              <div className="mt-4 border rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 p-3 bg-muted/30">
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">بنود غير مرتبطة بجدول الأعمال</span>
+                </div>
+                <div className="p-3 space-y-1">
+                  {unlinkedDecisions.map((d: any) => (
+                    <p key={d.id} className="text-sm pr-3 border-r-2 border-blue-300">{d.content}</p>
+                  ))}
+                  {unlinkedTasks.map((t: any) => (
+                    <p key={t.id} className="text-sm pr-3 border-r-2 border-orange-300">{t.title}</p>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* Minutes Card */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex justify-between items-center">
@@ -518,7 +625,7 @@ export default function MeetingDetail({ id }: { id: string }) {
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={openMinutesDialog}>
                 <Edit className="h-3 w-3 ml-1" />
-                {hasMinutes ? "تعديل" : "كتابة المحضر"}
+                {hasMinutes ? "تعديل" : "إنشاء المحضر"}
               </Button>
               {hasMinutes && !minutesApproved && (
                 <Button size="sm" onClick={handleApproveMinutes}>
@@ -529,36 +636,73 @@ export default function MeetingDetail({ id }: { id: string }) {
               {minutesApproved && !minutesSent && (
                 <Button size="sm" onClick={handleSendMinutes}>
                   <Send className="h-3 w-3 ml-1" />
-                  إرسال المحضر
+                  إرسال
                 </Button>
               )}
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          {hasMinutes ? (
-            <div className="space-y-4">
+          {/* Auto-generated minutes from agenda */}
+          {hasAgenda && (
+            <div className="mb-4">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                بنود الاجتماع وما يرتبط بها
+              </h4>
+              <div className="space-y-4">
+                {m.agendaItems.map((item: string, idx: number) => {
+                  const itemDecisions = decisions.filter((d: any) => d.agendaItem === item);
+                  const itemTasks = tasks.filter((t: any) => t.agendaItem === item);
+                  return (
+                    <div key={idx} className="border-r-2 border-primary/40 pr-3">
+                      <p className="font-medium text-sm">{idx + 1}. {item}</p>
+                      {itemDecisions.length > 0 && (
+                        <div className="mt-2 mr-3">
+                          <p className="text-xs text-muted-foreground font-medium mb-1">القرارات:</p>
+                          {itemDecisions.map((d: any) => (
+                            <p key={d.id} className="text-sm text-muted-foreground">• {d.content}</p>
+                          ))}
+                        </div>
+                      )}
+                      {itemTasks.length > 0 && (
+                        <div className="mt-2 mr-3">
+                          <p className="text-xs text-muted-foreground font-medium mb-1">المهام:</p>
+                          {itemTasks.map((t: any) => (
+                            <p key={t.id} className="text-sm text-muted-foreground">
+                              • {t.title}
+                              {t.assignee && <span className="text-xs"> ({t.assignee.fullName})</span>}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {itemDecisions.length === 0 && itemTasks.length === 0 && (
+                        <p className="text-xs text-muted-foreground mr-3 mt-1">—</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Stored minutes fields */}
+          {hasMinutes && (
+            <div className="space-y-3 pt-4 border-t">
               {m.minutes.executiveSummary && (
                 <div>
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-1">الملخص التنفيذي</h4>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">الملخص التنفيذي</h4>
                   <p className="text-sm whitespace-pre-wrap">{m.minutes.executiveSummary}</p>
-                </div>
-              )}
-              {m.minutes.discussionItems && (
-                <div>
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-1">نقاط النقاش</h4>
-                  <p className="text-sm whitespace-pre-wrap">{m.minutes.discussionItems}</p>
                 </div>
               )}
               {m.minutes.risks && (
                 <div>
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-1">المخاطر</h4>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">المخاطر</h4>
                   <p className="text-sm whitespace-pre-wrap">{m.minutes.risks}</p>
                 </div>
               )}
               {m.minutes.previousFollowUp && (
                 <div>
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-1">متابعة سابقة</h4>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">متابعة سابقة</h4>
                   <p className="text-sm whitespace-pre-wrap">{m.minutes.previousFollowUp}</p>
                 </div>
               )}
@@ -568,111 +712,10 @@ export default function MeetingDetail({ id }: { id: string }) {
                 </p>
               )}
             </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">لم يتم كتابة محضر بعد.</p>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Decisions */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CheckSquare className="h-4 w-4" />
-              القرارات ({decisions.length})
-            </CardTitle>
-            <Button size="sm" variant="outline" onClick={() => openDecisionDialog()}>
-              <Plus className="h-3 w-3 ml-1" />
-              قرار جديد
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {decisions.length > 0 ? (
-            <div className="space-y-2">
-              {decisions.map((d: any, idx: number) => (
-                <div key={d.id} className="p-3 border rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{idx + 1}</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{d.content}</p>
-                      {d.agendaItem && <p className="text-xs text-muted-foreground mt-1">البند: {d.agendaItem}</p>}
-                      {d.notes && <p className="text-xs text-muted-foreground mt-1">{d.notes}</p>}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">لا توجد قرارات مسجلة.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tasks */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CheckSquare className="h-4 w-4" />
-              المهام ({tasks.length})
-              {allTasksDone && tasks.length > 0 && <Badge variant={"success" as any} className="text-xs">مكتملة</Badge>}
-            </CardTitle>
-            <Button size="sm" variant="outline" onClick={() => openTaskDialog()}>
-              <Plus className="h-3 w-3 ml-1" />
-              مهمة جديدة
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {tasks.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>المهمة</TableHead>
-                  <TableHead>المسؤول</TableHead>
-                  <TableHead>الأولوية</TableHead>
-                  <TableHead>تاريخ الاستحقاق</TableHead>
-                  <TableHead>الإنجاز</TableHead>
-                  <TableHead>الحالة</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.map((task: any) => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.title}</TableCell>
-                    <TableCell>{task.assignee?.fullName || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">{priorityMap[task.priority] || task.priority}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">{task.dueDate ? new Date(task.dueDate).toLocaleDateString("ar-SA") : "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress value={task.completionPercent || 0} className="w-[50px]" />
-                        <span className="text-xs">{task.completionPercent || 0}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Select value={task.status} onValueChange={v => handleUpdateTaskStatus(task.id, v)}>
-                        <SelectTrigger className="h-7 text-xs w-[120px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="open">مفتوح</SelectItem>
-                          <SelectItem value="in_progress">قيد التنفيذ</SelectItem>
-                          <SelectItem value="on_hold">معلق</SelectItem>
-                          <SelectItem value="completed">مكتمل</SelectItem>
-                          <SelectItem value="cancelled">ملغى</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-muted-foreground text-sm">لا توجد مهام مرتبطة.</p>
+          {!hasMinutes && !hasAgenda && (
+            <p className="text-muted-foreground text-sm">أضف جدول الأعمال أولاً لإنشاء المحضر.</p>
           )}
         </CardContent>
       </Card>
@@ -768,19 +811,6 @@ export default function MeetingDetail({ id }: { id: string }) {
               <Label>ملاحظات</Label>
               <Input placeholder="اختياري" value={decisionForm.notes} onChange={e => setDecisionForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
-            {!decisionForm.agendaItem && (
-              <div className="space-y-1">
-                <Label>البند المرتبط</Label>
-                <Select value={decisionForm.agendaItem} onValueChange={v => setDecisionForm(f => ({ ...f, agendaItem: v }))}>
-                  <SelectTrigger><SelectValue placeholder="اختياري" /></SelectTrigger>
-                  <SelectContent>
-                    {(m.agendaItems ?? []).map((item: string, idx: number) => (
-                      <SelectItem key={idx} value={item}>{item}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDecisionOpen(false)}>إلغاء</Button>
@@ -851,22 +881,21 @@ export default function MeetingDetail({ id }: { id: string }) {
       {/* Minutes Dialog */}
       <Dialog open={minutesOpen} onOpenChange={setMinutesOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>محضر الاجتماع</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>محضر الاجتماع — ملاحظات إضافية</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground px-1">
+            بنود الجدول والقرارات والمهام تُدرج تلقائياً في المحضر. أضف هنا أي معلومات إضافية.
+          </p>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
               <Label>الملخص التنفيذي</Label>
               <Textarea placeholder="ملخص ما تم" value={minutesForm.executiveSummary} onChange={e => setMinutesForm(f => ({ ...f, executiveSummary: e.target.value }))} rows={3} />
             </div>
             <div className="space-y-1">
-              <Label>نقاط النقاش</Label>
-              <Textarea placeholder="ما تم مناقشته" value={minutesForm.discussionItems} onChange={e => setMinutesForm(f => ({ ...f, discussionItems: e.target.value }))} rows={3} />
-            </div>
-            <div className="space-y-1">
-              <Label>المخاطر</Label>
+              <Label>المخاطر والمعوقات</Label>
               <Textarea placeholder="مخاطر ومعوقات" value={minutesForm.risks} onChange={e => setMinutesForm(f => ({ ...f, risks: e.target.value }))} rows={2} />
             </div>
             <div className="space-y-1">
-              <Label>متابعة سابقة</Label>
+              <Label>متابعة اجتماعات سابقة</Label>
               <Textarea placeholder="نقاط من اجتماعات سابقة" value={minutesForm.previousFollowUp} onChange={e => setMinutesForm(f => ({ ...f, previousFollowUp: e.target.value }))} rows={2} />
             </div>
           </div>

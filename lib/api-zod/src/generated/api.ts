@@ -467,6 +467,7 @@ export const CreateTaskBody = zod.object({
   "priority": zod.string(),
   "completionPercent": zod.number().optional(),
   "dueDate": zod.string().optional(),
+  "agendaItem": zod.string().optional(),
   "meetingId": zod.number().nullish(),
   "decisionId": zod.number().nullish(),
   "assigneeId": zod.number().nullish(),
@@ -555,6 +556,7 @@ export const UpdateTaskBody = zod.object({
   "priority": zod.string().optional(),
   "completionPercent": zod.number().optional(),
   "dueDate": zod.string().nullish(),
+  "agendaItem": zod.string().optional(),
   "assigneeId": zod.number().nullish(),
   "tags": zod.array(zod.string()).optional()
 })

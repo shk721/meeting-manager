@@ -3,7 +3,6 @@ import { eq, inArray } from "drizzle-orm";
 import {
   db, meetingsTable, meetingAttendeesTable,
   usersTable, minutesTable, tasksTable, decisionsTable,
-  taskCommentsTable, taskChangelogTable,
 } from "@workspace/db";
 import {
   GetMeetingsQueryParams, CreateMeetingBody,
@@ -199,12 +198,6 @@ router.patch("/meetings/:id", async (req, res): Promise<void> => {
 router.delete("/meetings/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const taskRows = await db.select({ id: tasksTable.id }).from(tasksTable).where(eq(tasksTable.meetingId, id));
-  const taskIds = taskRows.map(t => t.id);
-  if (taskIds.length > 0) {
-    await db.delete(taskChangelogTable).where(inArray(taskChangelogTable.taskId, taskIds));
-    await db.delete(taskCommentsTable).where(inArray(taskCommentsTable.taskId, taskIds));
-  }
   await db.delete(meetingAttendeesTable).where(eq(meetingAttendeesTable.meetingId, id));
   await db.delete(minutesTable).where(eq(minutesTable.meetingId, id));
   await db.delete(decisionsTable).where(eq(decisionsTable.meetingId, id));

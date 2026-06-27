@@ -45,7 +45,7 @@ export default function Meetings() {
     if (!form.title || !form.date || !form.time) return;
     setApiError("");
     createMeeting(
-      { title: form.title, date: form.date, time: form.time, status: form.status, project: form.project || undefined },
+      { data: { title: form.title, date: form.date, time: form.time, status: form.status, project: form.project || undefined } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeetingsQueryKey({}) });

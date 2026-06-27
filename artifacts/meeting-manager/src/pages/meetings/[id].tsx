@@ -99,13 +99,15 @@ export default function MeetingDetail({ id }: { id: string }) {
     if (!taskForm.title) return;
     createTask(
       {
-        title: taskForm.title,
-        description: taskForm.description || undefined,
-        status: taskForm.status,
-        priority: taskForm.priority,
-        meetingId,
-        dueDate: taskForm.dueDate || undefined,
-        assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
+        data: {
+          title: taskForm.title,
+          description: taskForm.description || undefined,
+          status: taskForm.status,
+          priority: taskForm.priority,
+          meetingId,
+          dueDate: taskForm.dueDate || undefined,
+          assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
+        },
       },
       {
         onSuccess: () => {
@@ -151,7 +153,7 @@ export default function MeetingDetail({ id }: { id: string }) {
   const handleCreateDecision = () => {
     if (!decisionForm.content) return;
     createDecision(
-      { content: decisionForm.content, meetingId, agendaItem: decisionForm.agendaItem || undefined, notes: decisionForm.notes || undefined },
+      { data: { content: decisionForm.content, meetingId, agendaItem: decisionForm.agendaItem || undefined, notes: decisionForm.notes || undefined } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetDecisionsQueryKey({ meetingId }) });

@@ -1,15 +1,28 @@
 import { useState } from "react";
 import {
   useGetMeeting, useGetMeetingMinutes, useGetDecisions, useGetTasks,
-  getGetMeetingQueryKey, getGetMeetingMinutesQueryKey, getGetDecisionsQueryKey, getGetTasksQueryKey
+  useCreateTask, useCreateMeetingMinutes, useApproveMinutes, useCreateDecision,
+  getGetMeetingQueryKey, getGetMeetingMinutesQueryKey, getGetDecisionsQueryKey, getGetTasksQueryKey,
+  useGetUsers,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, Users, Target, CheckSquare, FileText, Briefcase } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar, Clock, MapPin, Users, Target, CheckSquare, FileText, Briefcase, Plus } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
   scheduled: { label: "مجدول", variant: "default" },
@@ -35,22 +48,119 @@ const taskStatusMap: Record<string, string> = {
 
 export default function MeetingDetail({ id }: { id: string }) {
   const meetingId = parseInt(id, 10);
-  
+  const queryClient = useQueryClient();
+
   const { data: meeting, isLoading: isLoadingMeeting } = useGetMeeting(meetingId, {
     query: { enabled: !!meetingId, queryKey: getGetMeetingQueryKey(meetingId) }
   });
-  
   const { data: minutes, isLoading: isLoadingMinutes } = useGetMeetingMinutes(meetingId, {
     query: { enabled: !!meetingId, queryKey: getGetMeetingMinutesQueryKey(meetingId) }
   });
-  
   const { data: decisions, isLoading: isLoadingDecisions } = useGetDecisions({ meetingId }, {
     query: { enabled: !!meetingId, queryKey: getGetDecisionsQueryKey({ meetingId }) }
   });
-  
   const { data: tasks, isLoading: isLoadingTasks } = useGetTasks({ meetingId }, {
     query: { enabled: !!meetingId, queryKey: getGetTasksQueryKey({ meetingId }) }
   });
+  const { data: users } = useGetUsers();
+
+  const { mutate: createTask, isPending: isCreatingTask } = useCreateTask();
+  const { mutate: createMinutes, isPending: isCreatingMinutes } = useCreateMeetingMinutes();
+  const { mutate: approveMinutes, isPending: isApprovingMinutes } = useApproveMinutes();
+  const { mutate: createDecision, isPending: isCreatingDecision } = useCreateDecision();
+
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [minutesOpen, setMinutesOpen] = useState(false);
+  const [decisionOpen, setDecisionOpen] = useState(false);
+
+  const [taskForm, setTaskForm] = useState({
+    title: "",
+    description: "",
+    status: "open",
+    priority: "medium",
+    dueDate: "",
+    assigneeId: "",
+  });
+
+  const [minutesForm, setMinutesForm] = useState({
+    executiveSummary: "",
+    discussionItems: "",
+    risks: "",
+    previousFollowUp: "",
+  });
+
+  const [decisionForm, setDecisionForm] = useState({
+    content: "",
+    agendaItem: "",
+    notes: "",
+  });
+
+  const handleCreateTask = () => {
+    if (!taskForm.title) return;
+    createTask(
+      {
+        title: taskForm.title,
+        description: taskForm.description || undefined,
+        status: taskForm.status,
+        priority: taskForm.priority,
+        meetingId,
+        dueDate: taskForm.dueDate || undefined,
+        assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey({ meetingId }) });
+          setTaskOpen(false);
+          setTaskForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "" });
+        },
+      }
+    );
+  };
+
+  const handleSaveMinutes = () => {
+    const data = {
+      executiveSummary: minutesForm.executiveSummary || undefined,
+      discussionItems: minutesForm.discussionItems || undefined,
+      risks: minutesForm.risks || undefined,
+      previousFollowUp: minutesForm.previousFollowUp || undefined,
+      status: "draft",
+    };
+    createMinutes(
+      { id: meetingId, data },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeetingMinutesQueryKey(meetingId) });
+          setMinutesOpen(false);
+        },
+      }
+    );
+  };
+
+  const handleApproveMinutes = () => {
+    if (!minutes) return;
+    approveMinutes(
+      { id: (minutes as any).id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeetingMinutesQueryKey(meetingId) });
+        },
+      }
+    );
+  };
+
+  const handleCreateDecision = () => {
+    if (!decisionForm.content) return;
+    createDecision(
+      { content: decisionForm.content, meetingId, agendaItem: decisionForm.agendaItem || undefined, notes: decisionForm.notes || undefined },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetDecisionsQueryKey({ meetingId }) });
+          setDecisionOpen(false);
+          setDecisionForm({ content: "", agendaItem: "", notes: "" });
+        },
+      }
+    );
+  };
 
   if (isLoadingMeeting) {
     return (
@@ -98,7 +208,7 @@ export default function MeetingDetail({ id }: { id: string }) {
           <TabsTrigger value="decisions">القرارات</TabsTrigger>
           <TabsTrigger value="tasks">المهام</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="overview" className="mt-6 space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
@@ -115,20 +225,20 @@ export default function MeetingDetail({ id }: { id: string }) {
                     <span>{meeting.project}</span>
                   </div>
                 )}
-                {meeting.team && (
+                {(meeting as any).team && (
                   <div>
                     <span className="font-semibold block text-sm text-muted-foreground">الفريق</span>
-                    <span>{meeting.team}</span>
+                    <span>{(meeting as any).team}</span>
                   </div>
                 )}
                 <div>
                   <span className="font-semibold block text-sm text-muted-foreground">رئيس الاجتماع</span>
-                  <span>{meeting.chairperson?.fullName || "-"}</span>
+                  <span>{(meeting as any).chairperson?.fullName || "-"}</span>
                 </div>
-                {meeting.objectives && (
+                {(meeting as any).objectives && (
                   <div>
                     <span className="font-semibold block text-sm text-muted-foreground">الأهداف</span>
-                    <p className="whitespace-pre-wrap">{meeting.objectives}</p>
+                    <p className="whitespace-pre-wrap">{(meeting as any).objectives}</p>
                   </div>
                 )}
               </CardContent>
@@ -138,13 +248,13 @@ export default function MeetingDetail({ id }: { id: string }) {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  المشاركون ({meeting.attendees?.length || 0})
+                  المشاركون ({(meeting as any).attendees?.length || 0})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {meeting.attendees && meeting.attendees.length > 0 ? (
+                {(meeting as any).attendees && (meeting as any).attendees.length > 0 ? (
                   <ul className="space-y-2">
-                    {meeting.attendees.map(attendee => (
+                    {(meeting as any).attendees.map((attendee: any) => (
                       <li key={attendee.id} className="flex justify-between items-center py-1 border-b last:border-0">
                         <span>{attendee.fullName}</span>
                         <span className="text-sm text-muted-foreground">{attendee.role}</span>
@@ -165,9 +275,9 @@ export default function MeetingDetail({ id }: { id: string }) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {meeting.agendaItems && meeting.agendaItems.length > 0 ? (
+                {(meeting as any).agendaItems && (meeting as any).agendaItems.length > 0 ? (
                   <ol className="list-decimal list-inside space-y-2 pr-4">
-                    {meeting.agendaItems.map((item, index) => (
+                    {(meeting as any).agendaItems.map((item: any, index: any) => (
                       <li key={index} className="pl-2">{item}</li>
                     ))}
                   </ol>
@@ -178,7 +288,7 @@ export default function MeetingDetail({ id }: { id: string }) {
             </Card>
           </div>
         </TabsContent>
-        
+
         <TabsContent value="minutes" className="mt-6">
           <Card>
             <CardHeader>
@@ -187,18 +297,31 @@ export default function MeetingDetail({ id }: { id: string }) {
                   <FileText className="h-5 w-5" />
                   محضر الاجتماع
                 </CardTitle>
-                {minutes && (
-                  <Badge
-                    variant="secondary"
-                    className={
-                      minutes.status === 'approved' ? 'bg-green-100 text-green-800 border-green-200' :
-                      minutes.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                      ''
-                    }
-                  >
-                    {minutesStatusMap[minutes.status] || minutes.status}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {minutes && (
+                    <Badge
+                      variant="secondary"
+                      className={
+                        (minutes as any).status === 'approved' ? 'bg-green-100 text-green-800 border-green-200' :
+                        (minutes as any).status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                        ''
+                      }
+                    >
+                      {minutesStatusMap[(minutes as any).status] || (minutes as any).status}
+                    </Badge>
+                  )}
+                  {(!minutes || (minutes as any).status !== 'approved') && (
+                    <Button size="sm" onClick={() => setMinutesOpen(true)}>
+                      <Plus className="h-4 w-4 ml-1" />
+                      {minutes ? "تحديث المحضر" : "إنشاء محضر"}
+                    </Button>
+                  )}
+                  {minutes && (minutes as any).status !== 'approved' && (
+                    <Button size="sm" variant="outline" onClick={handleApproveMinutes} disabled={isApprovingMinutes}>
+                      اعتماد
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -206,28 +329,28 @@ export default function MeetingDetail({ id }: { id: string }) {
                 <div className="flex justify-center p-4"><Spinner /></div>
               ) : minutes ? (
                 <div className="space-y-6">
-                  {minutes.executiveSummary && (
+                  {(minutes as any).executiveSummary && (
                     <div>
                       <h3 className="text-lg font-semibold border-b pb-2 mb-2">الملخص التنفيذي</h3>
-                      <p className="whitespace-pre-wrap">{minutes.executiveSummary}</p>
+                      <p className="whitespace-pre-wrap">{(minutes as any).executiveSummary}</p>
                     </div>
                   )}
-                  {minutes.discussionItems && (
+                  {(minutes as any).discussionItems && (
                     <div>
                       <h3 className="text-lg font-semibold border-b pb-2 mb-2">نقاط النقاش</h3>
-                      <p className="whitespace-pre-wrap">{minutes.discussionItems}</p>
+                      <p className="whitespace-pre-wrap">{(minutes as any).discussionItems}</p>
                     </div>
                   )}
-                  {minutes.risks && (
+                  {(minutes as any).risks && (
                     <div>
                       <h3 className="text-lg font-semibold border-b pb-2 mb-2">المخاطر</h3>
-                      <p className="whitespace-pre-wrap">{minutes.risks}</p>
+                      <p className="whitespace-pre-wrap">{(minutes as any).risks}</p>
                     </div>
                   )}
-                  {minutes.previousFollowUp && (
+                  {(minutes as any).previousFollowUp && (
                     <div>
                       <h3 className="text-lg font-semibold border-b pb-2 mb-2">متابعة سابقة</h3>
-                      <p className="whitespace-pre-wrap">{minutes.previousFollowUp}</p>
+                      <p className="whitespace-pre-wrap">{(minutes as any).previousFollowUp}</p>
                     </div>
                   )}
                 </div>
@@ -239,12 +362,20 @@ export default function MeetingDetail({ id }: { id: string }) {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="decisions" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>القرارات</CardTitle>
-              <CardDescription>القرارات المتخذة خلال هذا الاجتماع</CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>القرارات</CardTitle>
+                  <CardDescription>القرارات المتخذة خلال هذا الاجتماع</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => setDecisionOpen(true)}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  قرار جديد
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoadingDecisions ? (
@@ -259,7 +390,7 @@ export default function MeetingDetail({ id }: { id: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {decisions.map(decision => (
+                    {decisions.map((decision: any) => (
                       <TableRow key={decision.id}>
                         <TableCell className="font-medium">{decision.content}</TableCell>
                         <TableCell>{decision.agendaItem || "-"}</TableCell>
@@ -280,10 +411,16 @@ export default function MeetingDetail({ id }: { id: string }) {
         <TabsContent value="tasks" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CheckSquare className="h-5 w-5" />
-                المهام المرتبطة
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center gap-2">
+                  <CheckSquare className="h-5 w-5" />
+                  المهام المرتبطة
+                </CardTitle>
+                <Button size="sm" onClick={() => setTaskOpen(true)}>
+                  <Plus className="h-4 w-4 ml-1" />
+                  مهمة جديدة
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoadingTasks ? (
@@ -300,7 +437,7 @@ export default function MeetingDetail({ id }: { id: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tasks.map(task => (
+                    {tasks.map((task: any) => (
                       <TableRow key={task.id}>
                         <TableCell className="font-medium">{task.title}</TableCell>
                         <TableCell>{task.assignee?.fullName || "-"}</TableCell>
@@ -329,6 +466,183 @@ export default function MeetingDetail({ id }: { id: string }) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Task Dialog */}
+      <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>إضافة مهمة جديدة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label>عنوان المهمة *</Label>
+              <Input
+                placeholder="أدخل عنوان المهمة"
+                value={taskForm.title}
+                onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>الوصف</Label>
+              <Textarea
+                placeholder="اختياري"
+                value={taskForm.description}
+                onChange={e => setTaskForm(f => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>الأولوية</Label>
+                <Select value={taskForm.priority} onValueChange={v => setTaskForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">منخفض</SelectItem>
+                    <SelectItem value="medium">متوسط</SelectItem>
+                    <SelectItem value="high">عالٍ</SelectItem>
+                    <SelectItem value="critical">حرج</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>الحالة</Label>
+                <Select value={taskForm.status} onValueChange={v => setTaskForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">مفتوح</SelectItem>
+                    <SelectItem value="in_progress">قيد التنفيذ</SelectItem>
+                    <SelectItem value="on_hold">معلق</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>تاريخ الاستحقاق</Label>
+                <Input
+                  type="date"
+                  value={taskForm.dueDate}
+                  onChange={e => setTaskForm(f => ({ ...f, dueDate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>المسؤول</Label>
+                <Select value={taskForm.assigneeId} onValueChange={v => setTaskForm(f => ({ ...f, assigneeId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
+                  <SelectContent>
+                    {((users ?? []) as any[]).map((u: any) => (
+                      <SelectItem key={u.id} value={String(u.id)}>{u.fullName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskOpen(false)}>إلغاء</Button>
+            <Button onClick={handleCreateTask} disabled={isCreatingTask || !taskForm.title}>
+              {isCreatingTask ? <Spinner className="h-4 w-4 ml-2" /> : null}
+              إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Minutes Dialog */}
+      <Dialog open={minutesOpen} onOpenChange={setMinutesOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>إنشاء محضر الاجتماع</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label>الملخص التنفيذي</Label>
+              <Textarea
+                rows={3}
+                placeholder="أدخل الملخص التنفيذي"
+                value={minutesForm.executiveSummary}
+                onChange={e => setMinutesForm(f => ({ ...f, executiveSummary: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>نقاط النقاش</Label>
+              <Textarea
+                rows={3}
+                placeholder="اختياري"
+                value={minutesForm.discussionItems}
+                onChange={e => setMinutesForm(f => ({ ...f, discussionItems: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>المخاطر</Label>
+              <Textarea
+                rows={2}
+                placeholder="اختياري"
+                value={minutesForm.risks}
+                onChange={e => setMinutesForm(f => ({ ...f, risks: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>متابعة سابقة</Label>
+              <Textarea
+                rows={2}
+                placeholder="اختياري"
+                value={minutesForm.previousFollowUp}
+                onChange={e => setMinutesForm(f => ({ ...f, previousFollowUp: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMinutesOpen(false)}>إلغاء</Button>
+            <Button onClick={handleSaveMinutes} disabled={isCreatingMinutes}>
+              {isCreatingMinutes ? <Spinner className="h-4 w-4 ml-2" /> : null}
+              حفظ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Decision Dialog */}
+      <Dialog open={decisionOpen} onOpenChange={setDecisionOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>إضافة قرار جديد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label>نص القرار *</Label>
+              <Textarea
+                rows={3}
+                placeholder="أدخل نص القرار"
+                value={decisionForm.content}
+                onChange={e => setDecisionForm(f => ({ ...f, content: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>بند جدول الأعمال</Label>
+              <Input
+                placeholder="اختياري"
+                value={decisionForm.agendaItem}
+                onChange={e => setDecisionForm(f => ({ ...f, agendaItem: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>ملاحظات</Label>
+              <Input
+                placeholder="اختياري"
+                value={decisionForm.notes}
+                onChange={e => setDecisionForm(f => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDecisionOpen(false)}>إلغاء</Button>
+            <Button onClick={handleCreateDecision} disabled={isCreatingDecision || !decisionForm.content}>
+              {isCreatingDecision ? <Spinner className="h-4 w-4 ml-2" /> : null}
+              إضافة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

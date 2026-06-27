@@ -36,23 +36,16 @@ jobs:
             echo "   (Railway dashboard → Service → Settings → Deploy Hooks → Create Hook)"
           fi
 
-      - name: Wait for Railway deployment with requireAuth (poll 20 min max)
+      - name: Check Railway deployment state
         run: |
-          echo "Polling Railway until auth middleware is active (max 20 min)..."
-          for i in $(seq 1 120); do
-            BODY=$(curl -s --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo '{"error":"connection_failed"}')
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo "000")
-            echo "Attempt $i/120: GET /api/meetings → $CODE | $BODY"
-            if [ "$CODE" = "401" ]; then
-              echo "✅ New deployment active after $((i * 10))s"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo ""
-          echo "⚠️ Timeout after 20 min — Railway still returns $CODE"
-          echo "Action required: Go to railway.app → project → meeting-manager service → Redeploy"
-          echo "OR add RAILWAY_DEPLOY_HOOK_URL to GitHub repo secrets."
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo "000")
+          BODY=$(curl -s --max-time 10 "$API_URL/api/meetings" 2>/dev/null || echo 'connection_failed')
+          echo "GET /api/meetings → $CODE | $BODY"
+          if [ "$CODE" = "401" ]; then
+            echo "✅ requireAuth active — new code is deployed"
+          else
+            echo "⚠️ Railway returns $CODE — may be old code (no requireAuth). Tests continue anyway."
+          fi
 
       - name: Health check
         if: always()

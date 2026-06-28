@@ -304,6 +304,9 @@ function exportJSON(data: unknown, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// ─── Spacing scale ────────────────────────────────────────────────────────────
+const SP = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:24 } as const;
+
 // ─── Atoms ────────────────────────────────────────────────────────────────────
 function Ring({ pct, size = 52, stroke = 4, color = "#2563eb" }: { pct: number; size?: number; stroke?: number; color?: string }) {
   const r = (size - stroke) / 2, circ = 2 * Math.PI * r, off = circ - (pct / 100) * circ;
@@ -321,22 +324,27 @@ function Btn({ onClick, children, active, sm, variant = "default" }: {
   onClick?: (e?: React.MouseEvent) => void; children: React.ReactNode;
   active?: boolean; sm?: boolean; variant?: "default"|"danger"|"success"|"ghost";
 }) {
+  const [hov, setHov] = useState(false);
   const styles = {
     default: active
-      ? { bg:C.accent, color:"#fff", border:`1px solid ${C.accent}` }
-      : { bg:"transparent", color:C.sub, border:`1px solid ${C.border}` },
-    danger:  { bg:"#ef444420", color:"#ef4444", border:"1px solid #ef444440" },
-    success: { bg:"#10b98120", color:"#10b981", border:"1px solid #10b98140" },
-    ghost:   { bg:"transparent", color:C.sub, border:`1px solid ${C.border}` },
+      ? { bg:hov?`${C.accent}cc`:C.accent, color:"#fff", border:`1px solid ${C.accent}` }
+      : { bg:hov?`${C.border}60`:"transparent", color:hov?C.text:C.sub, border:`1px solid ${hov?C.sub:C.border}` },
+    danger:  { bg:hov?"#ef444430":"#ef444420", color:"#ef4444", border:"1px solid #ef444440" },
+    success: { bg:hov?"#10b98130":"#10b98120", color:"#10b981", border:"1px solid #10b98140" },
+    ghost:   { bg:hov?`${C.border}60`:"transparent", color:hov?C.text:C.sub, border:`1px solid ${C.border}` },
   };
   const s = styles[variant] || styles.default;
   return (
-    <button onClick={onClick} style={{
-      background:s.bg, color:s.color, border:s.border,
-      borderRadius:7, cursor:"pointer", fontFamily:"inherit",
-      fontWeight:600, fontSize:sm?11:13, padding:sm?"4px 10px":"7px 15px",
-      transition:"all .15s", whiteSpace:"nowrap",
-    }}>{children}</button>
+    <button onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background:s.bg, color:s.color, border:s.border,
+        borderRadius:7, cursor:"pointer", fontFamily:"inherit",
+        fontWeight:600, fontSize:sm?11:13, padding:sm?"4px 10px":"7px 15px",
+        transition:"all .15s", whiteSpace:"nowrap",
+        transform: hov && !active ? "translateY(-1px)" : "none",
+      }}>{children}</button>
   );
 }
 
@@ -390,6 +398,35 @@ function Modal({ title, onClose, wide, children }: {
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+function Toast({ msg, onDone }: { msg: string; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 2200);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <div style={{
+      position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
+      background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
+      padding:"10px 20px", fontSize:13, color:C.text, fontWeight:600,
+      zIndex:300, boxShadow:"0 8px 32px #00000060",
+      animation:"fadeUp .25s ease",
+    }}>
+      <style>{`@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
+      {msg}
+    </div>
+  );
+}
+
+function EmptyState({ icon, title, sub }: { icon: string; title: string; sub?: string }) {
+  return (
+    <div style={{ textAlign:"center", padding:"32px 16px", display:"flex", flexDirection:"column", alignItems:"center", gap:SP.sm }}>
+      <div style={{ fontSize:32, opacity:.4 }}>{icon}</div>
+      <div style={{ fontSize:13, color:C.sub, fontWeight:600 }}>{title}</div>
+      {sub && <div style={{ fontSize:11, color:C.muted, maxWidth:260, lineHeight:1.6 }}>{sub}</div>}
     </div>
   );
 }
@@ -474,6 +511,75 @@ function UpdateLogModal({ task, onAddUpdate, onClose }: {
   );
 }
 
+// ─── Task Row ────────────────────────────────────────────────────────────────
+function TaskRow({ task: t, logCount, hasManual, onStatusChange, onOpenLog, onDelete }: {
+  task: Task; logCount: number; hasManual: boolean;
+  onStatusChange: (v: string) => void;
+  onOpenLog: () => void;
+  onDelete: () => void;
+}) {
+  const [hov, setHov] = useState(false);
+  const manualLogs = (t.updates || []).filter(u => !u.auto);
+  const lastNote = manualLogs.length ? manualLogs[manualLogs.length - 1] : null;
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{ marginBottom:SP.sm, background: hov ? C.raised : C.surface, borderRadius:9,
+        border:`1px solid ${hov ? C.sub : C.border}`, overflow:"hidden", transition:"all .15s" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:SP.sm, padding:"9px 12px" }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:12, color:C.text, fontWeight:600 }}>{t.title}</div>
+          <div style={{ display:"flex", gap:SP.md, marginTop:3, flexWrap:"wrap", alignItems:"center" }}>
+            {t.assignee && <span style={{ fontSize:10, color:C.sub }}>👤 {t.assignee}</span>}
+            {t.updatedAt && hov && (
+              <span style={{ fontSize:10, color:C.muted, transition:"opacity .15s" }}>
+                🕐 {new Date(t.updatedAt).toLocaleDateString("ar-SA", { day:"2-digit", month:"short" })}
+              </span>
+            )}
+          </div>
+        </div>
+        <div style={{ minWidth:120 }}>
+          <Sel value={t.status} onChange={onStatusChange} options={STATUS_KEYS}/>
+        </div>
+        <button onClick={onOpenLog} title="سجل التحديثات"
+          style={{
+            background: hasManual ? `${C.accent}20` : C.raised,
+            border:`1px solid ${hasManual ? C.accent : C.border}`,
+            borderRadius:7, cursor:"pointer", padding:"5px 9px",
+            display:"flex", alignItems:"center", gap:5, flexShrink:0,
+            transition:"all .15s",
+          }}>
+          <span style={{ fontSize:13 }}>📝</span>
+          {logCount > 0 && <span style={{ fontSize:10, fontWeight:700, color:hasManual?C.accent:C.muted }}>{logCount}</span>}
+        </button>
+        <button onClick={onDelete}
+          style={{
+            background:"none", border:"none", cursor:"pointer", fontSize:14, flexShrink:0,
+            color: hov ? "#ef4444" : C.muted,
+            opacity: hov ? 1 : 0.4,
+            transition:"all .15s",
+          }}>✕</button>
+      </div>
+      {lastNote && (
+        <div style={{
+          borderTop:`1px solid ${C.border}`, padding:"6px 12px",
+          background:`${C.accent}08`, display:"flex", gap:SP.sm, alignItems:"flex-start",
+        }}>
+          <span style={{ fontSize:11, color:C.accent, flexShrink:0, marginTop:1 }}>💬</span>
+          <span style={{ fontSize:11, color:C.sub, lineHeight:1.5, flex:1 }}>
+            {lastNote.note.length > 90 ? lastNote.note.slice(0, 89) + "…" : lastNote.note}
+          </span>
+          <span style={{ fontSize:10, color:C.muted, flexShrink:0, whiteSpace:"nowrap" }}>
+            {new Date(lastNote.at).toLocaleDateString("ar-SA", { day:"2-digit", month:"short" })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Component Card ───────────────────────────────────────────────────────────
 
 function ComponentCard({ comp, spId, onUpdateComp, onDeleteComp }: {
@@ -482,6 +588,7 @@ function ComponentCard({ comp, spId, onUpdateComp, onDeleteComp }: {
   onDeleteComp: (spId: string, cid: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [hov, setHov] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
   const [newTask, setNewTask] = useState({ title:"", assignee:"", status:"لم يبدأ" });
   const [logTask, setLogTask] = useState<Task | null>(null);
@@ -533,11 +640,16 @@ function ComponentCard({ comp, spId, onUpdateComp, onDeleteComp }: {
 
   return (
     <>
-    <div style={{
-      background:C.raised, border:`1px solid ${C.border}`, borderRadius:11,
-      marginBottom:10, overflow:"hidden",
-      borderRight:`3px solid ${d?.color || C.muted}`,
-    }}>
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: hov ? C.card : C.raised,
+        border:`1px solid ${hov ? (d?.color + "55" || C.sub) : C.border}`,
+        borderRadius:11, marginBottom:10, overflow:"hidden",
+        borderRight:`3px solid ${d?.color || C.muted}`,
+        transition:"all .2s", boxShadow: hov ? `0 4px 16px #00000030` : "none",
+      }}>
       <div style={{ padding:"11px 14px", cursor:"pointer", display:"flex", alignItems:"flex-start", gap:10 }}
         onClick={() => setOpen(o => !o)}>
         <span style={{ fontSize:17, marginTop:1, flexShrink:0 }}>{d?.icon}</span>
@@ -573,62 +685,13 @@ function ComponentCard({ comp, spId, onUpdateComp, onDeleteComp }: {
             </div>
 
             {comp.tasks.map(t => {
-              const sc  = STATUS[t.status] || STATUS["لم يبدأ"];
               const logCount = (t.updates || []).length;
               const hasManual = (t.updates || []).some((u) => !u.auto);
               return (
-                <div key={t.id} style={{
-                  marginBottom:8, background:C.surface, borderRadius:9,
-                  border:`1px solid ${C.border}`, overflow:"hidden",
-                }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 12px" }}>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12, color:C.text, fontWeight:600 }}>{t.title}</div>
-                      <div style={{ display:"flex", gap:10, marginTop:3, flexWrap:"wrap" }}>
-                        {t.assignee && <span style={{ fontSize:10, color:C.sub }}>👤 {t.assignee}</span>}
-                        {t.updatedAt && <span style={{ fontSize:10, color:C.muted }}>🕐 آخر تحديث: {fmtDate(t.updatedAt)}</span>}
-                      </div>
-                    </div>
-
-                    <div style={{ minWidth:130 }}>
-                      <Sel value={t.status} onChange={v => setTaskStatus(t.id, v)} options={STATUS_KEYS}/>
-                    </div>
-
-                    <button onClick={() => setLogTask(t)} title="سجل التحديثات"
-                      style={{
-                        background: hasManual ? `${C.accent}20` : C.raised,
-                        border:`1px solid ${hasManual ? C.accent : C.border}`,
-                        borderRadius:7, cursor:"pointer", padding:"5px 9px",
-                        display:"flex", alignItems:"center", gap:5, flexShrink:0,
-                      }}>
-                      <span style={{ fontSize:13 }}>📝</span>
-                      {logCount > 0 && <span style={{ fontSize:10, fontWeight:700, color:hasManual?C.accent:C.muted }}>{logCount}</span>}
-                    </button>
-
-                    <button onClick={() => deleteTask(t.id)}
-                      style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:14, flexShrink:0 }}>✕</button>
-                  </div>
-
-                  {(() => {
-                    const manualLogs = (t.updates || []).filter((u) => !u.auto);
-                    if (!manualLogs.length) return null;
-                    const last = manualLogs[manualLogs.length - 1];
-                    return (
-                      <div style={{
-                        borderTop:`1px solid ${C.border}`,
-                        padding:"6px 12px",
-                        background:`${C.accent}08`,
-                        display:"flex", gap:8, alignItems:"flex-start",
-                      }}>
-                        <span style={{ fontSize:11, color:C.accent, flexShrink:0, marginTop:1 }}>💬</span>
-                        <span style={{ fontSize:11, color:C.sub, lineHeight:1.5, flex:1 }}>
-                          {last.note.length > 90 ? last.note.slice(0, 89) + "…" : last.note}
-                        </span>
-                        <span style={{ fontSize:10, color:C.muted, flexShrink:0, whiteSpace:"nowrap" }}>{fmtDate(last.at)}</span>
-                      </div>
-                    );
-                  })()}
-                </div>
+                <TaskRow key={t.id} task={t} logCount={logCount} hasManual={hasManual}
+                  onStatusChange={v => setTaskStatus(t.id, v)}
+                  onOpenLog={() => setLogTask(t)}
+                  onDelete={() => deleteTask(t.id)}/>
               );
             })}
 
@@ -828,7 +891,7 @@ function SubplanDetail({ sp, onUpdateSP }: { sp: SubPlan; onUpdateSP: (updated: 
           <Btn onClick={() => setAddComp(true)} sm active>+ إضافة</Btn>
         </div>
         {sp.components.length === 0
-          ? <div style={{ textAlign:"center", color:C.muted, padding:30, fontSize:13 }}>ابدأ بإضافة تحدٍّ أو فرصة أو مبادرة لهذه الخطة</div>
+          ? <EmptyState icon="📋" title="لا توجد مكوّنات بعد" sub="أضف تحدياً أو فرصة أو مبادرة لهذه الخطة لتتبع تقدمها"/>
           : sp.components.map(c => (
               <ComponentCard key={c.id} comp={c} spId={sp.id}
                 onUpdateComp={updateComp} onDeleteComp={deleteComp}/>
@@ -842,7 +905,7 @@ function SubplanDetail({ sp, onUpdateSP }: { sp: SubPlan; onUpdateSP: (updated: 
           <Btn onClick={() => setAddRes(true)} sm>+ مورد</Btn>
         </div>
         {sp.resources.length === 0
-          ? <div style={{ textAlign:"center", color:C.muted, fontSize:12, padding:16 }}>لا توجد موارد بعد</div>
+          ? <EmptyState icon="👥" title="لا توجد موارد بعد" sub="أضف أعضاء الفريق وتحديد نسبة تخصيصهم"/>
           : sp.resources.map(r => (
             <div key={r.id} style={{ display:"flex", alignItems:"center", gap:11,
               padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
@@ -888,6 +951,33 @@ function SubplanDetail({ sp, onUpdateSP }: { sp: SubPlan; onUpdateSP: (updated: 
   );
 }
 
+// ─── HoverCard ───────────────────────────────────────────────────────────────
+function HoverCard({ onClick, style, children }: {
+  onClick?: () => void;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        cursor: onClick ? "pointer" : undefined,
+        padding:"10px 12px", borderRadius:9,
+        border:`1px solid ${hov ? C.sub : C.border}`,
+        background: hov ? C.card : C.surface,
+        boxShadow: hov ? "0 4px 20px #00000028" : "none",
+        transform: hov ? "translateY(-1px)" : "none",
+        transition:"all .18s",
+        ...style,
+      }}>
+      {children}
+    </div>
+  );
+}
+
 // ─── Overview ─────────────────────────────────────────────────────────────────
 function Overview({ project, onSelect }: { project: Project; onSelect: (id: string) => void }) {
   const overall = Math.round(
@@ -929,9 +1019,7 @@ function Overview({ project, onSelect }: { project: Project; onSelect: (id: stri
           const cfg  = STATUS[sp.status] || STATUS["لم يبدأ"];
           const dTags = DRIVER_KEYS.filter(k => sp.components.some(c => c.driver === k));
           return (
-            <div key={sp.id} style={{ marginBottom:18, cursor:"pointer", padding:"10px 12px",
-              borderRadius:9, border:`1px solid ${C.border}`, background:C.surface }}
-              onClick={() => onSelect(sp.id)}>
+            <HoverCard key={sp.id} onClick={() => onSelect(sp.id)} style={{ marginBottom:18 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, flexWrap:"wrap" }}>
                 <div>
                   <div style={{ fontSize:13, color:C.text, fontWeight:700 }}>{sp.title}</div>
@@ -961,7 +1049,7 @@ function Overview({ project, onSelect }: { project: Project; onSelect: (id: stri
                   borderRadius:99, transition:"width .5s" }}/>
               </div>
               <div style={{ fontSize:10, color:C.sub, marginTop:3, textAlign:"left" }}>{sp.progress}%</div>
-            </div>
+            </HoverCard>
           );
         })}
       </div>
@@ -1001,17 +1089,23 @@ function SnapshotCard({
   onDelete: () => void;
   onExport: () => void;
 }) {
+  const [hov, setHov] = useState(false);
   const m = snap.metrics;
   const taskPct = m.totalTasks ? Math.round((m.completedTasks / m.totalTasks) * 100) : 0;
   const periodLabels: Record<string, string> = { manual:"يدوي", monthly:"شهري", quarterly:"ربع سنوي" };
 
   return (
-    <div style={{
-      background: selected ? `${C.accent}12` : C.raised,
-      border:`1px solid ${selected ? C.accent : C.border}`,
-      borderRadius:12, padding:16, marginBottom:10, cursor:"pointer",
-      transition:"all .15s",
-    }} onClick={onSelect}>
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: selected ? `${C.accent}12` : hov ? C.card : C.raised,
+        border:`1px solid ${selected ? C.accent : hov ? C.sub : C.border}`,
+        borderRadius:12, padding:16, marginBottom:10, cursor:"pointer",
+        transition:"all .18s",
+        transform: hov && !selected ? "translateY(-1px)" : "none",
+        boxShadow: hov ? "0 6px 24px #00000030" : "none",
+      }} onClick={onSelect}>
       {/* header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
         <div style={{ flex:1, minWidth:0 }}>
@@ -1243,9 +1337,8 @@ function ReportsView({ project, snapshots, onAddSnapshot, onDeleteSnapshot }: {
           سجل اللقطات ({snapshots.length})
         </div>
         {snapshots.length === 0
-          ? <div style={{ textAlign:"center", color:C.muted, padding:30, fontSize:13 }}>
-              لا توجد لقطات بعد — احفظ لقطتك الأولى لتتبع التقدم عبر الزمن
-            </div>
+          ? <EmptyState icon="📸" title="لا توجد لقطات بعد"
+              sub="احفظ لقطتك الأولى لتتبع التقدم عبر الزمن ومقارنة الأداء بين الفترات"/>
           : [...snapshots].reverse().map(snap => (
             <SnapshotCard
               key={snap.id}
@@ -1269,12 +1362,22 @@ function ReportsView({ project, snapshots, onAddSnapshot, onDeleteSnapshot }: {
 export default function App() {
   const [project, setProject] = useState<Project>(() => loadProject() || SEED);
   const [snapshots, setSnapshots] = useState<Snapshot[]>(loadSnapshots);
-  const [selId, setSelId]   = useState<string | null>(null);
-  const [view, setView]     = useState<"overview" | "detail" | "reports">("overview");
+  const [selId, setSelId]       = useState<string | null>(null);
+  const [view, setView]         = useState<"overview" | "detail" | "reports">("overview");
   const [showAddSP, setShowAddSP] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [toast, setToast]       = useState<{ msg: string; key: number } | null>(null);
+  const [savedAt, setSavedAt]   = useState<Date | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast({ msg, key: Date.now() });
+  }, []);
 
   // auto-save on every project change
-  useEffect(() => { saveProject(project); }, [project]);
+  useEffect(() => {
+    saveProject(project);
+    setSavedAt(new Date());
+  }, [project]);
 
   const selected = project.subplans.find(p => p.id === selId);
   const overall  = Math.round(project.subplans.reduce((s, p) => s + p.progress, 0) / (project.subplans.length || 1));
@@ -1299,12 +1402,14 @@ export default function App() {
     const updated = [...snapshots, snap];
     setSnapshots(updated);
     saveSnapshots(updated);
+    showToast("✅ تم حفظ اللقطة");
   };
 
   const handleDeleteSnapshot = (id: string) => {
     const updated = snapshots.filter(s => s.id !== id);
     setSnapshots(updated);
     saveSnapshots(updated);
+    showToast("🗑 تم الحذف");
   };
 
   return (
@@ -1315,8 +1420,24 @@ export default function App() {
       <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`,
         padding:"12px 20px", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap",
         position:"sticky", top:0, zIndex:50 }}>
+        <button
+          onClick={() => setSidebarOpen(o => !o)}
+          style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6,
+            color:C.muted, cursor:"pointer", fontSize:14, padding:"4px 8px",
+            flexShrink:0, transition:"background .15s" }}
+          title="طيّ/فتح القائمة الجانبية"
+        >☰</button>
         <div style={{ flex:1, minWidth:180 }}>
-          <div style={{ fontSize:17, fontWeight:800, color:C.text }}>{project.title}</div>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ fontSize:17, fontWeight:800, color:C.text }}>{project.title}</div>
+            {savedAt && (
+              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e",
+                  boxShadow:"0 0 4px #22c55e88" }}/>
+                <span style={{ fontSize:9, color:"#22c55e" }}>محفوظ</span>
+              </div>
+            )}
+          </div>
           <div style={{ fontSize:11, color:C.muted }}>الموعد النهائي: {project.deadline}</div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -1335,10 +1456,14 @@ export default function App() {
       </div>
 
       {/* ── Layout ── */}
-      <div style={{ display:"grid", gridTemplateColumns:"248px 1fr", minHeight:"calc(100vh - 60px)" }}>
+      <div style={{ display:"grid",
+        gridTemplateColumns:sidebarOpen ? "248px 1fr" : "0px 1fr",
+        minHeight:"calc(100vh - 60px)", transition:"grid-template-columns .25s" }}>
 
         {/* Sidebar */}
-        <div style={{ background:C.surface, borderLeft:`1px solid ${C.border}`, overflowY:"auto" }}>
+        <div style={{ background:C.surface, borderLeft:`1px solid ${C.border}`,
+          overflowY:"auto", overflowX:"hidden",
+          transition:"width .25s", width: sidebarOpen ? 248 : 0 }}>
           <div style={{ padding:"14px 14px 8px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>الخطط الفرعية</span>
             <Btn onClick={() => setShowAddSP(true)} sm>+</Btn>
@@ -1426,6 +1551,8 @@ export default function App() {
       </div>
 
       {showAddSP && <AddSPModal onAdd={addSP} onClose={() => setShowAddSP(false)}/>}
+
+      {toast && <Toast key={toast.key} msg={toast.msg} onDone={() => setToast(null)}/>}
     </div>
   );
 }

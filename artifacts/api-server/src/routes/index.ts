@@ -8,6 +8,7 @@ import decisionsRouter from "./decisions";
 import tasksRouter from "./tasks";
 import dashboardRouter from "./dashboard";
 import seedRouter from "./seed";
+import dtProjectsRouter from "./dt-projects";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -22,5 +23,6 @@ router.use(minutesRouter);
 router.use(decisionsRouter);
 router.use(tasksRouter);
 router.use(dashboardRouter);
+router.use(dtProjectsRouter);
 
 export default router;

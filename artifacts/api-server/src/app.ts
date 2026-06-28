@@ -51,12 +51,19 @@ app.use(
 
 app.use("/api", router);
 
-// Serve frontend static files if built
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const frontendDist = path.resolve(
-  __dirname,
-  "../../meeting-manager/dist/public",
-);
+
+// Serve DT dashboard at /dt  (must be registered before meeting-manager catch-all)
+const dtDist = path.resolve(__dirname, "../../dt-dashboard/dist/public");
+if (fs.existsSync(dtDist)) {
+  app.use("/dt", express.static(dtDist));
+  app.get("/dt/{*splat}", (_req, res) => {
+    res.sendFile(path.join(dtDist, "index.html"));
+  });
+}
+
+// Serve meeting-manager at /
+const frontendDist = path.resolve(__dirname, "../../meeting-manager/dist/public");
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get("/{*splat}", (_req, res) => {

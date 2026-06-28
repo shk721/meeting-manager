@@ -4,10 +4,48 @@ import { z } from "zod";
 import {
   db,
   dtProjectsTable, dtSubplansTable, dtResourcesTable,
-  dtComponentsTable, dtTasksTable, dtTaskUpdatesTable, dtSnapshotsTable,
+  dtComponentsTable, dtTaskUpdatesTable, dtSnapshotsTable,
+  tasksTable,
 } from "@workspace/db";
 
 const router: IRouter = Router();
+
+// ─── Status translation (DT Arabic UI ↔ unified English DB) ──────────────────
+
+const DT_STATUS_TO_DB: Record<string, string> = {
+  "مفتوح":         "open",
+  "جاري التنفيذ": "in_progress",
+  "مكتمل":        "completed",
+  "متأخر":        "overdue",
+};
+
+const DB_TO_DT_STATUS: Record<string, string> = {
+  open:        "مفتوح",
+  in_progress: "جاري التنفيذ",
+  completed:   "مكتمل",
+  overdue:     "متأخر",
+  on_hold:     "متأخر",
+  cancelled:   "مفتوح",
+};
+
+function dtStatusToDb(s: string): string { return DT_STATUS_TO_DB[s] ?? "open"; }
+function dbToDtStatus(s: string): string { return DB_TO_DT_STATUS[s] ?? "مفتوح"; }
+
+// Format a unified task row as a DT task (Arabic status, assignee from description)
+function formatDtTask(t: typeof tasksTable.$inferSelect, updates: typeof dtTaskUpdatesTable.$inferSelect[]) {
+  return {
+    id: t.id,
+    componentId: t.componentId,
+    title: t.title,
+    status: dbToDtStatus(t.status),
+    assignee: t.description ?? "",
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+    updates,
+    // Expose meeting context if linked
+    meetingId: t.meetingId ?? null,
+  };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,12 +57,12 @@ async function getSubplanFull(subplanId: number) {
   const components = await db.select().from(dtComponentsTable).where(eq(dtComponentsTable.subplanId, subplanId));
 
   const componentsWithTasks = await Promise.all(components.map(async comp => {
-    const tasks = await db.select().from(dtTasksTable).where(eq(dtTasksTable.componentId, comp.id));
+    const tasks = await db.select().from(tasksTable).where(eq(tasksTable.componentId, comp.id));
     const tasksWithUpdates = await Promise.all(tasks.map(async task => {
       const updates = await db.select().from(dtTaskUpdatesTable)
         .where(eq(dtTaskUpdatesTable.taskId, task.id))
         .orderBy(dtTaskUpdatesTable.createdAt);
-      return { ...task, updates };
+      return formatDtTask(task, updates);
     }));
     return { ...comp, tasks: tasksWithUpdates };
   }));
@@ -147,7 +185,6 @@ router.patch("/dt-projects/:id", async (req, res): Promise<void> => {
 router.delete("/dt-projects/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  // cascade: subplans → resources, components → tasks → updates
   const subplans = await db.select().from(dtSubplansTable).where(eq(dtSubplansTable.projectId, id));
   for (const sp of subplans) {
     await deleteSubplanCascade(sp.id);
@@ -162,11 +199,11 @@ router.delete("/dt-projects/:id", async (req, res): Promise<void> => {
 async function deleteSubplanCascade(subplanId: number) {
   const components = await db.select().from(dtComponentsTable).where(eq(dtComponentsTable.subplanId, subplanId));
   for (const comp of components) {
-    const tasks = await db.select().from(dtTasksTable).where(eq(dtTasksTable.componentId, comp.id));
+    const tasks = await db.select().from(tasksTable).where(eq(tasksTable.componentId, comp.id));
     for (const task of tasks) {
       await db.delete(dtTaskUpdatesTable).where(eq(dtTaskUpdatesTable.taskId, task.id));
     }
-    await db.delete(dtTasksTable).where(eq(dtTasksTable.componentId, comp.id));
+    await db.delete(tasksTable).where(eq(tasksTable.componentId, comp.id));
   }
   await db.delete(dtComponentsTable).where(eq(dtComponentsTable.subplanId, subplanId));
   await db.delete(dtResourcesTable).where(eq(dtResourcesTable.subplanId, subplanId));
@@ -261,10 +298,10 @@ router.patch("/dt-components/:id", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const [comp] = await db.update(dtComponentsTable).set(parsed.data).where(eq(dtComponentsTable.id, id)).returning();
   if (!comp) { res.status(404).json({ error: "Component not found" }); return; }
-  const tasks = await db.select().from(dtTasksTable).where(eq(dtTasksTable.componentId, id));
+  const tasks = await db.select().from(tasksTable).where(eq(tasksTable.componentId, id));
   const tasksWithUpdates = await Promise.all(tasks.map(async t => {
     const updates = await db.select().from(dtTaskUpdatesTable).where(eq(dtTaskUpdatesTable.taskId, t.id));
-    return { ...t, updates };
+    return formatDtTask(t, updates);
   }));
   res.json({ ...comp, tasks: tasksWithUpdates });
 });
@@ -272,24 +309,30 @@ router.patch("/dt-components/:id", async (req, res): Promise<void> => {
 router.delete("/dt-components/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const tasks = await db.select().from(dtTasksTable).where(eq(dtTasksTable.componentId, id));
+  const tasks = await db.select().from(tasksTable).where(eq(tasksTable.componentId, id));
   for (const task of tasks) {
     await db.delete(dtTaskUpdatesTable).where(eq(dtTaskUpdatesTable.taskId, task.id));
   }
-  await db.delete(dtTasksTable).where(eq(dtTasksTable.componentId, id));
+  await db.delete(tasksTable).where(eq(tasksTable.componentId, id));
   await db.delete(dtComponentsTable).where(eq(dtComponentsTable.id, id));
   res.sendStatus(204);
 });
 
-// ─── DT Tasks ─────────────────────────────────────────────────────────────────
+// ─── Tasks (unified with tasks table) ────────────────────────────────────────
 
 router.post("/dt-components/:componentId/tasks", async (req, res): Promise<void> => {
   const componentId = parseInt(req.params.componentId, 10);
   if (isNaN(componentId)) { res.status(400).json({ error: "Invalid id" }); return; }
   const parsed = CreateTaskBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [task] = await db.insert(dtTasksTable).values({ ...parsed.data, componentId }).returning();
-  res.status(201).json({ ...task, updates: [] });
+
+  const [task] = await db.insert(tasksTable).values({
+    title: parsed.data.title,
+    status: dtStatusToDb(parsed.data.status ?? "مفتوح"),
+    description: parsed.data.assignee ?? "",
+    componentId,
+  }).returning();
+  res.status(201).json(formatDtTask(task, []));
 });
 
 router.patch("/dt-tasks/:id", async (req, res): Promise<void> => {
@@ -297,17 +340,25 @@ router.patch("/dt-tasks/:id", async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const parsed = UpdateTaskBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [task] = await db.update(dtTasksTable).set(parsed.data).where(eq(dtTasksTable.id, id)).returning();
+
+  const updates: Partial<typeof tasksTable.$inferInsert> = {};
+  if (parsed.data.title !== undefined) updates.title = parsed.data.title;
+  if (parsed.data.status !== undefined) updates.status = dtStatusToDb(parsed.data.status);
+  if (parsed.data.assignee !== undefined) updates.description = parsed.data.assignee;
+
+  const [task] = await db.update(tasksTable).set(updates).where(eq(tasksTable.id, id)).returning();
   if (!task) { res.status(404).json({ error: "Task not found" }); return; }
-  const updates = await db.select().from(dtTaskUpdatesTable).where(eq(dtTaskUpdatesTable.taskId, id)).orderBy(dtTaskUpdatesTable.createdAt);
-  res.json({ ...task, updates });
+  const taskUpdates = await db.select().from(dtTaskUpdatesTable)
+    .where(eq(dtTaskUpdatesTable.taskId, id))
+    .orderBy(dtTaskUpdatesTable.createdAt);
+  res.json(formatDtTask(task, taskUpdates));
 });
 
 router.delete("/dt-tasks/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(dtTaskUpdatesTable).where(eq(dtTaskUpdatesTable.taskId, id));
-  await db.delete(dtTasksTable).where(eq(dtTasksTable.id, id));
+  await db.delete(tasksTable).where(eq(tasksTable.id, id));
   res.sendStatus(204);
 });
 

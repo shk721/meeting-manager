@@ -51,20 +51,7 @@ export const dtComponentsTable = pgTable("dt_components", {
 
 export type DtComponent = typeof dtComponentsTable.$inferSelect;
 
-// ─── DT Tasks ─────────────────────────────────────────────────────────────────
-export const dtTasksTable = pgTable("dt_tasks", {
-  id: serial("id").primaryKey(),
-  componentId: integer("component_id").notNull(),
-  title: text("title").notNull(),
-  status: text("status").notNull().default("مفتوح"),
-  assignee: text("assignee").notNull().default(""),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
-
-export type DtTask = typeof dtTasksTable.$inferSelect;
-
-// ─── DT Task Updates (سجل التحديثات) ─────────────────────────────────────────
+// ─── DT Task Updates (سجل التحديثات) — taskId references unified tasks.id ─────
 export const dtTaskUpdatesTable = pgTable("dt_task_updates", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull(),

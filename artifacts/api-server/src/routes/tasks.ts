@@ -20,6 +20,7 @@ async function formatTask(task: typeof tasksTable.$inferSelect) {
     completionPercent: task.completionPercent, dueDate: task.dueDate ?? null,
     agendaItem: task.agendaItem ?? null,
     meetingId: task.meetingId ?? null, decisionId: task.decisionId ?? null,
+    componentId: task.componentId ?? null,
     assignee: assignee ? formatUser(assignee) : null,
     tags: task.tags ?? [],
     createdAt: task.createdAt.toISOString(), updatedAt: task.updatedAt.toISOString(),
@@ -36,6 +37,7 @@ router.get("/tasks", async (req, res): Promise<void> => {
   if (query.data.priority) tasks = tasks.filter(t => t.priority === query.data.priority);
   if (query.data.assigneeId) tasks = tasks.filter(t => t.assigneeId === query.data.assigneeId);
   if (query.data.meetingId) tasks = tasks.filter(t => t.meetingId === query.data.meetingId);
+  if ((query.data as any).componentId) tasks = tasks.filter(t => t.componentId === Number((query.data as any).componentId));
   if (query.data.search) {
     const s = query.data.search.toLowerCase();
     tasks = tasks.filter(t => t.title.toLowerCase().includes(s) || (t.description ?? "").toLowerCase().includes(s));

@@ -24,6 +24,7 @@ const statusMap: Record<string, { label: string; variant: "default" | "secondary
   completed: { label: "مكتمل", variant: "success" },
   cancelled: { label: "ملغى", variant: "destructive" },
   on_hold: { label: "معلق", variant: "secondary" },
+  overdue: { label: "متأخر", variant: "destructive" },
 };
 
 const priorityMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
@@ -124,6 +125,7 @@ export default function Tasks() {
               <TableHeader>
                 <TableRow>
                   <TableHead>المهمة</TableHead>
+                  <TableHead>المصدر</TableHead>
                   <TableHead>المسؤول</TableHead>
                   <TableHead>الأولوية</TableHead>
                   <TableHead>الحالة</TableHead>
@@ -135,7 +137,15 @@ export default function Tasks() {
                 {filtered.map((task: any) => (
                   <TableRow key={task.id} className="cursor-pointer hover:bg-muted/50">
                     <TableCell className="font-medium">{task.title}</TableCell>
-                    <TableCell>{task.assignee?.fullName || "-"}</TableCell>
+                    <TableCell>
+                      {task.componentId
+                        ? <Badge variant="outline" className="text-blue-500 border-blue-500/40 bg-blue-500/10 text-xs">📊 تحول رقمي</Badge>
+                        : task.meetingId
+                          ? <Badge variant="outline" className="text-xs">اجتماع</Badge>
+                          : <span className="text-muted-foreground text-xs">-</span>
+                      }
+                    </TableCell>
+                    <TableCell>{task.assignee?.fullName || (task.componentId ? task.description : null) || "-"}</TableCell>
                     <TableCell>
                       <Badge variant={(priorityMap[task.priority]?.variant as any) || "default"}>
                         {priorityMap[task.priority]?.label || task.priority}

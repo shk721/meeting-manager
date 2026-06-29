@@ -62,6 +62,15 @@ if (fs.existsSync(dtDist)) {
   });
 }
 
+// Serve committees app at /committees  (must be registered before meeting-manager catch-all)
+const committeesDist = path.resolve(__dirname, "../../committees/dist/public");
+if (fs.existsSync(committeesDist)) {
+  app.use("/committees", express.static(committeesDist));
+  app.get("/committees/{*splat}", (_req, res) => {
+    res.sendFile(path.join(committeesDist, "index.html"));
+  });
+}
+
 // Serve meeting-manager at /
 const frontendDist = path.resolve(__dirname, "../../meeting-manager/dist/public");
 if (fs.existsSync(frontendDist)) {

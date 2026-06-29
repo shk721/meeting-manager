@@ -16,6 +16,8 @@ export const tasksTable = pgTable("tasks", {
   assigneeId: integer("assignee_id"),
   // DT context — set when task originates from / is linked to a DT component
   componentId: integer("component_id"),
+  // Committee context — set when task originates from a committee decision/assignment
+  committeeId: integer("committee_id"),
   tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

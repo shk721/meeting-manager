@@ -21,8 +21,9 @@ function AppRoutes() {
   return (
     <Switch>
       <Route path="/" component={DashboardPage} />
-      <Route path="/committees/:id" component={CommitteeDetailPage} />
       <Route path="/portal" component={PortalPage} />
+      <Route path="/login"><Redirect to="/" /></Route>
+      <Route path="/:id" component={CommitteeDetailPage} />
       <Route><Redirect to="/" /></Route>
     </Switch>
   );

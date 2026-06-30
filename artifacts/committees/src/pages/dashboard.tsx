@@ -134,7 +134,7 @@ export default function DashboardPage() {
         ) : (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:SP.md }}>
             {visible.map(c => (
-              <Link key={c.id} href={`/committees/${c.id}`} style={{ textDecoration:"none" }}>
+              <Link key={c.id} href={`/${c.id}`} style={{ textDecoration:"none" }}>
                 <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:16,
                   cursor:"pointer", transition:"border-color .15s" }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = C.accent}

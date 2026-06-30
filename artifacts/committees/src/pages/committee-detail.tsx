@@ -20,19 +20,25 @@ function AddRepModal({ onAdd, onClose }: { onAdd: (data: Parameters<typeof api.a
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState("");
   const [role, setRole] = useState<"head" | "member" | "alternate">("member");
+  const [users, setUsers] = useState<api.User[]>([]);
+
+  useEffect(() => {
+    api.listUsers().then(setUsers).catch(() => {});
+  }, []);
 
   return (
     <Modal title="إضافة ممثل" onClose={onClose}>
       <div style={{ display:"flex", flexDirection:"column", gap:SP.md }}>
-        <Sel value={kind} onChange={v => setKind(v as "external" | "internal")}
-          options={[["external", "ممثل خارجي (اسم وبريد)"], ["internal", "مستخدم داخلي (معرّف المستخدم)"]]} />
+        <Sel value={kind} onChange={v => { setKind(v as "external" | "internal"); setUserId(""); }}
+          options={[["external", "ممثل خارجي (اسم وبريد)"], ["internal", "مستخدم داخلي"]]} />
         {kind === "external" ? (
           <>
             <Inp value={name} onChange={setName} placeholder="اسم الممثل" />
             <Inp value={email} onChange={setEmail} placeholder="البريد الإلكتروني (اختياري)" />
           </>
         ) : (
-          <Inp value={userId} onChange={setUserId} placeholder="معرّف المستخدم (User ID)" type="number" />
+          <Sel value={userId} onChange={setUserId}
+            options={[["", "اختر مستخدماً…"], ...users.map(u => [String(u.id), `${u.fullName} — ${u.email}`] as [string, string])]} />
         )}
         <Sel value={role} onChange={v => setRole(v as "head" | "member" | "alternate")}
           options={[["head", "رئيس"], ["member", "عضو"], ["alternate", "عضو مناوب"]]} />

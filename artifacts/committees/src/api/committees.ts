@@ -84,6 +84,12 @@ export interface CommitteeFull extends Committee {
   tasks: CommitteeTask[];
 }
 
+// ─── Users (for representative picker) ───────────────────────────────────────
+
+export function listUsers(): Promise<User[]> {
+  return apiFetch("/api/users");
+}
+
 // ─── Committees ───────────────────────────────────────────────────────────────
 
 export function listCommittees(): Promise<Committee[]> {

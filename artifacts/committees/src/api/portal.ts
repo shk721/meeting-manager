@@ -26,6 +26,15 @@ export interface PortalDtComponent {
   priority: string;
 }
 
+export interface PortalMeeting {
+  id: number;
+  title: string;
+  date: string | null;
+  time: string | null;
+  location: string | null;
+  status: string;
+}
+
 export interface PortalSummary {
   user: {
     id: number; username: string; fullName: string; email: string;
@@ -35,6 +44,7 @@ export interface PortalSummary {
   committees: PortalCommittee[];
   committeeDecisions: CommitteeDecision[];
   dtComponents: PortalDtComponent[];
+  upcomingMeetings: PortalMeeting[];
 }
 
 export function getPortalSummary(username: string): Promise<PortalSummary> {

@@ -129,6 +129,23 @@ export default function PortalPage() {
                     </Row>
                   ))}
             </Section>
+
+            {/* Upcoming meetings */}
+            <Section title={`الاجتماعات القادمة (${summary.upcomingMeetings.length})`}>
+              {summary.upcomingMeetings.length === 0
+                ? <EmptyState icon="📅" title="لا توجد اجتماعات قادمة" />
+                : summary.upcomingMeetings.map(m => (
+                    <Row key={m.id}>
+                      <div style={{ fontWeight:700, fontSize:13 }}>{m.title}</div>
+                      <div style={{ display:"flex", gap:6, marginTop:6, flexWrap:"wrap" }}>
+                        {m.date && <Badge label={m.date} color={C.accent} />}
+                        {m.time && <Badge label={m.time} color={C.muted} />}
+                        {m.location && <Badge label={m.location} color={C.sub} />}
+                        <Badge label={m.status} color={C.green} />
+                      </div>
+                    </Row>
+                  ))}
+            </Section>
           </div>
         )}
       </div>

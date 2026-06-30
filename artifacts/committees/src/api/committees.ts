@@ -23,6 +23,7 @@ export interface Representative {
 export interface CommitteeSession {
   id: number;
   committeeId: number;
+  meetingId: number | null;
   title: string;
   date: string;
   location: string | null;
@@ -126,15 +127,19 @@ export function deleteRepresentative(id: number): Promise<void> {
 // ─── Sessions ─────────────────────────────────────────────────────────────────
 
 export function addSession(committeeId: number, data: {
-  title: string; date: string; location?: string; status?: "scheduled" | "completed" | "cancelled"; notes?: string;
+  title: string; date: string; location?: string; status?: "scheduled" | "completed" | "cancelled"; notes?: string; meetingId?: number;
 }): Promise<CommitteeSession> {
   return apiFetch(`/api/committees/${committeeId}/sessions`, { method: "POST", body: JSON.stringify(data) });
 }
 
 export function updateSession(id: number, data: Partial<{
-  title: string; date: string; location: string; status: "scheduled" | "completed" | "cancelled"; notes: string;
+  title: string; date: string; location: string; status: "scheduled" | "completed" | "cancelled"; notes: string; meetingId: number;
 }>): Promise<CommitteeSession> {
   return apiFetch(`/api/committee-sessions/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function updateTaskStatus(id: number, status: string): Promise<void> {
+  return apiFetch(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
 }
 
 export function deleteSession(id: number): Promise<void> {

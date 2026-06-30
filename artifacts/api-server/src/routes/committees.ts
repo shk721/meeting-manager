@@ -101,6 +101,7 @@ const SessionBody = z.object({
   location: z.string().optional(),
   status: z.enum(["scheduled", "completed", "cancelled"]).optional(),
   notes: z.string().optional(),
+  meetingId: z.number().int().optional(),
 });
 
 const UpdateSessionBody = SessionBody.partial();

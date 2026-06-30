@@ -93,6 +93,8 @@ export default function DashboardPage() {
           <div style={{ fontSize:11, color:C.muted }}>اللجان الداخلية والخارجية وتكليفاتها</div>
         </div>
         <Link href="/portal"><Btn sm variant="ghost">🔎 البوابة الشخصية</Btn></Link>
+        <a href="/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📅 إدارة الاجتماعات</Btn></a>
+        <a href="/dt/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📊 التحول الرقمي</Btn></a>
         <div style={{ display:"flex", alignItems:"center", gap:8, borderRight:`1px solid ${C.border}`, paddingRight:12 }}>
           <span style={{ fontSize:11, color:C.muted }}>👤 {user?.fullName}</span>
           <Btn onClick={logout} sm variant="ghost">خروج</Btn>

@@ -1250,6 +1250,10 @@ export default function DashboardPage() {
           <Btn onClick={() => { setView("overview"); setSelId(null); }} active={view === "overview" && !selId} sm>📊 اللوحة</Btn>
           <Btn onClick={() => setView("reports")} active={view === "reports"} sm>📋 التقارير</Btn>
         </div>
+        <div style={{ display:"flex", gap:6 }}>
+          <a href="/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📅 الاجتماعات</Btn></a>
+          <a href="/committees/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">🏛️ اللجان</Btn></a>
+        </div>
         <div style={{ display:"flex", alignItems:"center", gap:8, borderRight:`1px solid ${C.border}`, paddingRight:12 }}>
           <span style={{ fontSize:11, color:C.muted }}>👤 {user?.fullName}</span>
           <Btn onClick={logout} sm variant="ghost">خروج</Btn>

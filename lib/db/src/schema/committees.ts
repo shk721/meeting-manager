@@ -38,6 +38,7 @@ export type CommitteeRepresentative = typeof committeeRepresentativesTable.$infe
 export const committeeSessionsTable = pgTable("committee_sessions", {
   id: serial("id").primaryKey(),
   committeeId: integer("committee_id").notNull(),
+  meetingId: integer("meeting_id"),           // optional link to a formal meeting
   title: text("title").notNull(),
   date: date("date", { mode: "string" }).notNull(),
   location: text("location"),

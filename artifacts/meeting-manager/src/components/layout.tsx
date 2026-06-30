@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays, ExternalLink, LayoutGrid } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
@@ -26,12 +26,14 @@ const roleLabels: Record<string, string> = {
 function getNavItems(role: string) {
   if (role === "admin") {
     return [
+      { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
       { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
     ];
   }
   if (role === "manager") {
     return [
+      { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
       { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
       { title: "المهام", href: "/tasks", icon: CheckSquare },
@@ -98,6 +100,22 @@ export default function Layout({ children }: { children: ReactNode }) {
               </div>
             </div>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="التحول الرقمي">
+                  <a href="/dt/" className="flex items-center gap-3">
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="text-sm">لوحة التحول الرقمي</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="اللجان">
+                  <a href="/committees/" className="flex items-center gap-3">
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="text-sm">وحدة اللجان</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton onClick={logout} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
                   <LogOut className="h-5 w-5" />

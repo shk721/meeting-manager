@@ -5,6 +5,7 @@ import {
   usersTable, tasksTable,
   committeesTable, committeeRepresentativesTable, committeeDecisionsTable,
   dtComponentsTable,
+  meetingsTable, meetingAttendeesTable,
 } from "@workspace/db";
 import { formatUser } from "./users";
 
@@ -35,6 +36,18 @@ router.get("/portal/:username", async (req, res): Promise<void> => {
     return comp ?? null;
   }));
 
+  // Upcoming meetings the user is attending
+  const today = new Date().toISOString().split("T")[0];
+  const attendances = await db.select().from(meetingAttendeesTable)
+    .where(eq(meetingAttendeesTable.userId, user.id));
+  const upcomingMeetings = attendances.length > 0
+    ? (await Promise.all(attendances.map(async a => {
+        const [m] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, a.meetingId));
+        return m ?? null;
+      }))).filter((m): m is NonNullable<typeof m> => m !== null && (m.date ?? "") >= today)
+        .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+    : [];
+
   res.json({
     user: formatUser(user),
     tasks: tasks.map(t => ({
@@ -46,6 +59,10 @@ router.get("/portal/:username", async (req, res): Promise<void> => {
     committees: committees.filter(Boolean),
     committeeDecisions,
     dtComponents: dtComponents.filter(Boolean),
+    upcomingMeetings: upcomingMeetings.map(m => ({
+      id: m.id, title: m.title, date: m.date, time: m.time,
+      location: m.location ?? null, status: m.status,
+    })),
   });
 });
 

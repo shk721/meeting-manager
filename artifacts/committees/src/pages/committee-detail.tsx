@@ -56,6 +56,7 @@ function AddSessionModal({ onAdd, onClose }: { onAdd: (data: Parameters<typeof a
   const [date, setDate] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
+  const [meetingId, setMeetingId] = useState("");
 
   return (
     <Modal title="إضافة جلسة" onClose={onClose}>
@@ -63,10 +64,12 @@ function AddSessionModal({ onAdd, onClose }: { onAdd: (data: Parameters<typeof a
         <Inp value={title} onChange={setTitle} placeholder="عنوان الجلسة" />
         <Inp value={date} onChange={setDate} placeholder="التاريخ (YYYY-MM-DD)" type="date" />
         <Inp value={location} onChange={setLocation} placeholder="الموقع (اختياري)" />
+        <Inp value={meetingId} onChange={setMeetingId} placeholder="رقم الاجتماع المرتبط (اختياري)" type="number" />
         <Inp value={notes} onChange={setNotes} placeholder="ملاحظات (اختياري)" rows={3} />
         <Btn onClick={() => {
           if (!title.trim() || !date.trim()) return;
-          onAdd({ title, date, location: location || undefined, notes: notes || undefined });
+          const mid = meetingId ? parseInt(meetingId, 10) : undefined;
+          onAdd({ title, date, location: location || undefined, notes: notes || undefined, meetingId: mid && !isNaN(mid) ? mid : undefined });
         }}>إضافة</Btn>
       </div>
     </Modal>
@@ -207,7 +210,10 @@ export default function CommitteeDetailPage() {
                 <Row key={s.id} onDelete={() => api.deleteSession(s.id).then(reload).catch(() => showToast("⚠ فشل الحذف"))}>
                   <div style={{ fontWeight:700, fontSize:13 }}>{s.title}</div>
                   <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{s.date} {s.location ? `— ${s.location}` : ""}</div>
-                  <Badge label={SESSION_STATUS_LABEL[s.status] ?? s.status} color={C.accent} />
+                  <div style={{ display:"flex", gap:6, marginTop:4, flexWrap:"wrap" }}>
+                    <Badge label={SESSION_STATUS_LABEL[s.status] ?? s.status} color={C.accent} />
+                    {s.meetingId && <Badge label={`اجتماع #${s.meetingId}`} color={C.green} />}
+                  </div>
                 </Row>
               ))}
           </Section>
@@ -262,9 +268,13 @@ export default function CommitteeDetailPage() {
               : committee.tasks.map(t => (
                 <Row key={t.id}>
                   <div style={{ fontWeight:700, fontSize:13 }}>{t.title}</div>
-                  <div style={{ display:"flex", gap:6, marginTop:6 }}>
-                    <Badge label={TASK_STATUS_LABEL[t.status] ?? t.status} color={C.accent} />
-                    {t.dueDate && <Badge label={`الاستحقاق: ${t.dueDate}`} color={C.muted} />}
+                  <div style={{ display:"flex", gap:8, marginTop:6, alignItems:"center", flexWrap:"wrap" }}>
+                    <Sel value={t.status} onChange={async v => {
+                      await api.updateTaskStatus(t.id, v).catch(() => showToast("⚠ فشل تحديث الحالة"));
+                      reload();
+                      showToast("✅ تم تحديث الحالة");
+                    }} options={Object.entries(TASK_STATUS_LABEL).map(([k, lbl]) => [k, lbl] as [string, string])} />
+                    {t.dueDate && <Badge label={`الاستحقاق: ${t.dueDate}`} color={C.amber} />}
                   </div>
                 </Row>
               ))}

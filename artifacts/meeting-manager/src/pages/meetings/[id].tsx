@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -93,10 +92,9 @@ export default function MeetingDetail({ id }: { id: string }) {
   const [isPending, setIsPending] = useState(false);
   const [apiError, setApiError] = useState("");
 
-  // Attendees dialog
-  const [attendeesOpen, setAttendeesOpen] = useState(false);
-  const [selectedAttendees, setSelectedAttendees] = useState<number[]>([]);
-  const [isSavingAttendees, setIsSavingAttendees] = useState(false);
+  // Attendees inline
+  const [newAttendeeId, setNewAttendeeId] = useState("");
+  const [isAddingAttendee, setIsAddingAttendee] = useState(false);
 
   // Agenda dialog
   const [agendaOpen, setAgendaOpen] = useState(false);
@@ -137,19 +135,22 @@ export default function MeetingDetail({ id }: { id: string }) {
     finally { setIsPending(false); }
   };
 
-  const openAttendeesDialog = () => {
-    setSelectedAttendees(((meeting as any)?.attendees ?? []).map((a: any) => a.id));
-    setAttendeesOpen(true);
+  const addAttendee = async () => {
+    if (!newAttendeeId) return;
+    setIsAddingAttendee(true);
+    try {
+      await apiFetch(`/api/meetings/${meetingId}/attendees`, "POST", { userId: parseInt(newAttendeeId, 10) });
+      setNewAttendeeId("");
+      refresh();
+    } catch (e: any) { setApiError(e.message); }
+    finally { setIsAddingAttendee(false); }
   };
 
-  const handleSaveAttendees = async () => {
-    setIsSavingAttendees(true);
+  const removeAttendee = async (userId: number) => {
     try {
-      await apiFetch(`/api/meetings/${meetingId}`, "PATCH", { attendeeIds: selectedAttendees });
+      await apiFetch(`/api/meetings/${meetingId}/attendees/${userId}`, "DELETE");
       refresh();
-      setAttendeesOpen(false);
     } catch (e: any) { setApiError(e.message); }
-    finally { setIsSavingAttendees(false); }
   };
 
   const openAgendaDialog = () => {
@@ -397,32 +398,47 @@ export default function MeetingDetail({ id }: { id: string }) {
                   {m.agendaItems?.length ?? 0} بند
                 </Badge>
               </CardTitle>
-              {/* Attendees summary inline */}
-              <div className="flex flex-wrap items-center gap-2 mt-2">
+              {/* Attendees inline management */}
+              <div className="mt-3 space-y-2">
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
-                  <span>{m.attendees?.length ?? 0} مشارك</span>
+                  <span>المشاركون ({m.attendees?.length ?? 0})</span>
+                  {invitationsSent && (
+                    <Badge variant={"success" as any} className="text-xs mr-2">تم إرسال الدعوات</Badge>
+                  )}
                 </div>
-                {hasAttendees && (
-                  <div className="flex flex-wrap gap-1">
-                    {m.attendees.slice(0, 4).map((a: any) => (
-                      <span key={a.id} className="text-xs bg-muted rounded-full px-2 py-0.5">{a.fullName}</span>
-                    ))}
-                    {m.attendees.length > 4 && (
-                      <span className="text-xs text-muted-foreground">+{m.attendees.length - 4}</span>
-                    )}
-                  </div>
-                )}
-                {invitationsSent && (
-                  <Badge variant={"success" as any} className="text-xs">تم إرسال الدعوات</Badge>
-                )}
+                <div className="flex flex-wrap gap-1">
+                  {(m.attendees ?? []).map((a: any) => (
+                    <span key={a.id} className="flex items-center gap-1 text-xs bg-muted rounded-full px-2 py-0.5">
+                      {a.fullName}
+                      <button
+                        onClick={() => removeAttendee(a.id)}
+                        className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
+                        title="إزالة"
+                      >✕</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    value={newAttendeeId}
+                    onChange={e => setNewAttendeeId(e.target.value)}
+                    className="text-xs border rounded px-2 py-1 bg-background flex-1 max-w-[200px]"
+                  >
+                    <option value="">إضافة مشارك…</option>
+                    {((users ?? []) as any[])
+                      .filter((u: any) => !(m.attendees ?? []).find((a: any) => a.id === u.id))
+                      .map((u: any) => (
+                        <option key={u.id} value={u.id}>{u.fullName}</option>
+                      ))}
+                  </select>
+                  <Button size="sm" variant="outline" onClick={addAttendee} disabled={!newAttendeeId || isAddingAttendee}>
+                    {isAddingAttendee ? <Spinner className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                  </Button>
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2 shrink-0">
-              <Button size="sm" variant="outline" onClick={openAttendeesDialog}>
-                <Users className="h-3 w-3 ml-1" />
-                المشاركون
-              </Button>
               {hasAttendees && !invitationsSent && (
                 <Button size="sm" variant="outline" onClick={() => patchMeeting({ invitationsSentAt: new Date().toISOString() })} disabled={isPending}>
                   <Send className="h-3 w-3 ml-1" />
@@ -719,38 +735,6 @@ export default function MeetingDetail({ id }: { id: string }) {
           )}
         </CardContent>
       </Card>
-
-      {/* Attendees Dialog */}
-      <Dialog open={attendeesOpen} onOpenChange={setAttendeesOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>تعديل المشاركين</DialogTitle></DialogHeader>
-          <div className="space-y-2 max-h-64 overflow-y-auto py-2">
-            {((users ?? []) as any[]).map((u: any) => (
-              <div key={u.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50">
-                <Checkbox
-                  id={`user-${u.id}`}
-                  checked={selectedAttendees.includes(u.id)}
-                  onCheckedChange={checked => {
-                    setSelectedAttendees(prev =>
-                      checked ? [...prev, u.id] : prev.filter(id => id !== u.id)
-                    );
-                  }}
-                />
-                <label htmlFor={`user-${u.id}`} className="text-sm cursor-pointer flex-1">
-                  {u.fullName} <span className="text-muted-foreground">({u.role})</span>
-                </label>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAttendeesOpen(false)}>إلغاء</Button>
-            <Button onClick={handleSaveAttendees} disabled={isSavingAttendees}>
-              {isSavingAttendees ? <Spinner className="h-4 w-4 ml-2" /> : null}
-              حفظ
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Agenda Dialog */}
       <Dialog open={agendaOpen} onOpenChange={setAgendaOpen}>

@@ -12,6 +12,8 @@ import Tasks from "@/pages/tasks";
 import Minutes from "@/pages/minutes";
 import UsersPage from "@/pages/users";
 import HubPage from "@/pages/hub";
+import ProfilePage from "@/pages/profile";
+import SettingsPage from "@/pages/settings";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -40,6 +42,8 @@ function Router() {
             <Route path="/tasks" component={() => <ProtectedRoute component={Tasks} />} />
             <Route path="/minutes" component={() => <ProtectedRoute component={Minutes} />} />
             <Route path="/users" component={() => <ProtectedRoute component={UsersPage} />} />
+            <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
+            <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

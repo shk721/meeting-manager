@@ -8,7 +8,9 @@
     "./schema": "./src/schema/index.ts",
     "./notifications-queries": "./src/notifications-queries.ts",
     "./search-queries": "./src/search-queries.ts",
-    "./filter-queries": "./src/filter-queries.ts"
+    "./filter-queries": "./src/filter-queries.ts",
+    "./profile-queries": "./src/profile-queries.ts",
+    "./preferences-queries": "./src/preferences-queries.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

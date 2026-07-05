@@ -15,6 +15,8 @@ import notificationsRouter from "./notifications";
 import searchRouter from "./search";
 import filtersRouter from "./filters";
 import viewsRouter from "./views";
+import profileRouter from "./profile";
+import settingsRouter from "./settings";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -36,5 +38,7 @@ router.use(notificationsRouter);
 router.use(searchRouter);
 router.use(filtersRouter);
 router.use(viewsRouter);
+router.use(profileRouter);
+router.use(settingsRouter);
 
 export default router;

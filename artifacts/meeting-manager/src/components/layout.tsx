@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays, ExternalLink, LayoutGrid } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays, ExternalLink, LayoutGrid, CircleUser, Settings } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import NotificationBell from "@/components/NotificationBell";
@@ -115,6 +115,22 @@ export default function Layout({ children }: { children: ReactNode }) {
                     <ExternalLink className="h-4 w-4" />
                     <span className="text-sm">وحدة اللجان</span>
                   </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="الملف الشخصي">
+                  <Link href="/profile" className="flex items-center gap-3">
+                    <CircleUser className="h-4 w-4" />
+                    <span className="text-sm">الملف الشخصي</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="الإعدادات">
+                  <Link href="/settings" className="flex items-center gap-3">
+                    <Settings className="h-4 w-4" />
+                    <span className="text-sm">الإعدادات</span>
+                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

@@ -10,6 +10,7 @@ import {
   GetMeetingParams, UpdateMeetingParams, UpdateMeetingBody,
 } from "@workspace/api-zod";
 import { formatUser } from "./users";
+import { createNotification } from "@workspace/db/notifications-queries";
 
 const router: IRouter = Router();
 
@@ -94,6 +95,16 @@ router.post("/meetings", async (req, res): Promise<void> => {
     await db.insert(meetingAttendeesTable).values(
       attendeeIds.map(uid => ({ meetingId: meeting.id, userId: uid }))
     );
+    await Promise.all(attendeeIds.map(uid =>
+      createNotification({
+        userId: uid,
+        type: "meeting_created",
+        title: "اجتماع جديد",
+        message: `تمت دعوتك لاجتماع: ${meeting.title}`,
+        relatedId: meeting.id,
+        relatedType: "meeting",
+      })
+    ));
   }
 
   const result = await getMeetingWithMeta(meeting.id);

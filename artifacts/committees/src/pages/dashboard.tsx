@@ -42,12 +42,24 @@ export default function DashboardPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState<"all" | "external" | "internal">("all");
   const [toast, setToast] = useState<{ msg: string; key: number } | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const showToast = useCallback((msg: string) => setToast({ msg, key: Date.now() }), []);
 
   useEffect(() => {
     api.listCommittees().then(setCommittees).catch(() => showToast("⚠ فشل تحميل اللجان")).finally(() => setLoading(false));
   }, [showToast]);
+
+  useEffect(() => {
+    const fetchCount = () =>
+      fetch("/api/notifications/unread-count", { credentials: "include" })
+        .then(r => r.ok ? r.json() : { count: 0 })
+        .then(d => setUnreadCount(d.count ?? 0))
+        .catch(() => {});
+    fetchCount();
+    const id = setInterval(fetchCount, 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const addCommittee = async (data: Parameters<typeof api.createCommittee>[0]) => {
     try {
@@ -95,6 +107,18 @@ export default function DashboardPage() {
         <Link href="/portal"><Btn sm variant="ghost">🔎 البوابة الشخصية</Btn></Link>
         <a href="/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📅 إدارة الاجتماعات</Btn></a>
         <a href="/dt/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📊 التحول الرقمي</Btn></a>
+        <button onClick={() => window.location.href = "/"} title="الإشعارات"
+          style={{ position:"relative", background:"none", border:"none", cursor:"pointer",
+            padding:"4px 8px", fontSize:18, color:C.sub }}>
+          🔔
+          {unreadCount > 0 && (
+            <span style={{ position:"absolute", top:0, right:0, background:"#ef4444", color:"#fff",
+              borderRadius:"50%", fontSize:9, fontWeight:700, minWidth:16, height:16,
+              display:"flex", alignItems:"center", justifyContent:"center", padding:"0 3px" }}>
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </button>
         <div style={{ display:"flex", alignItems:"center", gap:8, borderRight:`1px solid ${C.border}`, paddingRight:12 }}>
           <span style={{ fontSize:11, color:C.muted }}>👤 {user?.fullName}</span>
           <Btn onClick={logout} sm variant="ghost">خروج</Btn>

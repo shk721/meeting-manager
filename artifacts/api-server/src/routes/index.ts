@@ -11,6 +11,7 @@ import seedRouter from "./seed";
 import dtProjectsRouter from "./dt-projects";
 import portalRouter from "./portal";
 import committeesRouter from "./committees";
+import notificationsRouter from "./notifications";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -28,5 +29,6 @@ router.use(tasksRouter);
 router.use(dashboardRouter);
 router.use(dtProjectsRouter);
 router.use(committeesRouter);
+router.use(notificationsRouter);
 
 export default router;

@@ -15,6 +15,7 @@ import {
 import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays, ExternalLink, LayoutGrid } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import NotificationBell from "@/components/NotificationBell";
 
 const roleLabels: Record<string, string> = {
   admin: "مدير النظام",
@@ -130,6 +131,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <header className="flex h-14 items-center gap-4 border-b bg-background px-6 lg:h-[60px]">
             <SidebarTrigger />
             <div className="flex-1" />
+            <NotificationBell />
           </header>
           <main className="flex-1 overflow-y-auto p-6 md:p-8">
             {children}

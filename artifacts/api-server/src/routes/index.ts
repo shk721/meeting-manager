@@ -12,6 +12,9 @@ import dtProjectsRouter from "./dt-projects";
 import portalRouter from "./portal";
 import committeesRouter from "./committees";
 import notificationsRouter from "./notifications";
+import searchRouter from "./search";
+import filtersRouter from "./filters";
+import viewsRouter from "./views";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -30,5 +33,8 @@ router.use(dashboardRouter);
 router.use(dtProjectsRouter);
 router.use(committeesRouter);
 router.use(notificationsRouter);
+router.use(searchRouter);
+router.use(filtersRouter);
+router.use(viewsRouter);
 
 export default router;

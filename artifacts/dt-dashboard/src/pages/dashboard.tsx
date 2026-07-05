@@ -1124,6 +1124,7 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast]       = useState<{ msg: string; key: number } | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [subplanSearch, setSubplanSearch] = useState("");
 
   const showToast = useCallback((msg: string) => {
     setToast({ msg, key: Date.now() });
@@ -1297,8 +1298,18 @@ export default function DashboardPage() {
             <span style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>الخطط الفرعية</span>
             <Btn onClick={() => setShowAddSP(true)} sm>+</Btn>
           </div>
+          <div style={{ padding:"0 13px 8px" }}>
+            <input
+              value={subplanSearch}
+              onChange={e => setSubplanSearch(e.target.value)}
+              placeholder="بحث…"
+              style={{ width:"100%", background:C.raised, border:`1px solid ${C.border}`,
+                borderRadius:6, color:C.text, padding:"5px 9px", fontSize:12,
+                fontFamily:"inherit", direction:"rtl", outline:"none", boxSizing:"border-box" }}
+            />
+          </div>
 
-          {project.subplans.map((sp, i) => {
+          {project.subplans.filter(sp => !subplanSearch.trim() || sp.title.toLowerCase().includes(subplanSearch.trim().toLowerCase())).map((sp, i) => {
             const active = selId === sp.id && view === "detail";
             const cfg = STATUS[sp.status] || STATUS["لم يبدأ"];
             const dTags = DRIVER_KEYS.filter(k => sp.components.some(c => c.driver === k));

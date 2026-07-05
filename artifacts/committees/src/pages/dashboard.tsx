@@ -78,7 +78,15 @@ export default function DashboardPage() {
     } catch { showToast("⚠ فشل الحذف"); }
   };
 
-  const visible = filter === "all" ? committees : committees.filter(c => c.type === filter);
+  const [search, setSearch] = useState("");
+
+  const typeFiltered = filter === "all" ? committees : committees.filter(c => c.type === filter);
+  const visible = search.trim().length > 0
+    ? typeFiltered.filter(c => {
+        const q = search.trim().toLowerCase();
+        return c.name.toLowerCase().includes(q) || (c.organization ?? "").toLowerCase().includes(q);
+      })
+    : typeFiltered;
   const externalCount = committees.filter(c => c.type === "external").length;
   const internalCount = committees.filter(c => c.type === "internal").length;
   const activeCount = committees.filter(c => c.status === "active").length;
@@ -144,10 +152,13 @@ export default function DashboardPage() {
 
         {/* Filters + Add */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:SP.md, flexWrap:"wrap", gap:SP.sm }}>
-          <div style={{ display:"flex", gap:8 }}>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
             <Btn sm active={filter === "all"} onClick={() => setFilter("all")}>الكل</Btn>
             <Btn sm active={filter === "external"} onClick={() => setFilter("external")}>خارجية</Btn>
             <Btn sm active={filter === "internal"} onClick={() => setFilter("internal")}>داخلية</Btn>
+            <div style={{ minWidth:180 }}>
+              <Inp value={search} onChange={setSearch} placeholder="بحث باسم اللجنة…" />
+            </div>
           </div>
           <Btn onClick={() => setShowAdd(true)}>+ لجنة جديدة</Btn>
         </div>

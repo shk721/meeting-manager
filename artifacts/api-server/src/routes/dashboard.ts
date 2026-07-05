@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, inArray } from "drizzle-orm";
 import { db, meetingsTable, tasksTable, minutesTable, usersTable, meetingAttendeesTable } from "@workspace/db";
 import { formatUser } from "./users";
+import { getMeetingStats, getTaskStats, getInsights, getThisWeekData, getPendingData } from "@workspace/db/analytics-queries";
 
 const router: IRouter = Router();
 
@@ -129,6 +130,44 @@ router.get("/dashboard/overdue-tasks", async (_req, res): Promise<void> => {
     };
   }));
   res.json(results);
+});
+
+const VALID_PERIODS = ["day", "week", "month"] as const;
+type Period = typeof VALID_PERIODS[number];
+
+router.get("/dashboard/this-week", async (_req, res): Promise<void> => {
+  const data = await getThisWeekData();
+  res.json(data);
+});
+
+router.get("/dashboard/pending", async (_req, res): Promise<void> => {
+  const data = await getPendingData();
+  res.json(data);
+});
+
+router.get("/dashboard/meeting-stats", async (req, res): Promise<void> => {
+  const period = (req.query.period ?? "week") as string;
+  if (!VALID_PERIODS.includes(period as Period)) {
+    res.status(400).json({ error: "Invalid period. Use day, week, or month." });
+    return;
+  }
+  const data = await getMeetingStats(period as Period);
+  res.json(data);
+});
+
+router.get("/dashboard/task-stats", async (req, res): Promise<void> => {
+  const period = (req.query.period ?? "week") as string;
+  if (!VALID_PERIODS.includes(period as Period)) {
+    res.status(400).json({ error: "Invalid period. Use day, week, or month." });
+    return;
+  }
+  const data = await getTaskStats(period as Period);
+  res.json(data);
+});
+
+router.get("/dashboard/insights", async (_req, res): Promise<void> => {
+  const data = await getInsights();
+  res.json(data);
 });
 
 export default router;

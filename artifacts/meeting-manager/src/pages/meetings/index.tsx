@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -78,7 +78,10 @@ export default function Meetings() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">الاجتماعات</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">الاجتماعات</h1>
+          <p className="text-muted-foreground mt-1">جدولة وإدارة الاجتماعات الرسمية</p>
+        </div>
         <Button onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4 ml-2" />
           اجتماع جديد
@@ -152,8 +155,20 @@ export default function Meetings() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center p-8 text-muted-foreground">
-              {search.isActive || filters.isActive ? "لا توجد نتائج مطابقة." : "لا توجد اجتماعات لعرضها."}
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                <CalendarDays className="h-8 w-8 text-muted-foreground" />
+              </div>
+              {search.isActive || filters.isActive ? (
+                <p className="text-muted-foreground font-medium">لا توجد نتائج مطابقة للبحث</p>
+              ) : (
+                <>
+                  <p className="text-muted-foreground font-medium">لا توجد اجتماعات لعرضها</p>
+                  <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+                    <Plus className="h-4 w-4 ml-1" /> إنشاء أول اجتماع
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </CardContent>

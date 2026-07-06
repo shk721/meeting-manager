@@ -10,9 +10,9 @@ import {
 type Period = "day" | "week" | "month";
 
 const periodLabels: Record<Period, string> = {
-  day: "يومي (7 أيام)",
-  week: "أسبوعي (4 أسابيع)",
-  month: "شهري (12 شهر)",
+  day: "يومي",
+  week: "أسبوعي",
+  month: "شهري",
 };
 
 export function MeetingChartWidget() {
@@ -21,18 +21,23 @@ export function MeetingChartWidget() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
         <CardTitle>الاجتماعات عبر الزمن</CardTitle>
-        <select
-          value={period}
-          onChange={e => setPeriod(e.target.value as Period)}
-          className="text-xs border rounded px-2 py-1 bg-background"
-          aria-label="اختر الفترة"
-        >
+        <div className="flex gap-1">
           {(Object.entries(periodLabels) as [Period, string][]).map(([v, label]) => (
-            <option key={v} value={v}>{label}</option>
+            <button
+              key={v}
+              onClick={() => setPeriod(v)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                period === v
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border hover:bg-muted"
+              }`}
+            >
+              {label}
+            </button>
           ))}
-        </select>
+        </div>
       </CardHeader>
       <CardContent className="h-[260px]">
         {isLoading ? (

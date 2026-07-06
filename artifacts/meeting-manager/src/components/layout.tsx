@@ -29,6 +29,9 @@ function getNavItems(role: string) {
     return [
       { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
+      { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
+      { title: "المهام", href: "/tasks", icon: CheckSquare },
+      { title: "المحاضر", href: "/minutes", icon: FileText },
       { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
     ];
   }

@@ -21,6 +21,8 @@ import calendarRouter from "./calendar";
 import recurringRouter from "./recurring";
 import schedulingRouter from "./scheduling";
 import remindersRouter from "./reminders";
+import analyticsRouter from "./analytics";
+import exportRouter from "./export";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -48,5 +50,7 @@ router.use(calendarRouter);
 router.use(recurringRouter);
 router.use(schedulingRouter);
 router.use(remindersRouter);
+router.use(analyticsRouter);
+router.use(exportRouter);
 
 export default router;

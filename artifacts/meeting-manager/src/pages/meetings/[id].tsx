@@ -25,6 +25,9 @@ import {
 } from "lucide-react";
 import { RecurringMeetingDialog } from "@/components/RecurringMeetingDialog";
 import { ReminderSettings } from "@/components/ReminderSettings";
+import { CollaborativeNotes } from "@/components/CollaborativeNotes";
+import { LiveAttendance } from "@/components/LiveAttendance";
+import { ExportModal } from "@/components/ExportModal";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
   scheduled: { label: "مجدول", variant: "default" },
@@ -363,6 +366,7 @@ export default function MeetingDetail({ id }: { id: string }) {
               تعيين تكرار
             </Button>
           )}
+          <ExportModal meetingId={meetingId} />
           {m.status === "scheduled" && (
             <Button onClick={() => patchMeeting({ status: "in_progress" })} disabled={isPending} size="sm">
               <Play className="h-4 w-4 ml-1" />
@@ -647,6 +651,12 @@ export default function MeetingDetail({ id }: { id: string }) {
           <ReminderSettings meetingId={meetingId} />
         </CardContent>
       </Card>
+
+      {/* Collaborative Notes */}
+      <CollaborativeNotes meetingId={meetingId} />
+
+      {/* Live Attendance */}
+      <LiveAttendance meetingId={meetingId} />
 
       {/* Minutes Card */}
       <Card>

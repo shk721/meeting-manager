@@ -252,4 +252,23 @@ router.delete("/meetings/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
+// WebSocket room join/leave (REST registration)
+router.post("/meetings/:id/join", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const userId = (req.session as any).userId as number;
+  const [meeting] = await db.select({ id: meetingsTable.id, title: meetingsTable.title })
+    .from(meetingsTable).where(eq(meetingsTable.id, id));
+  if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }
+  const attendees = await db.select().from(meetingAttendeesTable)
+    .where(eq(meetingAttendeesTable.meetingId, id));
+  res.json({ roomId: `meeting:${id}`, meetingId: id, userId, attendeeCount: attendees.length });
+});
+
+router.post("/meetings/:id/leave", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  res.json({ success: true });
+});
+
 export default router;

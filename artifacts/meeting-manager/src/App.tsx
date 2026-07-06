@@ -15,6 +15,7 @@ import HubPage from "@/pages/hub";
 import ProfilePage from "@/pages/profile";
 import SettingsPage from "@/pages/settings";
 import CalendarPage from "@/pages/calendar";
+import AnalyticsPage from "@/pages/analytics";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ function Router() {
             <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
             <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
             <Route path="/calendar" component={() => <ProtectedRoute component={CalendarPage} />} />
+            <Route path="/analytics" component={() => <ProtectedRoute component={AnalyticsPage} />} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

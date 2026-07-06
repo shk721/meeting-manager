@@ -52,17 +52,19 @@ app.use(
 
 app.use("/api", router);
 
-// Swagger UI (available in all environments)
-const openApiSpec = JSON.parse(
-  fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../openapi.json"), "utf-8")
-);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, {
-  customSiteTitle: "Meeting Manager API Docs",
-  swaggerOptions: { persistAuthorization: true },
-}));
-app.get("/api-docs.json", (_req, res) => res.json(openApiSpec));
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Swagger UI — openapi.json lives at artifacts/api-server/openapi.json (one level above dist/)
+try {
+  const openApiSpec = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../openapi.json"), "utf-8"));
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+    customSiteTitle: "Meeting Manager API Docs",
+    swaggerOptions: { persistAuthorization: true },
+  }));
+  app.get("/api-docs.json", (_req, res) => res.json(openApiSpec));
+} catch {
+  // openapi.json not present — skip Swagger UI
+}
 
 // Serve DT dashboard at /dt  (must be registered before meeting-manager catch-all)
 const dtDist = path.resolve(__dirname, "../../dt-dashboard/dist/public");

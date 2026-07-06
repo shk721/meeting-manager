@@ -5,6 +5,7 @@ import session from "express-session";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import swaggerUi from "swagger-ui-express";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -50,6 +51,16 @@ app.use(
 );
 
 app.use("/api", router);
+
+// Swagger UI (available in all environments)
+const openApiSpec = JSON.parse(
+  fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../openapi.json"), "utf-8")
+);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+  customSiteTitle: "Meeting Manager API Docs",
+  swaggerOptions: { persistAuthorization: true },
+}));
+app.get("/api-docs.json", (_req, res) => res.json(openApiSpec));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

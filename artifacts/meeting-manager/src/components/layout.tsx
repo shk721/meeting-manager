@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays, ExternalLink, LayoutGrid, CircleUser, Settings } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays, Calendar, ExternalLink, LayoutGrid, CircleUser, Settings } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import NotificationBell from "@/components/NotificationBell";
@@ -29,6 +29,10 @@ function getNavItems(role: string) {
     return [
       { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
+      { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
+      { title: "التقويم", href: "/calendar", icon: Calendar },
+      { title: "المهام", href: "/tasks", icon: CheckSquare },
+      { title: "المحاضر", href: "/minutes", icon: FileText },
       { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
     ];
   }
@@ -37,6 +41,7 @@ function getNavItems(role: string) {
       { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
       { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
+      { title: "التقويم", href: "/calendar", icon: Calendar },
       { title: "المهام", href: "/tasks", icon: CheckSquare },
       { title: "المحاضر", href: "/minutes", icon: FileText },
     ];

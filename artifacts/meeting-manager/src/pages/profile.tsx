@@ -68,7 +68,10 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">الملف الشخصي</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">الملف الشخصي</h1>
+          <p className="text-muted-foreground mt-1">معلوماتك الشخصية وإعدادات حسابك</p>
+        </div>
         {saved && (
           <div className="flex items-center gap-1 text-sm text-green-600">
             <Check className="h-4 w-4" /> تم الحفظ

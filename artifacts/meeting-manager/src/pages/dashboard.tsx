@@ -22,7 +22,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">لوحة التحكم</h1>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">لوحة التحكم</h1>
+        <p className="text-muted-foreground mt-1">نظرة شاملة على أداء النظام</p>
+      </div>
 
       {/* Row 1: KPI cards */}
       <StatisticsWidget stats={stats} />

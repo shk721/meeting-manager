@@ -39,11 +39,11 @@ describe("MeetingChartWidget", () => {
     expect(screen.getByTestId("bar-chart")).toBeTruthy();
   });
 
-  it("shows period selector with 3 options", () => {
+  it("shows 3 period pill buttons", () => {
     render(<MeetingChartWidget />);
-    const select = screen.getByLabelText("اختر الفترة") as HTMLSelectElement;
-    expect(select).toBeTruthy();
-    expect(select.options.length).toBe(3);
+    expect(screen.getByText("يومي")).toBeTruthy();
+    expect(screen.getByText("أسبوعي")).toBeTruthy();
+    expect(screen.getByText("شهري")).toBeTruthy();
   });
 
   it("defaults period to week", () => {
@@ -51,10 +51,9 @@ describe("MeetingChartWidget", () => {
     expect(mockUseMeetingStats).toHaveBeenCalledWith("week");
   });
 
-  it("changes period when selector changes", () => {
+  it("changes period when pill button clicked", () => {
     render(<MeetingChartWidget />);
-    const select = screen.getByLabelText("اختر الفترة");
-    fireEvent.change(select, { target: { value: "month" } });
+    fireEvent.click(screen.getByText("شهري"));
     expect(mockUseMeetingStats).toHaveBeenCalledWith("month");
   });
 });

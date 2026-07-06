@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, CheckSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -100,7 +100,10 @@ export default function Tasks() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">المهام</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">المهام</h1>
+          <p className="text-muted-foreground mt-1">تتبع وإدارة مهام الفريق</p>
+        </div>
         <Button onClick={() => { setForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "", meetingId: "" }); setApiError(""); setOpen(true); }}>
           <Plus className="h-4 w-4 ml-2" />
           مهمة جديدة
@@ -168,7 +171,21 @@ export default function Tasks() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center p-8 text-muted-foreground">لا توجد مهام لعرضها.</div>
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                <CheckSquare className="h-8 w-8 text-muted-foreground" />
+              </div>
+              {search ? (
+                <p className="text-muted-foreground font-medium">لا توجد نتائج مطابقة للبحث</p>
+              ) : (
+                <>
+                  <p className="text-muted-foreground font-medium">لا توجد مهام لعرضها</p>
+                  <Button variant="outline" size="sm" onClick={() => { setForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "", meetingId: "" }); setApiError(""); setOpen(true); }}>
+                    <Plus className="h-4 w-4 ml-1" /> إضافة أول مهمة
+                  </Button>
+                </>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

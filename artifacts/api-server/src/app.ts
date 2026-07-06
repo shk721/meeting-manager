@@ -54,9 +54,10 @@ app.use("/api", router);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Swagger UI — openapi.json lives at artifacts/api-server/openapi.json (one level above dist/)
+// Swagger UI (available in all environments)
 try {
-  const openApiSpec = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../openapi.json"), "utf-8"));
+  const openApiPath = path.resolve(__dirname, "../openapi.json");
+  const openApiSpec = JSON.parse(fs.readFileSync(openApiPath, "utf-8"));
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, {
     customSiteTitle: "Meeting Manager API Docs",
     swaggerOptions: { persistAuthorization: true },

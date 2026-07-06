@@ -1,0 +1,471 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Meeting Manager API",
+    "version": "1.0.0",
+    "description": "نظام متكامل لإدارة الاجتماعات، المحاضر، القرارات، والمهام"
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Local development" },
+    { "url": "https://your-app.railway.app/api", "description": "Production (Railway)" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "connect.sid",
+        "description": "Express session cookie set after POST /auth/login"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "username": { "type": "string" },
+          "fullName": { "type": "string" },
+          "email": { "type": "string" },
+          "role": { "type": "string", "enum": ["admin", "manager", "member", "viewer"] },
+          "department": { "type": "string", "nullable": true },
+          "avatar": { "type": "string", "nullable": true },
+          "bio": { "type": "string", "nullable": true },
+          "phone": { "type": "string", "nullable": true },
+          "timezone": { "type": "string" },
+          "theme": { "type": "string", "enum": ["light", "dark", "auto"] },
+          "language": { "type": "string", "enum": ["ar", "en"] },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Meeting": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "date": { "type": "string", "format": "date" },
+          "time": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["scheduled", "in_progress", "completed", "postponed", "cancelled"] },
+          "project": { "type": "string", "nullable": true },
+          "team": { "type": "string", "nullable": true },
+          "location": { "type": "string", "nullable": true },
+          "chairperson": { "$ref": "#/components/schemas/User", "nullable": true },
+          "attendeeCount": { "type": "integer" },
+          "taskCount": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["open", "in_progress", "completed", "on_hold", "cancelled"] },
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "completionPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "dueDate": { "type": "string", "format": "date", "nullable": true },
+          "assignee": { "$ref": "#/components/schemas/User", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "message": { "type": "string" },
+          "isRead": { "type": "boolean" },
+          "relatedId": { "type": "integer", "nullable": true },
+          "relatedType": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Preferences": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "userId": { "type": "integer" },
+          "notificationsEmail": { "type": "boolean" },
+          "notificationsPush": { "type": "boolean" },
+          "notificationsSms": { "type": "boolean" },
+          "emailDigest": { "type": "string", "enum": ["daily", "weekly", "never"] },
+          "twoFactorEnabled": { "type": "boolean" },
+          "twoFactorMethod": { "type": "string", "nullable": true },
+          "showInDirectory": { "type": "boolean" }
+        }
+      },
+      "PeriodStats": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "date": { "type": "string" },
+            "count": { "type": "integer" },
+            "completed": { "type": "integer" }
+          }
+        }
+      }
+    }
+  },
+  "security": [{ "sessionCookie": [] }],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "security": [],
+        "responses": {
+          "200": { "description": "Server is healthy", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string", "example": "ok" } } } } } }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log in",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["username", "password"], "properties": { "username": { "type": "string" }, "password": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Login successful", "content": { "application/json": { "schema": { "type": "object", "properties": { "user": { "$ref": "#/components/schemas/User" } } } } } },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log out",
+        "responses": {
+          "200": { "description": "Logged out" }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register new user",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["username", "password", "fullName", "email"], "properties": { "username": { "type": "string" }, "password": { "type": "string" }, "fullName": { "type": "string" }, "email": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": { "description": "User created" },
+          "409": { "description": "Username or email already exists" }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get user notifications",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "Notifications list", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Notification" } } } } },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/notifications/unread-count": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get unread notifications count",
+        "responses": {
+          "200": { "description": "Count", "content": { "application/json": { "schema": { "type": "object", "properties": { "count": { "type": "integer" } } } } } },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "post": {
+        "tags": ["Notifications"],
+        "summary": "Mark notification as read",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Marked as read", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Notification" } } } },
+          "404": { "description": "Notification not found" }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "post": {
+        "tags": ["Notifications"],
+        "summary": "Mark all notifications as read",
+        "responses": {
+          "200": { "description": "All marked as read", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" } } } } } }
+        }
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "tags": ["Notifications"],
+        "summary": "Delete a notification",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/search/meetings": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Search meetings by title/project/team",
+        "parameters": [{ "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Search results", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Meeting" } } } } }
+        }
+      }
+    },
+    "/search/tasks": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Search tasks by title/description",
+        "parameters": [{ "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Search results", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Task" } } } } }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Search across meetings and tasks",
+        "parameters": [{ "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Combined results", "content": { "application/json": { "schema": { "type": "object", "properties": { "meetings": { "type": "array" }, "tasks": { "type": "array" } } } } } }
+        }
+      }
+    },
+    "/filters/meetings": {
+      "get": {
+        "tags": ["Filters"],
+        "summary": "Filter meetings by criteria",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "dateFrom", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "dateTo", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "chairpersonId", "in": "query", "schema": { "type": "integer" } },
+          { "name": "minAttendees", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Filtered meetings" }
+        }
+      }
+    },
+    "/filters/tasks": {
+      "get": {
+        "tags": ["Filters"],
+        "summary": "Filter tasks by criteria",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "priority", "in": "query", "schema": { "type": "string" } },
+          { "name": "dueBefore", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "assigneeId", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Filtered tasks" }
+        }
+      }
+    },
+    "/views": {
+      "get": {
+        "tags": ["Saved Views"],
+        "summary": "List saved filter views",
+        "responses": { "200": { "description": "Views list" } }
+      },
+      "post": {
+        "tags": ["Saved Views"],
+        "summary": "Save a filter view",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["name", "type", "filters"], "properties": { "name": { "type": "string" }, "type": { "type": "string", "enum": ["meetings", "tasks"] }, "filters": { "type": "object" } } } } }
+        },
+        "responses": { "201": { "description": "View saved" } }
+      }
+    },
+    "/views/{id}": {
+      "get": {
+        "tags": ["Saved Views"],
+        "summary": "Get a saved view",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "View" }, "404": { "description": "Not found" } }
+      },
+      "delete": {
+        "tags": ["Saved Views"],
+        "summary": "Delete a saved view",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Deleted" } }
+      }
+    },
+    "/profile": {
+      "get": {
+        "tags": ["Profile"],
+        "summary": "Get own profile",
+        "responses": {
+          "200": { "description": "User profile", "content": { "application/json": { "schema": { "type": "object", "properties": { "user": { "$ref": "#/components/schemas/User" } } } } } },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "put": {
+        "tags": ["Profile"],
+        "summary": "Update own profile",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "fullName": { "type": "string" }, "bio": { "type": "string" }, "phone": { "type": "string" }, "timezone": { "type": "string" }, "theme": { "type": "string", "enum": ["light", "dark", "auto"] }, "language": { "type": "string", "enum": ["ar", "en"] }, "avatar": { "type": "string", "format": "uri" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Updated profile" },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/profile/{userId}": {
+      "get": {
+        "tags": ["Profile"],
+        "summary": "Get public profile of any user",
+        "parameters": [{ "name": "userId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Public profile (no email/phone)" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/settings/preferences": {
+      "get": {
+        "tags": ["Settings"],
+        "summary": "Get notification and privacy preferences",
+        "responses": {
+          "200": { "description": "Preferences", "content": { "application/json": { "schema": { "type": "object", "properties": { "preferences": { "$ref": "#/components/schemas/Preferences" } } } } } }
+        }
+      },
+      "put": {
+        "tags": ["Settings"],
+        "summary": "Update preferences",
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "notificationsEmail": { "type": "boolean" }, "notificationsPush": { "type": "boolean" }, "notificationsSms": { "type": "boolean" }, "emailDigest": { "type": "string", "enum": ["daily", "weekly", "never"] }, "showInDirectory": { "type": "boolean" } } } } }
+        },
+        "responses": { "200": { "description": "Updated" }, "400": { "description": "Validation error" } }
+      }
+    },
+    "/settings/two-factor/enable": {
+      "post": {
+        "tags": ["Settings"],
+        "summary": "Enable 2FA — returns a code to verify",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["method"], "properties": { "method": { "type": "string", "enum": ["email", "sms"] } } } } }
+        },
+        "responses": {
+          "200": { "description": "2FA initiation", "content": { "application/json": { "schema": { "type": "object", "properties": { "secret_key": { "type": "string" }, "qrCode": { "type": "string" }, "method": { "type": "string" } } } } } },
+          "400": { "description": "Invalid method" }
+        }
+      }
+    },
+    "/settings/two-factor/verify": {
+      "post": {
+        "tags": ["Settings"],
+        "summary": "Verify 2FA code to complete setup",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["code"], "properties": { "code": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Verified", "content": { "application/json": { "schema": { "type": "object", "properties": { "enabled": { "type": "boolean" } } } } } },
+          "400": { "description": "Invalid code" }
+        }
+      }
+    },
+    "/settings/two-factor/disable": {
+      "post": {
+        "tags": ["Settings"],
+        "summary": "Disable 2FA",
+        "responses": {
+          "200": { "description": "Disabled", "content": { "application/json": { "schema": { "type": "object", "properties": { "disabled": { "type": "boolean" } } } } } }
+        }
+      }
+    },
+    "/dashboard/stats": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get aggregate statistics",
+        "responses": { "200": { "description": "KPI stats" } }
+      }
+    },
+    "/dashboard/this-week": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get this week's meetings and tasks",
+        "responses": {
+          "200": { "description": "This week data", "content": { "application/json": { "schema": { "type": "object", "properties": { "meetings": { "type": "array" }, "tasks": { "type": "array" }, "upcoming": { "type": "array" } } } } } }
+        }
+      }
+    },
+    "/dashboard/pending": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get overdue tasks and upcoming meetings",
+        "responses": {
+          "200": { "description": "Pending items", "content": { "application/json": { "schema": { "type": "object", "properties": { "overdueTasks": { "type": "array" }, "upcomingMeetings": { "type": "array" } } } } } }
+        }
+      }
+    },
+    "/dashboard/meeting-stats": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get time-series meeting counts by period",
+        "parameters": [{ "name": "period", "in": "query", "schema": { "type": "string", "enum": ["day", "week", "month"], "default": "week" } }],
+        "responses": {
+          "200": { "description": "Meeting stats array", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PeriodStats" } } } },
+          "400": { "description": "Invalid period" }
+        }
+      }
+    },
+    "/dashboard/task-stats": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get time-series task counts by period",
+        "parameters": [{ "name": "period", "in": "query", "schema": { "type": "string", "enum": ["day", "week", "month"], "default": "week" } }],
+        "responses": {
+          "200": { "description": "Task stats array" },
+          "400": { "description": "Invalid period" }
+        }
+      }
+    },
+    "/dashboard/insights": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get aggregated insights (busiest day, completion rate, etc.)",
+        "responses": {
+          "200": { "description": "Insights", "content": { "application/json": { "schema": { "type": "object", "properties": { "busiestDay": { "type": "string" }, "completionRate": { "type": "integer" }, "avgAttendeesPerMeeting": { "type": "integer" }, "mostActiveAttendee": { "type": "string", "nullable": true }, "overdueTaskCount": { "type": "integer" }, "totalMeetings": { "type": "integer" }, "totalTasks": { "type": "integer" } } } } } }
+        }
+      }
+    },
+    "/dashboard/upcoming-meetings": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get upcoming meetings with details",
+        "responses": { "200": { "description": "Upcoming meetings list" } }
+      }
+    },
+    "/dashboard/overdue-tasks": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get overdue tasks with assignee info",
+        "responses": { "200": { "description": "Overdue tasks list" } }
+      }
+    }
+  }
+}

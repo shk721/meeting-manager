@@ -5,6 +5,7 @@ import session from "express-session";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import swaggerUi from "swagger-ui-express";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -51,6 +52,16 @@ app.use(
 
 app.use("/api", router);
 
+// Swagger UI (available in all environments)
+const openApiSpec = JSON.parse(
+  fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../openapi.json"), "utf-8")
+);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+  customSiteTitle: "Meeting Manager API Docs",
+  swaggerOptions: { persistAuthorization: true },
+}));
+app.get("/api-docs.json", (_req, res) => res.json(openApiSpec));
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Serve DT dashboard at /dt  (must be registered before meeting-manager catch-all)
@@ -59,6 +70,15 @@ if (fs.existsSync(dtDist)) {
   app.use("/dt", express.static(dtDist));
   app.get("/dt/{*splat}", (_req, res) => {
     res.sendFile(path.join(dtDist, "index.html"));
+  });
+}
+
+// Serve committees app at /committees  (must be registered before meeting-manager catch-all)
+const committeesDist = path.resolve(__dirname, "../../committees/dist/public");
+if (fs.existsSync(committeesDist)) {
+  app.use("/committees", express.static(committeesDist));
+  app.get("/committees/{*splat}", (_req, res) => {
+    res.sendFile(path.join(committeesDist, "index.html"));
   });
 }
 

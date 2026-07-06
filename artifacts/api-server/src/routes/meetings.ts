@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import {
   db, meetingsTable, meetingAttendeesTable,
   usersTable, minutesTable, tasksTable, decisionsTable,
@@ -10,6 +10,7 @@ import {
   GetMeetingParams, UpdateMeetingParams, UpdateMeetingBody,
 } from "@workspace/api-zod";
 import { formatUser } from "./users";
+import { createNotification } from "@workspace/db/notifications-queries";
 
 const router: IRouter = Router();
 
@@ -94,6 +95,16 @@ router.post("/meetings", async (req, res): Promise<void> => {
     await db.insert(meetingAttendeesTable).values(
       attendeeIds.map(uid => ({ meetingId: meeting.id, userId: uid }))
     );
+    await Promise.all(attendeeIds.map(uid =>
+      createNotification({
+        userId: uid,
+        type: "meeting_created",
+        title: "اجتماع جديد",
+        message: `تمت دعوتك لاجتماع: ${meeting.title}`,
+        relatedId: meeting.id,
+        relatedType: "meeting",
+      })
+    ));
   }
 
   const result = await getMeetingWithMeta(meeting.id);
@@ -197,6 +208,29 @@ router.patch("/meetings/:id", async (req, res): Promise<void> => {
     }
   }
 
+  const result = await getMeetingWithMeta(id);
+  res.json(result);
+});
+
+router.post("/meetings/:id/attendees", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const userId = parseInt(req.body.userId, 10);
+  if (isNaN(id) || isNaN(userId)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const existing = await db.select().from(meetingAttendeesTable)
+    .where(and(eq(meetingAttendeesTable.meetingId, id), eq(meetingAttendeesTable.userId, userId)));
+  if (existing.length === 0) {
+    await db.insert(meetingAttendeesTable).values({ meetingId: id, userId });
+  }
+  const result = await getMeetingWithMeta(id);
+  res.json(result);
+});
+
+router.delete("/meetings/:id/attendees/:userId", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const userId = parseInt(req.params.userId, 10);
+  if (isNaN(id) || isNaN(userId)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(meetingAttendeesTable)
+    .where(and(eq(meetingAttendeesTable.meetingId, id), eq(meetingAttendeesTable.userId, userId)));
   const result = await getMeetingWithMeta(id);
   res.json(result);
 });

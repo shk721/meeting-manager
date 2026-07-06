@@ -11,6 +11,11 @@ export const usersTable = pgTable("users", {
   role: text("role").notNull().default("member"),
   department: text("department"),
   avatar: text("avatar"),
+  bio: text("bio"),
+  phone: text("phone"),
+  timezone: text("timezone").default("UTC"),
+  theme: text("theme").default("auto"),
+  language: text("language").default("ar"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

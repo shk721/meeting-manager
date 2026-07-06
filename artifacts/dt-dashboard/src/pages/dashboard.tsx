@@ -1123,9 +1123,22 @@ export default function DashboardPage() {
   const [showAddSP, setShowAddSP] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast]       = useState<{ msg: string; key: number } | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [subplanSearch, setSubplanSearch] = useState("");
 
   const showToast = useCallback((msg: string) => {
     setToast({ msg, key: Date.now() });
+  }, []);
+
+  useEffect(() => {
+    const fetchCount = () =>
+      fetch("/api/notifications/unread-count", { credentials: "include" })
+        .then(r => r.ok ? r.json() : { count: 0 })
+        .then(d => setUnreadCount(d.count ?? 0))
+        .catch(() => {});
+    fetchCount();
+    const id = setInterval(fetchCount, 30_000);
+    return () => clearInterval(id);
   }, []);
 
   // ── Load on mount ──────────────────────────────────────────────────────────
@@ -1250,6 +1263,22 @@ export default function DashboardPage() {
           <Btn onClick={() => { setView("overview"); setSelId(null); }} active={view === "overview" && !selId} sm>📊 اللوحة</Btn>
           <Btn onClick={() => setView("reports")} active={view === "reports"} sm>📋 التقارير</Btn>
         </div>
+        <div style={{ display:"flex", gap:6 }}>
+          <a href="/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📅 الاجتماعات</Btn></a>
+          <a href="/committees/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">🏛️ اللجان</Btn></a>
+        </div>
+        <button title="الإشعارات"
+          style={{ position:"relative", background:"none", border:"none", cursor:"pointer",
+            padding:"4px 8px", fontSize:18, color:C.sub }}>
+          🔔
+          {unreadCount > 0 && (
+            <span style={{ position:"absolute", top:0, right:0, background:"#ef4444", color:"#fff",
+              borderRadius:"50%", fontSize:9, fontWeight:700, minWidth:16, height:16,
+              display:"flex", alignItems:"center", justifyContent:"center", padding:"0 3px" }}>
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </button>
         <div style={{ display:"flex", alignItems:"center", gap:8, borderRight:`1px solid ${C.border}`, paddingRight:12 }}>
           <span style={{ fontSize:11, color:C.muted }}>👤 {user?.fullName}</span>
           <Btn onClick={logout} sm variant="ghost">خروج</Btn>
@@ -1269,8 +1298,18 @@ export default function DashboardPage() {
             <span style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>الخطط الفرعية</span>
             <Btn onClick={() => setShowAddSP(true)} sm>+</Btn>
           </div>
+          <div style={{ padding:"0 13px 8px" }}>
+            <input
+              value={subplanSearch}
+              onChange={e => setSubplanSearch(e.target.value)}
+              placeholder="بحث…"
+              style={{ width:"100%", background:C.raised, border:`1px solid ${C.border}`,
+                borderRadius:6, color:C.text, padding:"5px 9px", fontSize:12,
+                fontFamily:"inherit", direction:"rtl", outline:"none", boxSizing:"border-box" }}
+            />
+          </div>
 
-          {project.subplans.map((sp, i) => {
+          {project.subplans.filter(sp => !subplanSearch.trim() || sp.title.toLowerCase().includes(subplanSearch.trim().toLowerCase())).map((sp, i) => {
             const active = selId === sp.id && view === "detail";
             const cfg = STATUS[sp.status] || STATUS["لم يبدأ"];
             const dTags = DRIVER_KEYS.filter(k => sp.components.some(c => c.driver === k));

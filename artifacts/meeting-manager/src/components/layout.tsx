@@ -12,9 +12,10 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare, FileText, LogOut, Building2, UserCog, CalendarDays, ExternalLink, LayoutGrid, CircleUser, Settings } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import NotificationBell from "@/components/NotificationBell";
 
 const roleLabels: Record<string, string> = {
   admin: "مدير النظام",
@@ -26,12 +27,14 @@ const roleLabels: Record<string, string> = {
 function getNavItems(role: string) {
   if (role === "admin") {
     return [
+      { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
       { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
     ];
   }
   if (role === "manager") {
     return [
+      { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
       { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
       { title: "المهام", href: "/tasks", icon: CheckSquare },
@@ -99,6 +102,38 @@ export default function Layout({ children }: { children: ReactNode }) {
             </div>
             <SidebarMenu>
               <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="التحول الرقمي">
+                  <a href="/dt/" className="flex items-center gap-3">
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="text-sm">لوحة التحول الرقمي</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="اللجان">
+                  <a href="/committees/" className="flex items-center gap-3">
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="text-sm">وحدة اللجان</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="الملف الشخصي">
+                  <Link href="/profile" className="flex items-center gap-3">
+                    <CircleUser className="h-4 w-4" />
+                    <span className="text-sm">الملف الشخصي</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="الإعدادات">
+                  <Link href="/settings" className="flex items-center gap-3">
+                    <Settings className="h-4 w-4" />
+                    <span className="text-sm">الإعدادات</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
                 <SidebarMenuButton onClick={logout} className="text-destructive hover:bg-destructive/10 hover:text-destructive">
                   <LogOut className="h-5 w-5" />
                   <span>تسجيل الخروج</span>
@@ -112,6 +147,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <header className="flex h-14 items-center gap-4 border-b bg-background px-6 lg:h-[60px]">
             <SidebarTrigger />
             <div className="flex-1" />
+            <NotificationBell />
           </header>
           <main className="flex-1 overflow-y-auto p-6 md:p-8">
             {children}

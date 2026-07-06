@@ -17,6 +17,10 @@ import filtersRouter from "./filters";
 import viewsRouter from "./views";
 import profileRouter from "./profile";
 import settingsRouter from "./settings";
+import calendarRouter from "./calendar";
+import recurringRouter from "./recurring";
+import schedulingRouter from "./scheduling";
+import remindersRouter from "./reminders";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -40,5 +44,9 @@ router.use(filtersRouter);
 router.use(viewsRouter);
 router.use(profileRouter);
 router.use(settingsRouter);
+router.use(calendarRouter);
+router.use(recurringRouter);
+router.use(schedulingRouter);
+router.use(remindersRouter);
 
 export default router;

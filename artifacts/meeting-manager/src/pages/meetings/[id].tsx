@@ -21,8 +21,10 @@ import {
 import {
   Calendar, Clock, MapPin, Users, Target, FileText,
   Briefcase, Plus, Trash2, Send, Play, CheckCircle2,
-  ChevronDown, ChevronUp, Edit, AlertCircle,
+  ChevronDown, ChevronUp, Edit, AlertCircle, RefreshCw,
 } from "lucide-react";
+import { RecurringMeetingDialog } from "@/components/RecurringMeetingDialog";
+import { ReminderSettings } from "@/components/ReminderSettings";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
   scheduled: { label: "مجدول", variant: "default" },
@@ -119,6 +121,9 @@ export default function MeetingDetail({ id }: { id: string }) {
     executiveSummary: "", risks: "", previousFollowUp: "",
   });
   const [isSavingMinutes, setIsSavingMinutes] = useState(false);
+
+  // Recurring meeting dialog
+  const [recurringOpen, setRecurringOpen] = useState(false);
 
   // Expanded agenda items
   const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
@@ -342,10 +347,22 @@ export default function MeetingDetail({ id }: { id: string }) {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant={(statusMap[m.status]?.variant as any) || "default"} className="text-sm px-3 py-1">
             {statusMap[m.status]?.label || m.status}
           </Badge>
+          {(m as any).isRecurring && (
+            <Badge variant="outline" className="text-xs gap-1">
+              <RefreshCw className="h-3 w-3" />
+              متكرر
+            </Badge>
+          )}
+          {!(m as any).isRecurring && !(m as any).parentMeetingId && m.status === "scheduled" && (
+            <Button size="sm" variant="outline" onClick={() => setRecurringOpen(true)}>
+              <RefreshCw className="h-3.5 w-3.5 ml-1" />
+              تعيين تكرار
+            </Button>
+          )}
           {m.status === "scheduled" && (
             <Button onClick={() => patchMeeting({ status: "in_progress" })} disabled={isPending} size="sm">
               <Play className="h-4 w-4 ml-1" />
@@ -624,6 +641,13 @@ export default function MeetingDetail({ id }: { id: string }) {
         </CardContent>
       </Card>
 
+      {/* Reminders Card */}
+      <Card>
+        <CardContent className="pt-4">
+          <ReminderSettings meetingId={meetingId} />
+        </CardContent>
+      </Card>
+
       {/* Minutes Card */}
       <Card>
         <CardHeader className="pb-3">
@@ -861,6 +885,14 @@ export default function MeetingDetail({ id }: { id: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Recurring Meeting Dialog */}
+      <RecurringMeetingDialog
+        meetingId={meetingId}
+        open={recurringOpen}
+        onClose={() => setRecurringOpen(false)}
+        onSuccess={refresh}
+      />
 
       {/* Minutes Dialog */}
       <Dialog open={minutesOpen} onOpenChange={setMinutesOpen}>

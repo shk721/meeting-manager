@@ -39,10 +39,11 @@ describe("TaskChartWidget", () => {
     expect(screen.getByTestId("bar-chart")).toBeTruthy();
   });
 
-  it("shows period selector with 3 options", () => {
+  it("shows 3 period pill buttons", () => {
     render(<TaskChartWidget />);
-    const select = screen.getByLabelText("اختر الفترة") as HTMLSelectElement;
-    expect(select.options.length).toBe(3);
+    expect(screen.getByText("يومي")).toBeTruthy();
+    expect(screen.getByText("أسبوعي")).toBeTruthy();
+    expect(screen.getByText("شهري")).toBeTruthy();
   });
 
   it("defaults period to week", () => {
@@ -50,10 +51,9 @@ describe("TaskChartWidget", () => {
     expect(mockUseTaskStats).toHaveBeenCalledWith("week");
   });
 
-  it("changes period when selector changes to day", () => {
+  it("changes period when pill button clicked", () => {
     render(<TaskChartWidget />);
-    const select = screen.getByLabelText("اختر الفترة");
-    fireEvent.change(select, { target: { value: "day" } });
+    fireEvent.click(screen.getByText("يومي"));
     expect(mockUseTaskStats).toHaveBeenCalledWith("day");
   });
 });

@@ -22,6 +22,14 @@ import SavedViews from "@/components/SavedViews";
 import { useSearch } from "@/hooks/useSearch";
 import { useFilters } from "@/hooks/useFilters";
 
+const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  scheduled:   { bg: "#fbf1dd", text: "#a97918", border: "#d6b23e" },
+  in_progress: { bg: "#e8f2ea", text: "#1f7a4d", border: "#1f7a4d" },
+  completed:   { bg: "#e3efe8", text: "#0f7a52", border: "#0f7a52" },
+  cancelled:   { bg: "#fbeeea", text: "#c0492f", border: "#c0492f" },
+  postponed:   { bg: "#eef1f4", text: "#5a6675", border: "#7c8a99" },
+};
+
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
   scheduled:   { label: "مجدول",  variant: "default" },
   in_progress: { label: "جارٍ",   variant: "warning" },
@@ -138,15 +146,25 @@ export default function Meetings() {
               </TableHeader>
               <TableBody>
                 {displayMeetings.map((m: any) => (
-                  <TableRow key={m.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableRow
+                    key={m.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    style={{ borderRight: `3px solid ${STATUS_COLORS[m.status]?.border ?? "#e6ece4"}` }}
+                  >
                     <TableCell className="font-medium">
                       <Link href={`/meetings/${m.id}`} className="block w-full">{m.title}</Link>
                     </TableCell>
                     <TableCell>{new Date(m.date).toLocaleDateString("ar-SA")} - {m.time}</TableCell>
                     <TableCell>
-                      <Badge variant={(statusMap[m.status]?.variant as any) || "default"}>
-                        {statusMap[m.status]?.label || m.status}
-                      </Badge>
+                      <span
+                        className="inline-block text-xs px-2.5 py-0.5 rounded-full font-medium"
+                        style={{
+                          background: STATUS_COLORS[m.status]?.bg ?? "#eef2ec",
+                          color: STATUS_COLORS[m.status]?.text ?? "#5a675a",
+                        }}
+                      >
+                        {statusMap[m.status]?.label ?? m.status}
+                      </span>
                     </TableCell>
                     <TableCell>{m.chairperson?.fullName}</TableCell>
                     <TableCell>{m.attendeeCount}</TableCell>

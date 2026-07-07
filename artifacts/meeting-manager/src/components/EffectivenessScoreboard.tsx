@@ -19,7 +19,7 @@ function ScoreBar({ label, value }: { label: string; value: boolean }) {
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`font-semibold ${value ? "text-emerald-600" : "text-muted-foreground"}`}>
+      <span className="font-semibold" style={{ color: value ? "#1f7a4d" : undefined }}>
         {value ? "+25" : "—"}
       </span>
     </div>

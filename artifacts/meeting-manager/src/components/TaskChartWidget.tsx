@@ -50,10 +50,10 @@ export function TaskChartWidget() {
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="count" name="الإجمالي" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="completed" name="مكتمل" fill="#10b981" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="overdue" name="متأخر" fill="#ef4444" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="high" name="أولوية عالية" fill="#f97316" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="count" name="الإجمالي" fill="#1f7a4d" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="completed" name="مكتمل" fill="#9fcbb2" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="overdue" name="متأخر" fill="#c0492f" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="high" name="أولوية عالية" fill="#d6b23e" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}

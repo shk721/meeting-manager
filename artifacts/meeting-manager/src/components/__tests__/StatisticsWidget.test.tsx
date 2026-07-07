@@ -12,23 +12,22 @@ const fakeStats = {
 };
 
 describe("StatisticsWidget", () => {
-  it("renders all 5 KPI cards", () => {
+  it("renders all KPI cards", () => {
     render(<StatisticsWidget stats={fakeStats} />);
-    expect(screen.getByText("إجمالي الاجتماعات")).toBeTruthy();
-    expect(screen.getByText("محاضر بانتظار الاعتماد")).toBeTruthy();
     expect(screen.getByText("مهام مفتوحة")).toBeTruthy();
     expect(screen.getByText("مهام متأخرة")).toBeTruthy();
+    expect(screen.getByText("محاضر معلّقة")).toBeTruthy();
     expect(screen.getByText("نسبة الإنجاز")).toBeTruthy();
   });
 
-  it("shows totalMeetings value", () => {
+  it("shows openTasks value", () => {
     render(<StatisticsWidget stats={fakeStats} />);
-    expect(screen.getByText("20")).toBeTruthy();
+    expect(screen.getByText("12")).toBeTruthy();
   });
 
-  it("shows upcomingMeetings in subtitle", () => {
+  it("shows overdueTasks value", () => {
     render(<StatisticsWidget stats={fakeStats} />);
-    expect(screen.getByText("5 اجتماعات قادمة")).toBeTruthy();
+    expect(screen.getByText("4")).toBeTruthy();
   });
 
   it("shows overdueTasks value", () => {

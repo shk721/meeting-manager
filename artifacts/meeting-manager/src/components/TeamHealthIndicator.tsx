@@ -11,16 +11,10 @@ interface TeamHealth {
   completedTasks: number;
 }
 
-function scoreColor(score: number) {
-  if (score >= 70) return "text-emerald-600";
-  if (score >= 40) return "text-amber-600";
-  return "text-red-600";
-}
-
-function scoreBg(score: number) {
-  if (score >= 70) return "bg-emerald-50 border-emerald-200";
-  if (score >= 40) return "bg-amber-50 border-amber-200";
-  return "bg-red-50 border-red-200";
+function scoreStyle(score: number): { color: string; bg: string; border: string } {
+  if (score >= 70) return { color: "#1f7a4d", bg: "#e8f2ea", border: "#9fcbb2" };
+  if (score >= 40) return { color: "#a97918", bg: "#fbf1dd", border: "#d6b23e" };
+  return { color: "#c0492f", bg: "#fbeeea", border: "#e8a498" };
 }
 
 function scoreLabel(score: number) {
@@ -38,22 +32,27 @@ export function TeamHealthIndicator() {
   if (isLoading) return <Card className="animate-pulse"><CardContent className="h-40" /></Card>;
 
   const score = data?.score ?? 0;
+  const s = scoreStyle(score);
 
   return (
-    <Card className={`border ${scoreBg(score)}`} data-testid="team-health-card">
+    <Card style={{ borderTop: `3px solid ${s.border}` }} data-testid="team-health-card">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Heart className="h-4 w-4" />
+          <Heart className="h-4 w-4" style={{ color: s.color }} />
           صحة الفريق
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-4">
-          <div className={`text-5xl font-bold ${scoreColor(score)}`} data-testid="health-score">
+          <div
+            className="font-rubik text-5xl font-bold"
+            style={{ color: s.color }}
+            data-testid="health-score"
+          >
             {score}
           </div>
           <div>
-            <p className={`font-semibold ${scoreColor(score)}`}>{scoreLabel(score)}</p>
+            <p className="font-semibold" style={{ color: s.color }}>{scoreLabel(score)}</p>
             <p className="text-xs text-muted-foreground mt-1">من 100 نقطة</p>
           </div>
         </div>
@@ -64,7 +63,7 @@ export function TeamHealthIndicator() {
           </div>
           <div>
             <p className="text-muted-foreground text-xs">مهام متأخرة</p>
-            <p className={`font-semibold ${(data?.overdueCount ?? 0) > 0 ? "text-red-600" : ""}`}>
+            <p className="font-semibold" style={{ color: (data?.overdueCount ?? 0) > 0 ? "#c0492f" : undefined }}>
               {data?.overdueCount ?? 0}
             </p>
           </div>

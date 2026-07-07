@@ -4,13 +4,17 @@ import { TrendAnalysis } from "@/components/TrendAnalysis";
 import { ProductivityMetrics } from "@/components/ProductivityMetrics";
 import { ActionItemsBoard } from "@/components/ActionItemsBoard";
 import { ReportBuilder } from "@/components/ReportBuilder";
+import { ExportModal } from "@/components/ExportModal";
 
 export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">لوحة التحليلات</h1>
-        <p className="text-muted-foreground mt-1">رؤى شاملة حول أداء الاجتماعات والفريق</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">لوحة التحليلات</h1>
+          <p className="text-muted-foreground mt-1">رؤى شاملة حول أداء الاجتماعات والفريق</p>
+        </div>
+        <ExportModal />
       </div>
 
       {/* Row 1: Health + Effectiveness */}

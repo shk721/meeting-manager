@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -67,7 +67,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE */
+/* LIGHT MODE — Olive Institutional 2c */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
@@ -77,56 +77,56 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 210 20% 98%;
-  --foreground: 222 47% 11%;
-  --border: 214 32% 91%;
-  
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
+  --background: 90 13% 96%;      /* #f4f6f2 */
+  --foreground: 120 14% 13%;     /* #1c261c */
+  --border: 100 14% 90%;         /* #e6ece4 */
 
-  --sidebar: 222 47% 15%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 222 47% 11%;
-  --sidebar-primary: 43 74% 49%;
-  --sidebar-primary-foreground: 222 47% 11%;
-  --sidebar-accent: 220 40% 25%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 214 32% 91%;
+  --card: 0 0% 100%;             /* #ffffff */
+  --card-foreground: 120 14% 13%;
+  --card-border: 100 14% 90%;    /* #e6ece4 */
+
+  --sidebar: 0 0% 100%;          /* #ffffff */
+  --sidebar-foreground: 120 9% 37%;   /* #5a675a */
+  --sidebar-border: 100 14% 90%;      /* #e6ece4 */
+  --sidebar-primary: 152 59% 29%;     /* #1f7a4d */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 137 30% 93%;      /* #e8f2ea */
+  --sidebar-accent-foreground: 152 59% 29%; /* #1f7a4d */
+  --sidebar-ring: 100 14% 90%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
+  --popover-foreground: 120 14% 13%;
+  --popover-border: 100 14% 90%;
 
-  --primary: 222 47% 15%;
-  --primary-foreground: 210 40% 98%;
+  --primary: 152 59% 29%;        /* #1f7a4d */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222 47% 11.2%;
+  --secondary: 90 13% 94%;       /* #eef2ec */
+  --secondary-foreground: 120 9% 37%;
 
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 90 13% 96%;           /* #f4f6f2 */
+  --muted-foreground: 120 5% 55%; /* #8a978a */
 
-  --accent: 43 74% 49%;
-  --accent-foreground: 222 47% 11.2%;
+  --accent: 43 52% 54%;          /* #d6b23e gold */
+  --accent-foreground: 120 14% 13%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 9 60% 47%;      /* #c0492f */
+  --destructive-foreground: 0 0% 100%;
 
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222 47% 15%;
-  
-  --chart-1: 43 74% 49%;
-  --chart-2: 222 47% 15%;
-  --chart-3: 199 89% 48%;
-  --chart-4: 160 84% 39%;
-  --chart-5: 340 82% 52%;
+  --input: 100 14% 84%;          /* #d7ded1 */
+  --ring: 152 59% 29%;           /* #1f7a4d */
+
+  --chart-1: 152 59% 29%;        /* #1f7a4d */
+  --chart-2: 152 30% 70%;        /* #9fcbb2 */
+  --chart-3: 168 75% 27%;        /* #0f7a52 teal */
+  --chart-4: 43 52% 54%;         /* #d6b23e gold */
+  --chart-5: 9 60% 47%;          /* #c0492f red */
 
   --app-font-sans: 'Cairo', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
-  
-  --radius: 0.3rem;
+
+  --radius: 0.875rem;            /* 14px */
   
   --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -223,6 +223,10 @@
 }
 
 @layer utilities {
+  .font-rubik {
+    font-family: 'Rubik', sans-serif;
+  }
+
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }

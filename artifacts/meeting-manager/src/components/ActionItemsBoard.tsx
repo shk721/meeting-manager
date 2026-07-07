@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ClipboardList } from "lucide-react";
 
 interface ActionItemsStatus {
@@ -31,16 +30,16 @@ export function ActionItemsBoard() {
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3">
-                <p className="text-2xl font-bold text-blue-600" data-testid="open-count">{data?.open ?? 0}</p>
+              <div className="rounded-lg p-3" style={{ background: "#e8f2ea" }}>
+                <p className="font-rubik text-2xl font-bold" style={{ color: "#1f7a4d" }} data-testid="open-count">{data?.open ?? 0}</p>
                 <p className="text-xs text-muted-foreground mt-1">مفتوحة</p>
               </div>
-              <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3">
-                <p className="text-2xl font-bold text-red-600" data-testid="overdue-count">{data?.overdue ?? 0}</p>
+              <div className="rounded-lg p-3" style={{ background: "#fbeeea" }}>
+                <p className="font-rubik text-2xl font-bold" style={{ color: "#c0492f" }} data-testid="overdue-count">{data?.overdue ?? 0}</p>
                 <p className="text-xs text-muted-foreground mt-1">متأخرة</p>
               </div>
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3">
-                <p className="text-2xl font-bold text-emerald-600">{data?.completed ?? 0}</p>
+              <div className="rounded-lg p-3" style={{ background: "#e3efe8" }}>
+                <p className="font-rubik text-2xl font-bold" style={{ color: "#0f7a52" }}>{data?.completed ?? 0}</p>
                 <p className="text-xs text-muted-foreground mt-1">مكتملة</p>
               </div>
             </div>
@@ -53,9 +52,9 @@ export function ActionItemsBoard() {
                     <div key={owner.userId} className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">مستخدم #{owner.userId}</span>
                       <div className="flex gap-1.5">
-                        <Badge variant="secondary" className="text-xs">{owner.open} مفتوح</Badge>
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#e8f2ea", color: "#1f7a4d" }}>{owner.open} مفتوح</span>
                         {owner.overdue > 0 && (
-                          <Badge variant="destructive" className="text-xs">{owner.overdue} متأخر</Badge>
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#fbeeea", color: "#c0492f" }}>{owner.overdue} متأخر</span>
                         )}
                       </div>
                     </div>

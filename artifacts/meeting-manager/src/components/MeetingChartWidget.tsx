@@ -50,9 +50,9 @@ export function MeetingChartWidget() {
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="count" name="الإجمالي" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="completed" name="مكتمل" fill="#10b981" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="cancelled" name="ملغى" fill="#ef4444" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="count" name="الإجمالي" fill="#1f7a4d" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="completed" name="مكتمل" fill="#9fcbb2" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="cancelled" name="ملغى" fill="#c0492f" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}

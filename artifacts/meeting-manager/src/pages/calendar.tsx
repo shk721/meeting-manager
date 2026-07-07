@@ -31,17 +31,19 @@ interface DayMeeting {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  scheduled: "bg-blue-500",
-  completed: "bg-emerald-500",
-  cancelled: "bg-red-400",
-  "in-progress": "bg-amber-500",
+  scheduled:    "bg-[#d6b23e]",
+  completed:    "bg-[#0f7a52]",
+  cancelled:    "bg-[#c0492f]",
+  "in-progress":"bg-[#1f7a4d]",
+  in_progress:  "bg-[#1f7a4d]",
 };
 
 const STATUS_BADGE: Record<string, string> = {
-  scheduled: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-  completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  cancelled: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-  "in-progress": "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+  scheduled:    "bg-[#fbf1dd] text-[#a97918]",
+  completed:    "bg-[#e3efe8] text-[#0f7a52]",
+  cancelled:    "bg-[#fbeeea] text-[#c0492f]",
+  "in-progress":"bg-[#e8f2ea] text-[#1f7a4d]",
+  in_progress:  "bg-[#e8f2ea] text-[#1f7a4d]",
 };
 
 const STATUS_LABEL: Record<string, string> = {

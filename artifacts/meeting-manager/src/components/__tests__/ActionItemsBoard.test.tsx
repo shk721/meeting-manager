@@ -32,12 +32,11 @@ describe("ActionItemsBoard", () => {
     expect(screen.getByTestId("open-count").textContent).toBe("5");
   });
 
-  it("shows overdue count in red", () => {
+  it("shows overdue count", () => {
     mockUseQuery.mockReturnValue({ data: fakeData, isLoading: false });
     render(<ActionItemsBoard />);
     const overdueEl = screen.getByTestId("overdue-count");
     expect(overdueEl.textContent).toBe("2");
-    expect(overdueEl.className).toContain("red");
   });
 
   it("renders the card", () => {

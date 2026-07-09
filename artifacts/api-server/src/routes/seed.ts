@@ -11,10 +11,11 @@ router.post("/seed", async (req, res): Promise<void> => {
     return;
   }
 
-  const [adminHash, managerHash, memberHash] = await Promise.all([
-    bcrypt.hash("admin123", 10),
+  const [adminHash, managerHash, memberHash, viewerHash] = await Promise.all([
+    bcrypt.hash("admin123",   10),
     bcrypt.hash("manager123", 10),
-    bcrypt.hash("member123", 10),
+    bcrypt.hash("member123",  10),
+    bcrypt.hash("viewer123",  10),
   ]);
 
   const users = [
@@ -27,10 +28,10 @@ router.post("/seed", async (req, res): Promise<void> => {
       department: "الإدارة",
     },
     {
-      username: "manager1",
+      username: "manager",
       password: managerHash,
       fullName: "سارة القحطاني",
-      email: "manager1@meeting-manager.com",
+      email: "manager@meeting-manager.com",
       role: "manager" as const,
       department: "تقنية المعلومات",
     },
@@ -41,6 +42,14 @@ router.post("/seed", async (req, res): Promise<void> => {
       email: "member1@meeting-manager.com",
       role: "member" as const,
       department: "الموارد البشرية",
+    },
+    {
+      username: "viewer",
+      password: viewerHash,
+      fullName: "نورة الشمري",
+      email: "viewer@meeting-manager.com",
+      role: "viewer" as const,
+      department: "المالية",
     },
   ];
 

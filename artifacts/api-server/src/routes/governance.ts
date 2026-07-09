@@ -24,7 +24,7 @@ router.get("/governance-contexts", async (req, res) => {
 });
 
 router.post("/governance-contexts", async (req, res) => {
-  const body = z.object({
+  const parsed = z.object({
     name: z.string().min(1),
     type: z.string().min(1),
     organizationId: z.number().int().optional(),
@@ -38,8 +38,9 @@ router.post("/governance-contexts", async (req, res) => {
     quorumPercent: z.number().int().min(0).max(100).optional(),
     establishedAt: z.string().optional(),
     dissolvedAt: z.string().optional(),
-  }).parse(req.body);
-  const [ctx] = await db.insert(governanceContextsTable).values(body).returning();
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [ctx] = await db.insert(governanceContextsTable).values(parsed.data).returning();
   res.status(201).json(ctx);
 });
 
@@ -57,7 +58,7 @@ router.get("/governance-contexts/:id", async (req, res) => {
 
 router.patch("/governance-contexts/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const body = z.object({
+  const parsed = z.object({
     name: z.string().optional(),
     type: z.string().optional(),
     organizationId: z.number().int().nullable().optional(),
@@ -71,8 +72,9 @@ router.patch("/governance-contexts/:id", async (req, res) => {
     quorumPercent: z.number().int().min(0).max(100).optional(),
     establishedAt: z.string().nullable().optional(),
     dissolvedAt: z.string().nullable().optional(),
-  }).parse(req.body);
-  const [updated] = await db.update(governanceContextsTable).set(body)
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [updated] = await db.update(governanceContextsTable).set(parsed.data)
     .where(eq(governanceContextsTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);
@@ -99,7 +101,7 @@ router.get("/governance-members", async (req, res) => {
 });
 
 router.post("/governance-members", async (req, res) => {
-  const body = z.object({
+  const parsed = z.object({
     governanceContextId: z.number().int(),
     userId: z.number().int().optional(),
     externalName: z.string().optional(),
@@ -108,20 +110,22 @@ router.post("/governance-members", async (req, res) => {
     isVoting: z.boolean().optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
-  }).parse(req.body);
-  const [member] = await db.insert(governanceMembersTable).values(body).returning();
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [member] = await db.insert(governanceMembersTable).values(parsed.data).returning();
   res.status(201).json(member);
 });
 
 router.patch("/governance-members/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const body = z.object({
+  const parsed = z.object({
     role: z.string().optional(),
     isVoting: z.boolean().optional(),
     startDate: z.string().nullable().optional(),
     endDate: z.string().nullable().optional(),
-  }).parse(req.body);
-  const [updated] = await db.update(governanceMembersTable).set(body)
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [updated] = await db.update(governanceMembersTable).set(parsed.data)
     .where(eq(governanceMembersTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);

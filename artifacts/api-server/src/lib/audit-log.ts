@@ -15,16 +15,20 @@ interface AuditParams {
 // Fire-and-forget: never awaited, never throws to callers.
 // A failed audit log insert must not fail the originating request.
 export function auditLog(params: AuditParams): void {
-  db.insert(auditLogTable).values({
-    entityType: params.entityType,
-    entityId: params.entityId,
-    action: params.action,
-    actorId: params.actorId ?? null,
-    actorIp: params.actorIp ?? null,
-    changes: (params.changes ?? null) as any,
-    context: params.context ?? null,
-    sessionId: params.sessionId ?? null,
-  }).then(() => {}).catch((err: Error) => {
+  try {
+    db.insert(auditLogTable).values({
+      entityType: params.entityType,
+      entityId: params.entityId,
+      action: params.action,
+      actorId: params.actorId ?? null,
+      actorIp: params.actorIp ?? null,
+      changes: (params.changes ?? null) as any,
+      context: params.context ?? null,
+      sessionId: params.sessionId ?? null,
+    }).then(() => {}).catch((err: Error) => {
+      console.error("[audit-log] insert failed:", err.message);
+    });
+  } catch (err: any) {
     console.error("[audit-log] insert failed:", err.message);
-  });
+  }
 }

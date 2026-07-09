@@ -379,10 +379,17 @@ export const GetDecisionsResponse = zod.array(GetDecisionsResponseItem)
  * @summary Create a decision
  */
 export const CreateDecisionBody = zod.object({
-  "meetingId": zod.number(),
+  "meetingId": zod.number().optional(),
   "agendaItem": zod.string().optional(),
   "content": zod.string(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "title": zod.string().optional(),
+  "status": zod.string().optional(),
+  "governanceContextId": zod.number().optional(),
+  "approvedBy": zod.number().optional(),
+  "agendaItemId": zod.number().optional(),
+  "dueDate": zod.string().optional(),
+  "assignedTo": zod.number().optional(),
 })
 
 

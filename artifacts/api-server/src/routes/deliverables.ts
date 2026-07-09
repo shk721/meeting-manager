@@ -24,7 +24,7 @@ router.get("/deliverables", async (req, res) => {
 });
 
 router.post("/deliverables", async (req, res) => {
-  const body = z.object({
+  const parsed = z.object({
     planId: z.number().int(),
     phaseId: z.number().int().optional(),
     workstreamId: z.number().int().optional(),
@@ -36,8 +36,9 @@ router.post("/deliverables", async (req, res) => {
     dueDate: z.string().optional(),
     progressPercent: z.number().int().min(0).max(100).optional(),
     orderIndex: z.number().int().optional(),
-  }).parse(req.body);
-  const [deliverable] = await db.insert(deliverablesTable).values(body).returning();
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [deliverable] = await db.insert(deliverablesTable).values(parsed.data).returning();
   res.status(201).json(deliverable);
 });
 
@@ -55,7 +56,7 @@ router.get("/deliverables/:id", async (req, res) => {
 
 router.patch("/deliverables/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const body = z.object({
+  const parsed = z.object({
     title: z.string().optional(),
     acceptanceCriteria: z.string().nullable().optional(),
     status: z.string().optional(),
@@ -68,8 +69,9 @@ router.patch("/deliverables/:id", async (req, res) => {
     workstreamId: z.number().int().nullable().optional(),
     submittedAt: z.string().nullable().optional(),
     acceptedAt: z.string().nullable().optional(),
-  }).parse(req.body);
-  const [updated] = await db.update(deliverablesTable).set(body as any)
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [updated] = await db.update(deliverablesTable).set(parsed.data as any)
     .where(eq(deliverablesTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);

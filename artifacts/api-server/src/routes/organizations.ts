@@ -17,14 +17,15 @@ router.get("/organizations", async (_req, res) => {
 });
 
 router.post("/organizations", async (req, res) => {
-  const body = z.object({
+  const parsed = z.object({
     name: z.string().min(1),
     nameEn: z.string().optional(),
     type: z.string().optional(),
     description: z.string().optional(),
     countryCode: z.string().optional(),
-  }).parse(req.body);
-  const [org] = await db.insert(organizationsTable).values(body).returning();
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [org] = await db.insert(organizationsTable).values(parsed.data).returning();
   res.status(201).json(org);
 });
 
@@ -42,14 +43,15 @@ router.get("/organizations/:id", async (req, res) => {
 
 router.patch("/organizations/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const body = z.object({
+  const parsed = z.object({
     name: z.string().optional(),
     nameEn: z.string().optional(),
     type: z.string().optional(),
     description: z.string().optional(),
     status: z.string().optional(),
-  }).parse(req.body);
-  const [updated] = await db.update(organizationsTable).set(body)
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [updated] = await db.update(organizationsTable).set(parsed.data)
     .where(eq(organizationsTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);
@@ -81,7 +83,7 @@ router.get("/departments", async (req, res) => {
 });
 
 router.post("/departments", async (req, res) => {
-  const body = z.object({
+  const parsed = z.object({
     organizationId: z.number().int(),
     parentId: z.number().int().optional(),
     name: z.string().min(1),
@@ -91,8 +93,9 @@ router.post("/departments", async (req, res) => {
     description: z.string().optional(),
     managerId: z.number().int().optional(),
     orderIndex: z.number().int().optional(),
-  }).parse(req.body);
-  const [dept] = await db.insert(departmentsTable).values(body).returning();
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [dept] = await db.insert(departmentsTable).values(parsed.data).returning();
   res.status(201).json(dept);
 });
 
@@ -113,7 +116,7 @@ router.get("/departments/:id", async (req, res) => {
 
 router.patch("/departments/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const body = z.object({
+  const parsed = z.object({
     name: z.string().optional(),
     nameEn: z.string().optional(),
     code: z.string().optional(),
@@ -123,8 +126,9 @@ router.patch("/departments/:id", async (req, res) => {
     status: z.string().optional(),
     orderIndex: z.number().int().optional(),
     parentId: z.number().int().nullable().optional(),
-  }).parse(req.body);
-  const [updated] = await db.update(departmentsTable).set(body)
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [updated] = await db.update(departmentsTable).set(parsed.data)
     .where(eq(departmentsTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);
@@ -153,14 +157,16 @@ router.get("/user-departments", async (req, res) => {
 });
 
 router.post("/user-departments", async (req, res) => {
-  const body = z.object({
+  const parsed = z.object({
     userId: z.number().int(),
     departmentId: z.number().int(),
     isPrimary: z.boolean().optional(),
     role: z.string().optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
-  }).parse(req.body);
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const body = parsed.data;
 
   // If isPrimary = true, clear existing primary for this user
   if (body.isPrimary !== false) {

@@ -26,7 +26,7 @@ router.get("/agenda-items", async (req, res) => {
 });
 
 router.post("/agenda-items", async (req, res) => {
-  const body = z.object({
+  const parsed = z.object({
     meetingId: z.number().int(),
     title: z.string().min(1),
     orderIndex: z.number().int().optional(),
@@ -35,8 +35,9 @@ router.post("/agenda-items", async (req, res) => {
     status: z.string().optional(),
     notes: z.string().optional(),
     carryForward: z.boolean().optional(),
-  }).parse(req.body);
-  const [item] = await db.insert(agendaItemsTable).values(body).returning();
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [item] = await db.insert(agendaItemsTable).values(parsed.data).returning();
   res.status(201).json(item);
 });
 
@@ -50,7 +51,7 @@ router.get("/agenda-items/:id", async (req, res) => {
 
 router.patch("/agenda-items/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const body = z.object({
+  const parsed = z.object({
     title: z.string().optional(),
     orderIndex: z.number().int().optional(),
     durationMin: z.number().int().nullable().optional(),
@@ -59,8 +60,9 @@ router.patch("/agenda-items/:id", async (req, res) => {
     notes: z.string().nullable().optional(),
     carryForward: z.boolean().optional(),
     decidedAt: z.string().nullable().optional(),
-  }).parse(req.body);
-  const [updated] = await db.update(agendaItemsTable).set(body as any)
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [updated] = await db.update(agendaItemsTable).set(parsed.data as any)
     .where(eq(agendaItemsTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);

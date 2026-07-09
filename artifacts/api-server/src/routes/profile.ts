@@ -35,16 +35,14 @@ const UpdateProfileBody = z.object({
 });
 
 router.get("/profile", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
   const user = await getUserProfile(userId);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   res.json({ user: formatProfile(user) });
 });
 
 router.put("/profile", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
   const parsed = UpdateProfileBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const updated = await updateUserProfile(userId, parsed.data);

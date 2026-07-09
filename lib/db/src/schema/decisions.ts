@@ -1,5 +1,7 @@
 import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-core";
 import { meetingsTable } from "./meetings";
+import { governanceContextsTable } from "./governance";
+import { plansTable } from "./plans";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -15,7 +17,7 @@ export const decisionsTable = pgTable("decisions", {
   // status: draft | pending_review | approved | rejected | deferred | cancelled
   status: text("status").notNull().default("approved"),
   // Governance context source (alternative to meetingId)
-  governanceContextId: integer("governance_context_id"),
+  governanceContextId: integer("governance_context_id").references(() => governanceContextsTable.id, { onDelete: "set null" }),
   // Who approved and when
   approvedBy: integer("approved_by"),
   // Link to the specific agenda item that produced this decision
@@ -24,7 +26,7 @@ export const decisionsTable = pgTable("decisions", {
   dueDate: date("due_date", { mode: "string" }),
   assignedTo: integer("assigned_to"),
   // Planning context
-  planId: integer("plan_id"),
+  planId: integer("plan_id").references(() => plansTable.id, { onDelete: "set null" }),
   // impactType: scope | resources | timeline | policy | delegation | cancellation | other
   impactType: text("impact_type"),
   impactTarget: text("impact_target"),

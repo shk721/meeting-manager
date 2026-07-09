@@ -26,7 +26,6 @@ const TaskFilterParams = z.object({
 });
 
 router.get("/filters/meetings", async (req, res): Promise<void> => {
-  if (!(req.session as any)?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const parsed = MeetingFilterParams.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { limit, offset, ...criteria } = parsed.data;
@@ -36,7 +35,6 @@ router.get("/filters/meetings", async (req, res): Promise<void> => {
 });
 
 router.get("/filters/tasks", async (req, res): Promise<void> => {
-  if (!(req.session as any)?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const parsed = TaskFilterParams.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { limit, offset, ...criteria } = parsed.data;

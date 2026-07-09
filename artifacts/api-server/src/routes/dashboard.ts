@@ -171,8 +171,7 @@ router.get("/dashboard/insights", async (_req, res): Promise<void> => {
 });
 
 router.get("/dashboard/my-meetings", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
 
   const todayStr = today();
 
@@ -208,8 +207,7 @@ router.get("/dashboard/my-meetings", async (req, res): Promise<void> => {
 });
 
 router.get("/dashboard/my-tasks", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
 
   const todayStr = today();
   const allMyTasks = await db.select().from(tasksTable).where(eq(tasksTable.assigneeId, userId));

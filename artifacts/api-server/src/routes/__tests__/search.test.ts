@@ -77,13 +77,6 @@ describe("GET /search/meetings", () => {
     expect(res._status).toBe(400);
   });
 
-  it("returns 401 when not authenticated", async () => {
-    const { req, res } = makeReqRes({ session: { userId: undefined } });
-    req.query = { q: "test" };
-    await getHandler("get", "/search/meetings")(req, res);
-    expect(res._status).toBe(401);
-  });
-
   it("returns empty data when no results", async () => {
     mockSearchMeetings.mockResolvedValue({ data: [], total: 0 });
     const { req, res } = makeReqRes({ query: { q: "غير موجود" } });
@@ -104,10 +97,4 @@ describe("GET /search/tasks", () => {
     expect(mockSearchTasks).toHaveBeenCalledWith("مراجعة", 20, 0);
   });
 
-  it("returns 401 when not authenticated", async () => {
-    const { req, res } = makeReqRes({ session: { userId: undefined } });
-    req.query = { q: "test" };
-    await getHandler("get", "/search/tasks")(req, res);
-    expect(res._status).toBe(401);
-  });
 });

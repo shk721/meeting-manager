@@ -1,13 +1,14 @@
 import { useGetDashboardStats } from "@workspace/api-client-react";
-import { CalendarDays, CheckSquare, TrendingUp, ExternalLink, FileText } from "lucide-react";
+import { CalendarDays, CheckSquare, TrendingUp, Shield, FileText, Cpu } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { Link } from "wouter";
 
 const modules = [
   {
     title: "إدارة الاجتماعات",
     description: "جدولة الاجتماعات، المهام، والمحاضر الرسمية",
     icon: CalendarDays,
-    href: "/",
+    href: "/meetings",
     iconBg: "#e8f2ea",
     iconColor: "#1f7a4d",
     linkColor: "#1f7a4d",
@@ -15,20 +16,29 @@ const modules = [
   {
     title: "التحول الرقمي",
     description: "تتبع مبادرات التحول الرقمي والخطط الفرعية",
-    icon: TrendingUp,
-    href: "/dt/",
+    icon: Cpu,
+    href: "/digital-transformation",
     iconBg: "#e3efe8",
     iconColor: "#0f7a52",
     linkColor: "#0f7a52",
   },
   {
-    title: "اللجان",
-    description: "إدارة اللجان الداخلية والخارجية وتكليفاتها",
-    icon: ExternalLink,
-    href: "/committees/",
+    title: "الحوكمة واللجان",
+    description: "إدارة اللجان، الحضور، والنصاب القانوني",
+    icon: Shield,
+    href: "/governance",
     iconBg: "#fbf1dd",
     iconColor: "#a97918",
     linkColor: "#a97918",
+  },
+  {
+    title: "التخطيط",
+    description: "خطط التنفيذ، المراحل، المسارات والمخرجات",
+    icon: TrendingUp,
+    href: "/planning",
+    iconBg: "#ede9fe",
+    iconColor: "#6d28d9",
+    linkColor: "#6d28d9",
   },
 ];
 
@@ -122,9 +132,9 @@ export default function HubPage() {
       {/* Module cards */}
       <div>
         <h2 className="text-base font-bold mb-4" style={{ color: "#1c261c" }}>الوحدات</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {modules.map((m) => (
-            <a
+            <Link
               key={m.href}
               href={m.href}
               className="block no-underline rounded-2xl p-5 transition-shadow hover:shadow-md"
@@ -136,13 +146,12 @@ export default function HubPage() {
               >
                 <m.icon className="h-6 w-6" style={{ color: m.iconColor }} />
               </div>
-              <div className="flex items-center gap-1 mb-1">
+              <div className="mb-1">
                 <span className="text-sm font-bold" style={{ color: "#1c261c" }}>{m.title}</span>
-                <ExternalLink className="h-3 w-3" style={{ color: "#8a978a" }} />
               </div>
               <p className="text-xs mb-3" style={{ color: "#5a675a" }}>{m.description}</p>
               <span className="text-sm font-semibold" style={{ color: m.linkColor }}>فتح الوحدة ←</span>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

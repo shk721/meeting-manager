@@ -90,7 +90,6 @@ router.post("/meetings", async (req, res): Promise<void> => {
 
   const [meeting] = await db.insert(meetingsTable).values({
     ...rest,
-    agendaItems: agendaItems ?? [],
   }).returning();
 
   if (attendeeIds && attendeeIds.length > 0) {
@@ -173,7 +172,7 @@ router.get("/meetings/:id", async (req, res): Promise<void> => {
     status: meeting.status, project: meeting.project ?? null, team: meeting.team ?? null,
     location: meeting.location ?? null, objectives: meeting.objectives ?? null,
     chairperson: chairperson ? formatUser(chairperson) : null,
-    attendees: attendees.map(formatUser), agendaItems: meeting.agendaItems ?? [],
+    attendees: attendees.map(formatUser),
     invitationsSentAt: meeting.invitationsSentAt?.toISOString() ?? null,
     minutesSentAt: meeting.minutesSentAt?.toISOString() ?? null,
     minutes: minutesData,
@@ -195,7 +194,6 @@ router.patch("/meetings/:id", async (req, res): Promise<void> => {
 
   const { attendeeIds, agendaItems, ...rest } = parsed.data;
   const updateData: any = { ...rest };
-  if (agendaItems !== undefined) updateData.agendaItems = agendaItems;
 
   const [meeting] = await db.update(meetingsTable).set(updateData)
     .where(eq(meetingsTable.id, id)).returning();

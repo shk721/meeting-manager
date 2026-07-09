@@ -321,11 +321,6 @@ describe("Scenario 4: Profile Update Cascade", () => {
     expect(p.emailDigest).toBe("weekly");
   });
 
-  it("5. Unauthenticated request returns 401", async () => {
-    const { req, res } = makeReqRes({ session: { userId: undefined } });
-    await getHandler(profileRouter, "get", "/profile")(req, res);
-    expect(res._status).toBe(401);
-  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

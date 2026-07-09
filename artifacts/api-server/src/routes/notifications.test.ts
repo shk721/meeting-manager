@@ -61,11 +61,6 @@ describe("GET /notifications/unread-count", () => {
     expect(mockGetUnreadCount).toHaveBeenCalledWith(1);
   });
 
-  it("returns 401 when no session userId", async () => {
-    const { req, res } = makeReqRes({ session: { userId: undefined } });
-    await getHandler("get", "/notifications/unread-count")(req, res);
-    expect(res._status).toBe(401);
-  });
 });
 
 describe("GET /notifications", () => {

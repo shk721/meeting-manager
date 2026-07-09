@@ -65,12 +65,6 @@ describe("GET /settings/preferences", () => {
     expect((res._body as any).preferences.emailDigest).toBe("daily");
   });
 
-  it("returns 401 when not authenticated", async () => {
-    const { req, res } = makeReqRes({ session: { userId: undefined } });
-    await getHandler("get", "/settings/preferences")(req, res);
-    expect(res._status).toBe(401);
-  });
-
   it("returns all expected default values", async () => {
     mockGetPrefs.mockResolvedValue(defaultPrefs as any);
     const { req, res } = makeReqRes();

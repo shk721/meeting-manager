@@ -137,6 +137,7 @@ export default function PlanDetail({ id }: { id: string }) {
     ...ph,
     workstreams: workstreams.filter(w => w.phaseId === ph.id),
   }));
+  const crossPhaseWorkstreams = workstreams.filter(w => w.phaseId === null || w.phaseId === undefined);
 
   return (
     <div style={{ maxWidth: 1120, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -204,10 +205,11 @@ export default function PlanDetail({ id }: { id: string }) {
           {/* ─── Overview ─── */}
           {activeTab === "overview" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
                 {[
                   { label: "المراحل", value: phases.length, color: "#1f7a4d" },
                   { label: "المهام", value: tasks.length, color: "#d6b23e" },
+                  { label: "المخرجات", value: (deliverables as any[]).length, color: "#1d4ed8" },
                   { label: "القرارات", value: decisions.length, color: "#5a675a" },
                   { label: "مسارات العمل", value: workstreams.length, color: "#2f9e6b" },
                 ].map(item => (
@@ -272,6 +274,24 @@ export default function PlanDetail({ id }: { id: string }) {
                   )}
                 </div>
               ))}
+              {crossPhaseWorkstreams.length > 0 && (
+                <div style={{ border: "1px solid #dbeafe", borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ background: "#f0f7ff", padding: "12px 16px", fontWeight: 700, fontSize: 13, color: "#1d4ed8" }}>
+                    مسارات عابرة للمراحل
+                  </div>
+                  <div style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+                    {crossPhaseWorkstreams.map((ws: any) => (
+                      <div key={ws.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "#fff", border: "1px solid #f0f3ee", borderRadius: 8 }}>
+                        <span style={{ fontSize: 13 }}>{ws.title}</span>
+                        <button onClick={() => deleteWorkstream.mutate(ws.id)}
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c0492f", padding: "2px 4px" }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {addingPhase ? (
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input autoFocus value={newPhaseTitle} onChange={e => setNewPhaseTitle(e.target.value)} placeholder="اسم المرحلة الجديدة"
@@ -463,7 +483,7 @@ export default function PlanDetail({ id }: { id: string }) {
                     strokeLinecap="round" transform="rotate(-90 50 50)" />
                   <text x="50" y="56" fontSize="20" fontWeight="700" fill="#1c261c" textAnchor="middle" fontFamily="Rubik">{progress}%</text>
                 </svg>
-                <div style={{ fontSize: 14, color: "#5a675a", marginTop: 10 }}>التقدّم محسوب من المهام (ADR-003)</div>
+                <div style={{ fontSize: 14, color: "#5a675a", marginTop: 10 }}>التقدّم محسوب من المخرجات (إن وجدت) أو المهام</div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                 {[

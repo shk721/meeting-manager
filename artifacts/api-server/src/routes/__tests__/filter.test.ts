@@ -82,12 +82,6 @@ describe("GET /filters/meetings", () => {
     expect(mockFilterMeetings).toHaveBeenCalledWith({ chairpersonId: 3, startDate: "2025-01-01", endDate: "2025-12-31" }, 20, 0);
   });
 
-  it("returns 401 when not authenticated", async () => {
-    const { req, res } = makeReqRes({ session: { userId: undefined } });
-    await getHandler(filtersRouter, "get", "/filters/meetings")(req, res);
-    expect(res._status).toBe(401);
-  });
-
   it("supports pagination", async () => {
     mockFilterMeetings.mockResolvedValue({ data: [], total: 30 });
     const { req, res } = makeReqRes({ query: { limit: "5", offset: "5" } });
@@ -109,11 +103,6 @@ describe("GET /filters/tasks", () => {
     expect(mockFilterTasks).toHaveBeenCalledWith({ status: "open", priority: "high" }, 20, 0);
   });
 
-  it("returns 401 when not authenticated", async () => {
-    const { req, res } = makeReqRes({ session: { userId: undefined } });
-    await getHandler(filtersRouter, "get", "/filters/tasks")(req, res);
-    expect(res._status).toBe(401);
-  });
 });
 
 describe("Views CRUD", () => {

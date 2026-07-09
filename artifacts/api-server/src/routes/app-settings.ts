@@ -43,8 +43,7 @@ const DEFAULTS = {
 };
 
 router.get("/app-settings", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
 
   const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.userId, userId));
   if (!row) {
@@ -55,8 +54,7 @@ router.get("/app-settings", async (req, res): Promise<void> => {
 });
 
 router.put("/app-settings", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
 
   const parsed = SettingsBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }

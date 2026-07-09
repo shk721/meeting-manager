@@ -11,17 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Calendar, Clock, MapPin, Users, Target, FileText,
-  Briefcase, Plus, Trash2, Send, Play, CheckCircle2,
-  ChevronDown, ChevronUp, Edit, AlertCircle, RefreshCw,
+  Briefcase, Plus, Send, Play, CheckCircle2,
+  Edit, AlertCircle, RefreshCw,
 } from "lucide-react";
 import { RecurringMeetingDialog } from "@/components/RecurringMeetingDialog";
 import { ReminderSettings } from "@/components/ReminderSettings";
@@ -66,15 +66,15 @@ async function apiFetch(path: string, method: string, body?: any) {
 
 function StepIndicator({ done, active, label, num }: { done: boolean; active: boolean; label: string; num: number }) {
   return (
-    <div className="flex flex-col items-center gap-1 min-w-[60px]">
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors ${
+    <div className="flex flex-col items-center gap-1 min-w-[52px]">
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
         done ? "bg-green-500 border-green-500 text-white" :
         active ? "bg-blue-500 border-blue-500 text-white" :
         "bg-background border-muted-foreground/30 text-muted-foreground"
       }`}>
-        {done ? <CheckCircle2 className="w-4 h-4" /> : num}
+        {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : num}
       </div>
-      <span className={`text-[10px] text-center leading-tight ${active ? "text-blue-600 font-medium" : done ? "text-green-600" : "text-muted-foreground"}`}>
+      <span className={`text-[9px] text-center leading-tight ${active ? "text-blue-600 font-medium" : done ? "text-green-600" : "text-muted-foreground"}`}>
         {label}
       </span>
     </div>
@@ -82,7 +82,7 @@ function StepIndicator({ done, active, label, num }: { done: boolean; active: bo
 }
 
 function StepLine({ done }: { done: boolean }) {
-  return <div className={`flex-1 h-0.5 mt-4 ${done ? "bg-green-500" : "bg-muted-foreground/20"}`} />;
+  return <div className={`flex-1 h-0.5 mt-3.5 ${done ? "bg-green-500" : "bg-muted-foreground/20"}`} />;
 }
 
 const AGENDA_STATUS_CYCLE: Record<string, string> = {
@@ -131,58 +131,57 @@ function AgendaItemsSection({ meetingId }: { meetingId: number }) {
   const sorted = [...items].sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">بنود جدول الأعمال</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-            <Plus className="w-3 h-3 ml-1" /> إضافة بند
-          </Button>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold">بنود جدول الأعمال</span>
+        <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+          <Plus className="w-3 h-3 ml-1" /> إضافة بند
+        </Button>
+      </div>
+      {adding && (
+        <div className="flex gap-2 mb-3">
+          <Input
+            autoFocus
+            placeholder="عنوان البند..."
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && newTitle.trim()) createItem.mutate(newTitle.trim());
+              if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
+            }}
+          />
+          <Button size="sm" onClick={() => { if (newTitle.trim()) createItem.mutate(newTitle.trim()); }} disabled={!newTitle.trim() || createItem.isPending}>حفظ</Button>
+          <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewTitle(""); }}>إلغاء</Button>
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {adding && (
-          <div className="flex gap-2 mb-3">
-            <Input
-              autoFocus
-              placeholder="عنوان البند..."
-              value={newTitle}
-              onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && newTitle.trim()) createItem.mutate(newTitle.trim()); if (e.key === "Escape") { setAdding(false); setNewTitle(""); } }}
-            />
-            <Button size="sm" onClick={() => { if (newTitle.trim()) createItem.mutate(newTitle.trim()); }} disabled={!newTitle.trim() || createItem.isPending}>حفظ</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewTitle(""); }}>إلغاء</Button>
-          </div>
-        )}
-        {sorted.length === 0 && !adding ? (
-          <p className="text-sm text-muted-foreground text-center py-4">لا توجد بنود. أضف بنداً أعلاه.</p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {sorted.map((item: any) => {
-              const st = AGENDA_STATUS_STYLE[item.status] ?? AGENDA_STATUS_STYLE.pending;
-              return (
-                <div key={item.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/40 transition-colors group">
-                  <span className="text-muted-foreground text-xs w-5 text-center shrink-0">{(item.orderIndex ?? 0) + 1}</span>
-                  <span className="flex-1 text-sm">{item.title}</span>
-                  {item.durationMin && <span className="text-xs text-muted-foreground shrink-0">{item.durationMin} د</span>}
-                  <button
-                    onClick={() => patchItem.mutate({ id: item.id, body: { status: AGENDA_STATUS_CYCLE[item.status] ?? "discussed" } })}
-                    style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color, border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
-                  >
-                    {st.label}
-                  </button>
-                  <button
-                    onClick={() => deleteItem.mutate(item.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                    style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
-                  >×</button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+      {sorted.length === 0 && !adding ? (
+        <p className="text-sm text-muted-foreground text-center py-6">لا توجد بنود. أضف بنداً أعلاه.</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {sorted.map((item: any) => {
+            const st = AGENDA_STATUS_STYLE[item.status] ?? AGENDA_STATUS_STYLE.pending;
+            return (
+              <div key={item.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/40 transition-colors group">
+                <span className="text-muted-foreground text-xs w-5 text-center shrink-0">{(item.orderIndex ?? 0) + 1}</span>
+                <span className="flex-1 text-sm">{item.title}</span>
+                {item.durationMin && <span className="text-xs text-muted-foreground shrink-0">{item.durationMin} د</span>}
+                <button
+                  onClick={() => patchItem.mutate({ id: item.id, body: { status: AGENDA_STATUS_CYCLE[item.status] ?? "discussed" } })}
+                  style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color, border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                >
+                  {st.label}
+                </button>
+                <button
+                  onClick={() => deleteItem.mutate(item.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                  style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+                >×</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -197,25 +196,21 @@ export default function MeetingDetail({ id }: { id: string }) {
 
   const [isPending, setIsPending] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [activeTab, setActiveTab] = useState("agenda");
 
-  // Attendees inline
+  // Attendees
   const [newAttendeeId, setNewAttendeeId] = useState("");
   const [isAddingAttendee, setIsAddingAttendee] = useState(false);
 
-  // Agenda dialog
-  const [agendaOpen, setAgendaOpen] = useState(false);
-  const [agendaItems, setAgendaItems] = useState<string[]>([""]);
-  const [isSavingAgenda, setIsSavingAgenda] = useState(false);
-
-  // Per-agenda decision/task dialogs
+  // Decision dialog
   const [decisionOpen, setDecisionOpen] = useState(false);
-  const [decisionForm, setDecisionForm] = useState({ content: "", agendaItem: "", notes: "" });
+  const [decisionForm, setDecisionForm] = useState({ content: "", notes: "" });
   const [isCreatingDecision, setIsCreatingDecision] = useState(false);
 
+  // Task dialog
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskForm, setTaskForm] = useState({
-    title: "", description: "", priority: "medium",
-    dueDate: "", assigneeId: "", agendaItem: "",
+    title: "", description: "", priority: "medium", dueDate: "", assigneeId: "",
   });
   const [isCreatingTask, setIsCreatingTask] = useState(false);
 
@@ -226,11 +221,8 @@ export default function MeetingDetail({ id }: { id: string }) {
   });
   const [isSavingMinutes, setIsSavingMinutes] = useState(false);
 
-  // Recurring meeting dialog
+  // Recurring
   const [recurringOpen, setRecurringOpen] = useState(false);
-
-  // Expanded agenda items
-  const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: getGetMeetingQueryKey(meetingId) });
 
@@ -262,28 +254,6 @@ export default function MeetingDetail({ id }: { id: string }) {
     } catch (e: any) { setApiError(e.message); }
   };
 
-  const openAgendaDialog = () => {
-    const items = (meeting as any)?.agendaItems ?? [];
-    setAgendaItems(items.length > 0 ? items : [""]);
-    setAgendaOpen(true);
-  };
-
-  const handleSaveAgenda = async () => {
-    setIsSavingAgenda(true);
-    try {
-      const items = agendaItems.filter(i => i.trim());
-      await apiFetch(`/api/meetings/${meetingId}`, "PATCH", { agendaItems: items });
-      refresh();
-      setAgendaOpen(false);
-    } catch (e: any) { setApiError(e.message); }
-    finally { setIsSavingAgenda(false); }
-  };
-
-  const openDecisionDialog = (agendaItem = "") => {
-    setDecisionForm({ content: "", agendaItem, notes: "" });
-    setDecisionOpen(true);
-  };
-
   const handleCreateDecision = async () => {
     if (!decisionForm.content) return;
     setIsCreatingDecision(true);
@@ -291,18 +261,12 @@ export default function MeetingDetail({ id }: { id: string }) {
       await apiFetch(`/api/decisions`, "POST", {
         content: decisionForm.content,
         meetingId,
-        agendaItem: decisionForm.agendaItem || undefined,
         notes: decisionForm.notes || undefined,
       });
       refresh();
       setDecisionOpen(false);
     } catch (e: any) { setApiError(e.message); }
     finally { setIsCreatingDecision(false); }
-  };
-
-  const openTaskDialog = (agendaItem = "") => {
-    setTaskForm({ title: "", description: "", priority: "medium", dueDate: "", assigneeId: "", agendaItem });
-    setTaskOpen(true);
   };
 
   const handleCreateTask = async () => {
@@ -315,7 +279,6 @@ export default function MeetingDetail({ id }: { id: string }) {
         status: "open",
         priority: taskForm.priority,
         meetingId,
-        agendaItem: taskForm.agendaItem || undefined,
         dueDate: taskForm.dueDate || undefined,
         assigneeId: taskForm.assigneeId ? parseInt(taskForm.assigneeId) : undefined,
       });
@@ -345,26 +308,8 @@ export default function MeetingDetail({ id }: { id: string }) {
   const handleSaveMinutes = async () => {
     setIsSavingMinutes(true);
     try {
-      const m = meeting as any;
-      // Auto-generate discussionItems from agenda items + decisions + tasks
-      const discussionItems = (m.agendaItems ?? []).map((item: string, idx: number) => {
-        const itemDecisions = (m.decisions ?? []).filter((d: any) => d.agendaItem === item);
-        const itemTasks = (m.tasks ?? []).filter((t: any) => t.agendaItem === item);
-        let text = `${idx + 1}. ${item}`;
-        if (itemDecisions.length > 0) {
-          text += "\n   القرارات:";
-          itemDecisions.forEach((d: any) => { text += `\n   - ${d.content}`; });
-        }
-        if (itemTasks.length > 0) {
-          text += "\n   المهام:";
-          itemTasks.forEach((t: any) => { text += `\n   - ${t.title}${t.assignee ? ` (${t.assignee.fullName})` : ""}`; });
-        }
-        return text;
-      }).join("\n\n");
-
       await apiFetch(`/api/meetings/${meetingId}/minutes`, "POST", {
         executiveSummary: minutesForm.executiveSummary || undefined,
-        discussionItems: discussionItems || undefined,
         risks: minutesForm.risks || undefined,
         previousFollowUp: minutesForm.previousFollowUp || undefined,
         status: "draft",
@@ -399,8 +344,6 @@ export default function MeetingDetail({ id }: { id: string }) {
   if (!meeting) return <div>الاجتماع غير موجود.</div>;
 
   const m = meeting as any;
-  const hasAgenda = (m.agendaItems?.length ?? 0) > 0;
-  const hasAttendees = (m.attendees?.length ?? 0) > 0;
   const invitationsSent = !!m.invitationsSentAt;
   const isStarted = m.status === "in_progress" || m.status === "completed";
   const hasMinutes = !!m.minutes;
@@ -410,8 +353,11 @@ export default function MeetingDetail({ id }: { id: string }) {
   const tasks: any[] = m.tasks ?? [];
   const decisions: any[] = m.decisions ?? [];
 
+  const hasAgendaItems = (m.attendees?.length ?? 0) > 0; // used for invite button
+  const hasAttendees = (m.attendees?.length ?? 0) > 0;
+
   let currentStep = 1;
-  if (hasAgenda) currentStep = 2;
+  if ((m.agendaItems?.length ?? 0) > 0 || tasks.length > 0 || decisions.length > 0) currentStep = 2;
   if (invitationsSent) currentStep = 3;
   if (isStarted) currentStep = 4;
   if (hasMinutes) currentStep = 5;
@@ -419,117 +365,84 @@ export default function MeetingDetail({ id }: { id: string }) {
   if (minutesSent) currentStep = 7;
   if (isClosed) currentStep = 8;
 
-  const toggleItem = (idx: number) =>
-    setExpandedItems(prev => ({ ...prev, [idx]: !prev[idx] }));
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{m.title}</h1>
-          <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span>{new Date(m.date).toLocaleDateString("ar-SA")}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              <span>{m.time}</span>
-            </div>
-            {m.location && (
-              <div className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                <span>{m.location}</span>
-              </div>
-            )}
-            {m.project && (
-              <div className="flex items-center gap-1">
-                <Briefcase className="h-4 w-4" />
-                <span>{m.project}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={(statusMap[m.status]?.variant as any) || "default"} className="text-sm px-3 py-1">
-            {statusMap[m.status]?.label || m.status}
-          </Badge>
-          {(m as any).isRecurring && (
-            <Badge variant="outline" className="text-xs gap-1">
-              <RefreshCw className="h-3 w-3" />
-              متكرر
-            </Badge>
-          )}
-          {!(m as any).isRecurring && !(m as any).parentMeetingId && m.status === "scheduled" && (
-            <Button size="sm" variant="outline" onClick={() => setRecurringOpen(true)}>
-              <RefreshCw className="h-3.5 w-3.5 ml-1" />
-              تعيين تكرار
-            </Button>
-          )}
-          <ExportModal meetingId={meetingId} />
-          {m.status === "scheduled" && (
-            <Button onClick={() => patchMeeting({ status: "in_progress" })} disabled={isPending} size="sm">
-              <Play className="h-4 w-4 ml-1" />
-              بدء الاجتماع
-            </Button>
-          )}
-          {m.status === "in_progress" && (
-            <Button onClick={() => patchMeeting({ status: "completed" })} disabled={isPending} size="sm" variant="destructive">
-              <CheckCircle2 className="h-4 w-4 ml-1" />
-              إغلاق الاجتماع
-            </Button>
-          )}
-        </div>
-      </div>
+    <div dir="rtl">
+      {apiError && <p className="text-sm text-red-600 bg-red-50 p-2 rounded mb-4">{apiError}</p>}
 
-      {apiError && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{apiError}</p>}
+      {/* Workspace: left panel + right panel */}
+      <div className="flex gap-5 items-start">
 
-      {/* Lifecycle Steps */}
-      <Card>
-        <CardContent className="pt-6 pb-4">
-          <div className="flex items-start gap-0 overflow-x-auto pb-2">
-            <StepIndicator done={currentStep > 1} active={currentStep === 1} label="إنشاء الاجتماع" num={1} />
-            <StepLine done={currentStep > 1} />
-            <StepIndicator done={currentStep > 2} active={currentStep === 2} label="جدول الأعمال" num={2} />
-            <StepLine done={currentStep > 2} />
-            <StepIndicator done={currentStep > 3} active={currentStep === 3} label="إرسال الدعوات" num={3} />
-            <StepLine done={currentStep > 3} />
-            <StepIndicator done={currentStep > 4} active={currentStep === 4} label="بدء الاجتماع" num={4} />
-            <StepLine done={currentStep > 4} />
-            <StepIndicator done={currentStep > 5} active={currentStep === 5} label="كتابة المحضر" num={5} />
-            <StepLine done={currentStep > 5} />
-            <StepIndicator done={currentStep > 6} active={currentStep === 6} label="اعتماد المحضر" num={6} />
-            <StepLine done={currentStep > 6} />
-            <StepIndicator done={currentStep > 7} active={currentStep === 7} label="إرسال المحضر" num={7} />
-            <StepLine done={currentStep > 7} />
-            <StepIndicator done={currentStep >= 8} active={currentStep === 8} label="إغلاق الاجتماع" num={8} />
-          </div>
-        </CardContent>
-      </Card>
+        {/* ── Left panel ───────────────────────────────────── */}
+        <div style={{ width: 272, flexShrink: 0, position: "sticky", top: 16, maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}>
+          <div className="flex flex-col gap-4">
 
-      {/* PRIMARY: Agenda Card (full-width, dominant) */}
-      <Card className="border-2 border-primary/20">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex-1">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Target className="h-5 w-5 text-primary" />
-                جدول الأعمال
-                <Badge variant="outline" className="text-xs font-normal">
-                  {m.agendaItems?.length ?? 0} بند
+            {/* Title + Status */}
+            <div>
+              <div className="flex items-start gap-2 mb-1">
+                <h1 className="text-xl font-bold leading-snug flex-1">{m.title}</h1>
+                <Badge variant={(statusMap[m.status]?.variant as any) || "default"} className="shrink-0 mt-0.5">
+                  {statusMap[m.status]?.label || m.status}
                 </Badge>
-              </CardTitle>
-              {/* Attendees inline management */}
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Users className="h-4 w-4" />
-                  <span>المشاركون ({m.attendees?.length ?? 0})</span>
+              </div>
+              {(m as any).isRecurring && (
+                <Badge variant="outline" className="text-xs gap-1 mt-1">
+                  <RefreshCw className="h-3 w-3" />
+                  متكرر
+                </Badge>
+              )}
+            </div>
+
+            {/* Metadata */}
+            <Card>
+              <CardContent className="pt-4 pb-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{new Date(m.date + "T00:00:00").toLocaleDateString("ar-SA")}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{m.time}</span>
+                </div>
+                {m.location && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span>{m.location}</span>
+                  </div>
+                )}
+                {m.project && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span>{m.project}</span>
+                  </div>
+                )}
+                {m.objectives && (
+                  <div className="flex items-start gap-2 text-sm pt-1 border-t">
+                    <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground text-xs leading-relaxed">{m.objectives}</span>
+                  </div>
+                )}
+                {m.chairperson && (
+                  <div className="flex items-center gap-2 text-sm border-t pt-2">
+                    <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs">الرئيس: <span className="font-medium">{m.chairperson.fullName}</span></span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Attendees */}
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    المشاركون ({m.attendees?.length ?? 0})
+                  </span>
                   {invitationsSent && (
-                    <Badge variant={"success" as any} className="text-xs mr-2">تم إرسال الدعوات</Badge>
+                    <Badge variant={"success" as any} className="text-[10px]">دعوات أُرسلت</Badge>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 mb-2">
                   {(m.attendees ?? []).map((a: any) => (
                     <span key={a.id} className="flex items-center gap-1 text-xs bg-muted rounded-full px-2 py-0.5">
                       {a.fullName}
@@ -541,11 +454,12 @@ export default function MeetingDetail({ id }: { id: string }) {
                     </span>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <select
                     value={newAttendeeId}
                     onChange={e => setNewAttendeeId(e.target.value)}
-                    className="text-xs border rounded px-2 py-1 bg-background flex-1 max-w-[200px]"
+                    className="text-xs border rounded px-2 py-1 bg-background flex-1"
+                    style={{ fontSize: 12 }}
                   >
                     <option value="">إضافة مشارك…</option>
                     {((users ?? []) as any[])
@@ -554,372 +468,284 @@ export default function MeetingDetail({ id }: { id: string }) {
                         <option key={u.id} value={u.id}>{u.fullName}</option>
                       ))}
                   </select>
-                  <Button size="sm" variant="outline" onClick={addAttendee} disabled={!newAttendeeId || isAddingAttendee}>
+                  <Button size="sm" variant="outline" onClick={addAttendee} disabled={!newAttendeeId || isAddingAttendee} className="h-7 px-2">
                     {isAddingAttendee ? <Spinner className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
                   </Button>
                 </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 shrink-0">
+              </CardContent>
+            </Card>
+
+            {/* Action buttons */}
+            <div className="flex flex-col gap-2">
               {hasAttendees && !invitationsSent && (
-                <Button size="sm" variant="outline" onClick={() => patchMeeting({ invitationsSentAt: new Date().toISOString() })} disabled={isPending}>
+                <Button size="sm" variant="outline" onClick={() => patchMeeting({ invitationsSentAt: new Date().toISOString() })} disabled={isPending} className="w-full">
                   <Send className="h-3 w-3 ml-1" />
                   إرسال الدعوات
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={openAgendaDialog}>
-                <Edit className="h-3 w-3 ml-1" />
-                تعديل الجدول
-              </Button>
+              {!(m as any).isRecurring && !(m as any).parentMeetingId && m.status === "scheduled" && (
+                <Button size="sm" variant="outline" onClick={() => setRecurringOpen(true)} className="w-full">
+                  <RefreshCw className="h-3.5 w-3.5 ml-1" />
+                  تعيين تكرار
+                </Button>
+              )}
+              <ExportModal meetingId={meetingId} />
+              {m.status === "scheduled" && (
+                <Button onClick={() => patchMeeting({ status: "in_progress" })} disabled={isPending} size="sm" className="w-full">
+                  <Play className="h-4 w-4 ml-1" />
+                  بدء الاجتماع
+                </Button>
+              )}
+              {m.status === "in_progress" && (
+                <Button onClick={() => patchMeeting({ status: "completed" })} disabled={isPending} size="sm" variant="destructive" className="w-full">
+                  <CheckCircle2 className="h-4 w-4 ml-1" />
+                  إغلاق الاجتماع
+                </Button>
+              )}
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {hasAgenda ? (
-            <ol className="space-y-3">
-              {m.agendaItems.map((item: string, idx: number) => {
-                const itemDecisions = decisions.filter((d: any) => d.agendaItem === item);
-                const itemTasks = tasks.filter((t: any) => t.agendaItem === item);
-                const isExpanded = expandedItems[idx] ?? isStarted;
-                const hasContent = itemDecisions.length > 0 || itemTasks.length > 0;
 
-                return (
-                  <li key={idx} className="border rounded-xl overflow-hidden bg-card">
-                    {/* Agenda item header */}
-                    <div
-                      className="flex justify-between items-center p-4 cursor-pointer hover:bg-muted/40 transition-colors"
-                      onClick={() => toggleItem(idx)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
-                          {idx + 1}
-                        </span>
-                        <span className="font-medium">{item}</span>
-                        {hasContent && (
-                          <div className="flex gap-1">
-                            {itemDecisions.length > 0 && (
-                              <Badge variant="secondary" className="text-xs">{itemDecisions.length} قرار</Badge>
-                            )}
-                            {itemTasks.length > 0 && (
-                              <Badge variant="outline" className="text-xs">{itemTasks.length} مهمة</Badge>
+            {/* Lifecycle stepper */}
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-start gap-0 overflow-x-auto">
+                  <StepIndicator done={currentStep > 1} active={currentStep === 1} label="الإنشاء" num={1} />
+                  <StepLine done={currentStep > 1} />
+                  <StepIndicator done={currentStep > 2} active={currentStep === 2} label="الجدول" num={2} />
+                  <StepLine done={currentStep > 2} />
+                  <StepIndicator done={currentStep > 3} active={currentStep === 3} label="الدعوات" num={3} />
+                  <StepLine done={currentStep > 3} />
+                  <StepIndicator done={currentStep > 4} active={currentStep === 4} label="البدء" num={4} />
+                  <StepLine done={currentStep > 4} />
+                  <StepIndicator done={currentStep > 5} active={currentStep === 5} label="المحضر" num={5} />
+                  <StepLine done={currentStep > 5} />
+                  <StepIndicator done={currentStep > 6} active={currentStep === 6} label="الاعتماد" num={6} />
+                  <StepLine done={currentStep > 6} />
+                  <StepIndicator done={currentStep > 7} active={currentStep === 7} label="الإرسال" num={7} />
+                  <StepLine done={currentStep > 7} />
+                  <StepIndicator done={currentStep >= 8} active={currentStep === 8} label="الإغلاق" num={8} />
+                </div>
+              </CardContent>
+            </Card>
+
+          </div>
+        </div>
+
+        {/* ── Right panel (tabbed) ──────────────────────────── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4 w-full justify-start">
+              <TabsTrigger value="agenda">جدول الأعمال</TabsTrigger>
+              <TabsTrigger value="decisions">
+                القرارات
+                {decisions.length > 0 && (
+                  <span className="mr-1.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{decisions.length}</span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="tasks">
+                المهام
+                {tasks.length > 0 && (
+                  <span className="mr-1.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{tasks.length}</span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="minutes">المحضر</TabsTrigger>
+            </TabsList>
+
+            {/* Agenda tab */}
+            <TabsContent value="agenda">
+              <Card>
+                <CardContent className="pt-5">
+                  <AgendaItemsSection meetingId={meetingId} />
+                </CardContent>
+              </Card>
+              <Card className="mt-4">
+                <CardContent className="pt-4">
+                  <ReminderSettings meetingId={meetingId} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Decisions tab */}
+            <TabsContent value="decisions">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      القرارات
+                    </CardTitle>
+                    <Button size="sm" variant="outline" onClick={() => { setDecisionForm({ content: "", notes: "" }); setDecisionOpen(true); }}>
+                      <Plus className="h-3 w-3 ml-1" />
+                      قرار جديد
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {decisions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">لا توجد قرارات مسجلة بعد</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {decisions.map((d: any, idx: number) => (
+                        <div key={d.id} className="flex gap-3 items-start p-3 rounded-lg bg-muted/30">
+                          <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm">{d.content}</p>
+                            {d.notes && <p className="text-xs text-muted-foreground mt-1">{d.notes}</p>}
+                            {d.agendaItem && (
+                              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+                                {d.agendaItem}
+                              </p>
                             )}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isStarted && (
-                          <>
-                            <Button
-                              size="sm" variant="ghost" className="h-8 text-xs gap-1"
-                              onClick={e => { e.stopPropagation(); openDecisionDialog(item); }}
-                            >
-                              <Plus className="h-3 w-3" />
-                              قرار
-                            </Button>
-                            <Button
-                              size="sm" variant="ghost" className="h-8 text-xs gap-1"
-                              onClick={e => { e.stopPropagation(); openTaskDialog(item); }}
-                            >
-                              <Plus className="h-3 w-3" />
-                              مهمة
-                            </Button>
-                          </>
-                        )}
-                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                      </div>
+                        </div>
+                      ))}
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                    {/* Expanded content */}
-                    {isExpanded && (
-                      <div className="border-t bg-muted/10 divide-y">
-                        {/* Decisions for this item */}
-                        {itemDecisions.length > 0 && (
-                          <div className="p-4">
-                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">القرارات</h4>
-                            <ul className="space-y-2">
-                              {itemDecisions.map((d: any, di: number) => (
-                                <li key={d.id} className="flex gap-2 items-start">
-                                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                                    {di + 1}
-                                  </span>
-                                  <div>
-                                    <p className="text-sm">{d.content}</p>
-                                    {d.notes && <p className="text-xs text-muted-foreground mt-0.5">{d.notes}</p>}
-                                  </div>
-                                </li>
+            {/* Tasks tab */}
+            <TabsContent value="tasks">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      المهام
+                    </CardTitle>
+                    <Button size="sm" variant="outline" onClick={() => { setTaskForm({ title: "", description: "", priority: "medium", dueDate: "", assigneeId: "" }); setTaskOpen(true); }}>
+                      <Plus className="h-3 w-3 ml-1" />
+                      مهمة جديدة
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {tasks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">لا توجد مهام مضافة بعد</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {tasks.map((t: any) => (
+                        <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{t.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {t.assignee && (
+                                <span className="text-xs text-muted-foreground">{t.assignee.fullName}</span>
+                              )}
+                              {t.dueDate && (
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(t.dueDate + "T00:00:00").toLocaleDateString("ar-SA")}
+                                </span>
+                              )}
+                              <Badge variant="outline" className="text-xs h-4 px-1">
+                                {priorityMap[t.priority] || t.priority}
+                              </Badge>
+                            </div>
+                          </div>
+                          <Select value={t.status} onValueChange={v => handleUpdateTaskStatus(t.id, v)}>
+                            <SelectTrigger className="h-7 text-xs w-[110px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {taskStatusOptions.map(o => (
+                                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                               ))}
-                            </ul>
-                          </div>
-                        )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                        {/* Tasks for this item */}
-                        {itemTasks.length > 0 && (
-                          <div className="p-4">
-                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">المهام</h4>
-                            <ul className="space-y-2">
-                              {itemTasks.map((t: any) => (
-                                <li key={t.id} className="flex items-center gap-3 text-sm">
-                                  <div className="flex-1 min-w-0">
-                                    <span className="font-medium truncate block">{t.title}</span>
-                                    {t.assignee && (
-                                      <span className="text-xs text-muted-foreground">{t.assignee.fullName}</span>
-                                    )}
-                                  </div>
-                                  {t.dueDate && (
-                                    <span className="text-xs text-muted-foreground shrink-0">
-                                      {new Date(t.dueDate).toLocaleDateString("ar-SA")}
-                                    </span>
-                                  )}
-                                  <Badge variant="outline" className="text-xs shrink-0">
-                                    {priorityMap[t.priority] || t.priority}
-                                  </Badge>
-                                  <div className="shrink-0">
-                                    <Select value={t.status} onValueChange={v => handleUpdateTaskStatus(t.id, v)}>
-                                      <SelectTrigger className="h-7 text-xs w-[110px]">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {taskStatusOptions.map(o => (
-                                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Empty state when started but nothing added */}
-                        {isStarted && itemDecisions.length === 0 && itemTasks.length === 0 && (
-                          <div className="p-4 text-center text-sm text-muted-foreground">
-                            أضف قرارات أو مهام لهذا البند
-                          </div>
-                        )}
-
-                        {/* Unlinked tasks/decisions notice when not started */}
-                        {!isStarted && itemDecisions.length === 0 && itemTasks.length === 0 && (
-                          <div className="p-4 text-center text-xs text-muted-foreground">
-                            ابدأ الاجتماع لتسجيل القرارات والمهام
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          ) : (
-            <div className="text-center py-10">
-              <Target className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-muted-foreground mb-4">لم يتم تحديد جدول أعمال بعد</p>
-              <Button onClick={openAgendaDialog}>
-                <Plus className="h-4 w-4 ml-1" />
-                إضافة جدول الأعمال
-              </Button>
-            </div>
-          )}
-
-          {/* Unlinked tasks/decisions (not associated with any agenda item) */}
-          {(() => {
-            const unlinkedDecisions = decisions.filter((d: any) => !d.agendaItem);
-            const unlinkedTasks = tasks.filter((t: any) => !t.agendaItem);
-            if (unlinkedDecisions.length === 0 && unlinkedTasks.length === 0) return null;
-            return (
-              <div className="mt-4 border rounded-xl overflow-hidden">
-                <div className="flex items-center gap-2 p-3 bg-muted/30">
-                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">بنود غير مرتبطة بجدول الأعمال</span>
-                </div>
-                <div className="p-3 space-y-1">
-                  {unlinkedDecisions.map((d: any) => (
-                    <p key={d.id} className="text-sm pr-3 border-r-2 border-blue-300">{d.content}</p>
-                  ))}
-                  {unlinkedTasks.map((t: any) => (
-                    <p key={t.id} className="text-sm pr-3 border-r-2 border-orange-300">{t.title}</p>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </CardContent>
-      </Card>
-
-      {/* Structured Agenda Items */}
-      <AgendaItemsSection meetingId={meetingId} />
-
-      {/* Reminders Card */}
-      <Card>
-        <CardContent className="pt-4">
-          <ReminderSettings meetingId={meetingId} />
-        </CardContent>
-      </Card>
-
-      {/* Collaborative Notes */}
-      <CollaborativeNotes meetingId={meetingId} />
-
-      {/* Live Attendance */}
-      <LiveAttendance meetingId={meetingId} />
-
-      {/* Minutes Card */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4" />
-              محضر الاجتماع
-              {hasMinutes && (
-                <Badge variant={(minutesApproved ? "success" : "secondary") as any} className="text-xs">
-                  {m.minutes.status === "draft" ? "مسودة" : m.minutes.status === "approved" ? "معتمد" : m.minutes.status}
-                </Badge>
-              )}
-              {minutesSent && <Badge variant={"success" as any} className="text-xs">تم الإرسال</Badge>}
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={openMinutesDialog}>
-                <Edit className="h-3 w-3 ml-1" />
-                {hasMinutes ? "تعديل" : "إنشاء المحضر"}
-              </Button>
-              {hasMinutes && !minutesApproved && (
-                <Button size="sm" onClick={handleApproveMinutes}>
-                  <CheckCircle2 className="h-3 w-3 ml-1" />
-                  اعتماد
-                </Button>
-              )}
-              {minutesApproved && !minutesSent && (
-                <Button size="sm" onClick={handleSendMinutes}>
-                  <Send className="h-3 w-3 ml-1" />
-                  إرسال
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Auto-generated minutes from agenda */}
-          {hasAgenda && (
-            <div className="mb-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                بنود الاجتماع وما يرتبط بها
-              </h4>
+            {/* Minutes tab */}
+            <TabsContent value="minutes">
               <div className="space-y-4">
-                {m.agendaItems.map((item: string, idx: number) => {
-                  const itemDecisions = decisions.filter((d: any) => d.agendaItem === item);
-                  const itemTasks = tasks.filter((t: any) => t.agendaItem === item);
-                  return (
-                    <div key={idx} className="border-r-2 border-primary/40 pr-3">
-                      <p className="font-medium text-sm">{idx + 1}. {item}</p>
-                      {itemDecisions.length > 0 && (
-                        <div className="mt-2 mr-3">
-                          <p className="text-xs text-muted-foreground font-medium mb-1">القرارات:</p>
-                          {itemDecisions.map((d: any) => (
-                            <p key={d.id} className="text-sm text-muted-foreground">• {d.content}</p>
-                          ))}
-                        </div>
-                      )}
-                      {itemTasks.length > 0 && (
-                        <div className="mt-2 mr-3">
-                          <p className="text-xs text-muted-foreground font-medium mb-1">المهام:</p>
-                          {itemTasks.map((t: any) => (
-                            <p key={t.id} className="text-sm text-muted-foreground">
-                              • {t.title}
-                              {t.assignee && <span className="text-xs"> ({t.assignee.fullName})</span>}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                      {itemDecisions.length === 0 && itemTasks.length === 0 && (
-                        <p className="text-xs text-muted-foreground mr-3 mt-1">—</p>
-                      )}
+                {/* Minutes card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        محضر الاجتماع
+                        {hasMinutes && (
+                          <Badge variant={(minutesApproved ? "success" : "secondary") as any} className="text-xs">
+                            {m.minutes.status === "draft" ? "مسودة" : m.minutes.status === "approved" ? "معتمد" : m.minutes.status}
+                          </Badge>
+                        )}
+                        {minutesSent && <Badge variant={"success" as any} className="text-xs">تم الإرسال</Badge>}
+                      </CardTitle>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={openMinutesDialog}>
+                          <Edit className="h-3 w-3 ml-1" />
+                          {hasMinutes ? "تعديل" : "إنشاء المحضر"}
+                        </Button>
+                        {hasMinutes && !minutesApproved && (
+                          <Button size="sm" onClick={handleApproveMinutes}>
+                            <CheckCircle2 className="h-3 w-3 ml-1" />
+                            اعتماد
+                          </Button>
+                        )}
+                        {minutesApproved && !minutesSent && (
+                          <Button size="sm" onClick={handleSendMinutes}>
+                            <Send className="h-3 w-3 ml-1" />
+                            إرسال
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  );
-                })}
+                  </CardHeader>
+                  <CardContent>
+                    {hasMinutes ? (
+                      <div className="space-y-3">
+                        {m.minutes.executiveSummary && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">الملخص التنفيذي</h4>
+                            <p className="text-sm whitespace-pre-wrap">{m.minutes.executiveSummary}</p>
+                          </div>
+                        )}
+                        {m.minutes.risks && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">المخاطر</h4>
+                            <p className="text-sm whitespace-pre-wrap">{m.minutes.risks}</p>
+                          </div>
+                        )}
+                        {m.minutes.previousFollowUp && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">متابعة سابقة</h4>
+                            <p className="text-sm whitespace-pre-wrap">{m.minutes.previousFollowUp}</p>
+                          </div>
+                        )}
+                        {minutesSent && (
+                          <p className="text-xs text-muted-foreground border-t pt-2">
+                            أُرسل المحضر: {new Date(m.minutesSentAt).toLocaleString("ar-SA")}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-4 text-center">لم يُنشأ المحضر بعد</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <CollaborativeNotes meetingId={meetingId} />
+                <LiveAttendance meetingId={meetingId} />
               </div>
-            </div>
-          )}
-
-          {/* Stored minutes fields */}
-          {hasMinutes && (
-            <div className="space-y-3 pt-4 border-t">
-              {m.minutes.executiveSummary && (
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">الملخص التنفيذي</h4>
-                  <p className="text-sm whitespace-pre-wrap">{m.minutes.executiveSummary}</p>
-                </div>
-              )}
-              {m.minutes.risks && (
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">المخاطر</h4>
-                  <p className="text-sm whitespace-pre-wrap">{m.minutes.risks}</p>
-                </div>
-              )}
-              {m.minutes.previousFollowUp && (
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">متابعة سابقة</h4>
-                  <p className="text-sm whitespace-pre-wrap">{m.minutes.previousFollowUp}</p>
-                </div>
-              )}
-              {minutesSent && (
-                <p className="text-xs text-muted-foreground">
-                  أُرسل المحضر: {new Date(m.minutesSentAt).toLocaleString("ar-SA")}
-                </p>
-              )}
-            </div>
-          )}
-
-          {!hasMinutes && !hasAgenda && (
-            <p className="text-muted-foreground text-sm">أضف جدول الأعمال أولاً لإنشاء المحضر.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Agenda Dialog */}
-      <Dialog open={agendaOpen} onOpenChange={setAgendaOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>تعديل جدول الأعمال</DialogTitle></DialogHeader>
-          <div className="space-y-2 max-h-72 overflow-y-auto py-2">
-            {agendaItems.map((item, idx) => (
-              <div key={idx} className="flex gap-2 items-center">
-                <span className="text-sm text-muted-foreground w-5">{idx + 1}.</span>
-                <Input
-                  value={item}
-                  onChange={e => {
-                    const updated = [...agendaItems];
-                    updated[idx] = e.target.value;
-                    setAgendaItems(updated);
-                  }}
-                  placeholder={`البند ${idx + 1}`}
-                  className="flex-1"
-                />
-                <Button size="sm" variant="ghost" onClick={() => setAgendaItems(prev => prev.filter((_, i) => i !== idx))}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
-            <Button size="sm" variant="outline" className="w-full" onClick={() => setAgendaItems(prev => [...prev, ""])}>
-              <Plus className="h-4 w-4 ml-1" />
-              إضافة بند
-            </Button>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAgendaOpen(false)}>إلغاء</Button>
-            <Button onClick={handleSaveAgenda} disabled={isSavingAgenda}>
-              {isSavingAgenda ? <Spinner className="h-4 w-4 ml-2" /> : null}
-              حفظ
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
 
       {/* Decision Dialog */}
       <Dialog open={decisionOpen} onOpenChange={setDecisionOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>تسجيل قرار</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            {decisionForm.agendaItem && (
-              <div className="text-sm bg-muted p-2 rounded">البند: {decisionForm.agendaItem}</div>
-            )}
             <div className="space-y-1">
               <Label>نص القرار *</Label>
               <Textarea
@@ -949,9 +775,6 @@ export default function MeetingDetail({ id }: { id: string }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>إضافة مهمة</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
-            {taskForm.agendaItem && (
-              <div className="text-sm bg-muted p-2 rounded">البند: {taskForm.agendaItem}</div>
-            )}
             <div className="space-y-1">
               <Label>عنوان المهمة *</Label>
               <Input placeholder="أدخل عنوان المهمة" value={taskForm.title} onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))} />
@@ -1000,20 +823,12 @@ export default function MeetingDetail({ id }: { id: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* Recurring Meeting Dialog */}
-      <RecurringMeetingDialog
-        meetingId={meetingId}
-        open={recurringOpen}
-        onClose={() => setRecurringOpen(false)}
-        onSuccess={refresh}
-      />
-
       {/* Minutes Dialog */}
       <Dialog open={minutesOpen} onOpenChange={setMinutesOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>محضر الاجتماع — ملاحظات إضافية</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground px-1">
-            بنود الجدول والقرارات والمهام تُدرج تلقائياً في المحضر. أضف هنا أي معلومات إضافية.
+            أضف هنا ملاحظاتك وملخصاتك. القرارات والمهام تُعرض تلقائياً في التقرير المصدّر.
           </p>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
@@ -1038,6 +853,14 @@ export default function MeetingDetail({ id }: { id: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Recurring Meeting Dialog */}
+      <RecurringMeetingDialog
+        meetingId={meetingId}
+        open={recurringOpen}
+        onClose={() => setRecurringOpen(false)}
+        onSuccess={refresh}
+      />
     </div>
   );
 }

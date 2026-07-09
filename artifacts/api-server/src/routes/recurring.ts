@@ -99,7 +99,6 @@ router.post("/meetings/:id/make-recurring", async (req, res): Promise<void> => {
       location: meeting.location,
       objectives: meeting.objectives,
       chairpersonId: meeting.chairpersonId,
-      agendaItems: meeting.agendaItems,
       isRecurring: false,
       parentMeetingId: id,
     }).returning()

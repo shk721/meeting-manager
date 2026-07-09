@@ -11,6 +11,15 @@ import { formatUser } from "./users";
 
 const router: IRouter = Router();
 
+// Committees tables are deprecated. New code must use /api/governance-contexts.
+// Migrate data via POST /api/governance-contexts/migrate/from-committees.
+router.use((_req, res, next) => {
+  res.setHeader("Deprecation", "true");
+  res.setHeader("Sunset", "2026-12-31");
+  res.setHeader("Link", '</api/governance-contexts>; rel="successor-version"');
+  next();
+});
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function formatRepresentative(rep: typeof committeeRepresentativesTable.$inferSelect) {

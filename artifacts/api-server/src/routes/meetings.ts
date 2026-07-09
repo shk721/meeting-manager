@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, or, ilike } from "drizzle-orm";
 import {
   db, meetingsTable, meetingAttendeesTable,
   usersTable, minutesTable, tasksTable, decisionsTable,
@@ -61,19 +61,16 @@ router.get("/meetings", async (req, res): Promise<void> => {
     return;
   }
 
-  let meetings = await db.select().from(meetingsTable).orderBy(meetingsTable.date);
-
-  if (query.data.status) {
-    meetings = meetings.filter(m => m.status === query.data.status);
-  }
+  const conditions = [];
+  if (query.data.status) conditions.push(eq(meetingsTable.status, query.data.status as any));
   if (query.data.search) {
-    const s = query.data.search.toLowerCase();
-    meetings = meetings.filter(m =>
-      m.title.toLowerCase().includes(s) ||
-      (m.project ?? "").toLowerCase().includes(s) ||
-      (m.team ?? "").toLowerCase().includes(s)
-    );
+    const s = `%${query.data.search}%`;
+    conditions.push(or(ilike(meetingsTable.title, s), ilike(meetingsTable.project, s), ilike(meetingsTable.team, s))!);
   }
+
+  const meetings = await db.select().from(meetingsTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(meetingsTable.date);
 
   const results = await Promise.all(meetings.map(m => getMeetingWithMeta(m.id)));
   res.json(results.filter(Boolean));

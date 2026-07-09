@@ -7,8 +7,22 @@ const router: IRouter = Router();
 
 function fmt(d: typeof decisionsTable.$inferSelect) {
   return {
-    id: d.id, meetingId: d.meetingId, agendaItem: d.agendaItem ?? null,
-    content: d.content, notes: d.notes ?? null, createdAt: d.createdAt.toISOString(),
+    id: d.id,
+    meetingId: d.meetingId ?? null,
+    governanceContextId: d.governanceContextId ?? null,
+    agendaItemId: d.agendaItemId ?? null,
+    title: d.title ?? null,
+    agendaItem: d.agendaItem ?? null,
+    content: d.content,
+    notes: d.notes ?? null,
+    status: d.status ?? "approved",
+    approvedBy: d.approvedBy ?? null,
+    dueDate: d.dueDate ?? null,
+    assignedTo: d.assignedTo ?? null,
+    decisionType: d.decisionType ?? null,
+    rationale: d.rationale ?? null,
+    organizationId: d.organizationId ?? null,
+    createdAt: d.createdAt.toISOString(),
   };
 }
 

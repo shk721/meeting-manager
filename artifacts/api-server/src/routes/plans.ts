@@ -1,10 +1,10 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
-  plansTable, planPhasesTable, planWorksstreamsTable, planTemplatesTable,
-  tasksTable, decisionsTable, meetingsTable, meetingAttendeesTable,
+  plansTable, planPhasesTable, planWorksstreamsTable,
+  tasksTable, decisionsTable, deliverablesTable,
 } from "@workspace/db/schema";
-import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { eq, sql, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -12,6 +12,22 @@ const router: IRouter = Router();
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 async function computePlanProgress(planId: number): Promise<number> {
+  // Deliverable-based: if deliverables exist, they are the authoritative source
+  const deliverables = await db.select({
+    progressPercent: deliverablesTable.progressPercent,
+    status: deliverablesTable.status,
+  }).from(deliverablesTable).where(eq(deliverablesTable.planId, planId));
+
+  if (deliverables.length > 0) {
+    const total = deliverables.reduce((sum, d) => {
+      // accepted = 100% regardless of progressPercent
+      const pct = d.status === "accepted" ? 100 : (d.progressPercent ?? 0);
+      return sum + pct;
+    }, 0);
+    return Math.round(total / deliverables.length);
+  }
+
+  // Fall back to task-based progress
   const tasks = await db.select({
     status: tasksTable.status,
     completionPercent: tasksTable.completionPercent,
@@ -160,13 +176,11 @@ router.get("/plans/:id", async (req, res): Promise<void> => {
 
   const phases = await db.select().from(planPhasesTable)
     .where(eq(planPhasesTable.planId, id)).orderBy(planPhasesTable.orderIndex);
-  const phaseIds = phases.map(p => p.id);
 
-  const workstreams = phaseIds.length > 0
-    ? await db.select().from(planWorksstreamsTable)
-        .where(inArray(planWorksstreamsTable.phaseId, phaseIds))
-        .orderBy(planWorksstreamsTable.orderIndex)
-    : [];
+  // Fetch all workstreams by planId — includes phase-linked and cross-phase (phaseId IS NULL)
+  const workstreams = await db.select().from(planWorksstreamsTable)
+    .where(eq(planWorksstreamsTable.planId, id))
+    .orderBy(planWorksstreamsTable.orderIndex);
 
   const tasks = await db.select().from(tasksTable).where(eq(tasksTable.planId, id));
   const decisions = await db.select().from(decisionsTable).where(eq(decisionsTable.planId, id));
@@ -263,6 +277,21 @@ const WorkstreamBody = z.object({
   description: z.string().optional(),
   orderIndex: z.number().optional(),
   status: z.enum(["pending", "in_progress", "completed"]).optional(),
+  // phaseId: null = cross-phase workstream spanning full plan
+  phaseId: z.number().int().nullable().optional(),
+});
+
+// Direct plan-level workstream creation (cross-phase, phaseId optional)
+router.post("/plans/:id/workstreams", async (req, res): Promise<void> => {
+  const planId = parseInt(req.params.id, 10);
+  const parsed = WorkstreamBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, planId));
+  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+  const { phaseId, ...rest } = parsed.data;
+  const [ws] = await db.insert(planWorksstreamsTable)
+    .values({ ...rest, planId, phaseId: phaseId ?? null }).returning();
+  res.status(201).json(ws);
 });
 
 router.get("/plan-phases/:id/workstreams", async (req, res): Promise<void> => {

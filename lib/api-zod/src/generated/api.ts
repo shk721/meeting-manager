@@ -241,7 +241,9 @@ export const UpdateMeetingBody = zod.object({
   "attendeeIds": zod.array(zod.number()).optional(),
   "agendaItems": zod.array(zod.string()).optional(),
   "invitationsSentAt": zod.string().optional(),
-  "minutesSentAt": zod.string().optional()
+  "minutesSentAt": zod.string().optional(),
+  "governanceContextId": zod.number().nullable().optional(),
+  "organizationId": zod.number().nullable().optional(),
 })
 
 export const UpdateMeetingResponse = zod.object({
@@ -379,10 +381,20 @@ export const GetDecisionsResponse = zod.array(GetDecisionsResponseItem)
  * @summary Create a decision
  */
 export const CreateDecisionBody = zod.object({
-  "meetingId": zod.number(),
+  "meetingId": zod.number().optional(),
   "agendaItem": zod.string().optional(),
   "content": zod.string(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "title": zod.string().optional(),
+  "status": zod.string().optional(),
+  "governanceContextId": zod.number().optional(),
+  "approvedBy": zod.number().optional(),
+  "agendaItemId": zod.number().optional(),
+  "dueDate": zod.string().optional(),
+  "assignedTo": zod.number().optional(),
+  "decisionType": zod.string().optional(),
+  "rationale": zod.string().optional(),
+  "organizationId": zod.number().optional(),
 })
 
 
@@ -396,7 +408,13 @@ export const UpdateDecisionParams = zod.object({
 export const UpdateDecisionBody = zod.object({
   "agendaItem": zod.string().optional(),
   "content": zod.string().optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "title": zod.string().optional(),
+  "status": zod.string().optional(),
+  "dueDate": zod.string().nullable().optional(),
+  "assignedTo": zod.number().nullable().optional(),
+  "decisionType": zod.string().nullable().optional(),
+  "rationale": zod.string().nullable().optional(),
 })
 
 export const UpdateDecisionResponse = zod.object({

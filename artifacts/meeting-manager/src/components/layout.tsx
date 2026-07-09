@@ -2,10 +2,10 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  LayoutDashboard, CheckSquare, FileText, LogOut,
+  LayoutDashboard, CheckSquare, LogOut,
   UserCog, CalendarDays, Calendar, ExternalLink,
-  LayoutGrid, BarChart2, Bell, Search, Menu, X,
-  TrendingUp, List, ClipboardList, Settings,
+  LayoutGrid, BarChart2, Search, Menu,
+  TrendingUp, List, ClipboardList, Settings, Building2, Shield,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -22,11 +22,10 @@ function getNavItems(role: string) {
       { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
       { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
-      { title: "التقويم", href: "/calendar", icon: Calendar },
       { title: "المهام", href: "/tasks", icon: CheckSquare },
-      { title: "التحليلات", href: "/analytics", icon: BarChart2 },
-      { title: "المحاضر", href: "/minutes", icon: FileText },
       { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
+      { title: "المنظمات", href: "/organizations", icon: Building2 },
+      { title: "الحوكمة", href: "/governance", icon: Shield },
     ];
   }
   if (role === "manager") {
@@ -34,10 +33,8 @@ function getNavItems(role: string) {
       { title: "مركز التحكم", href: "/hub", icon: LayoutGrid },
       { title: "لوحة التحكم", href: "/", icon: LayoutDashboard },
       { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
-      { title: "التقويم", href: "/calendar", icon: Calendar },
       { title: "المهام", href: "/tasks", icon: CheckSquare },
-      { title: "التحليلات", href: "/analytics", icon: BarChart2 },
-      { title: "المحاضر", href: "/minutes", icon: FileText },
+      { title: "الحوكمة", href: "/governance", icon: Shield },
     ];
   }
   return [
@@ -45,6 +42,11 @@ function getNavItems(role: string) {
     { title: "مهامي", href: "/tasks", icon: CheckSquare },
   ];
 }
+
+const toolsNavItems = [
+  { title: "التقويم", href: "/calendar", icon: Calendar },
+  { title: "التحليلات", href: "/analytics", icon: BarChart2 },
+];
 
 const planningNavItems = [
   { title: "لوحة التخطيط", href: "/planning", icon: TrendingUp },
@@ -119,6 +121,38 @@ export default function Layout({ children }: { children: ReactNode }) {
             <p className="text-xs font-semibold px-3 mt-4 mb-2" style={{ color: "#a3b0a3" }}>التخطيط والتنفيذ</p>
             <nav className="flex flex-col gap-0.5">
               {planningNavItems.map((item) => {
+                const active = location.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors"
+                    style={active ? {
+                      background: "#e8f2ea",
+                      color: "#1f7a4d",
+                      fontWeight: 700,
+                      borderRight: "3px solid #1f7a4d",
+                    } : {
+                      color: "#5a675a",
+                      borderRight: "3px solid transparent",
+                    }}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <span>{item.title}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        )}
+
+        {/* Tools section (admin + manager only) */}
+        {(user.role === "admin" || user.role === "manager") && (
+          <>
+            <p className="text-xs font-semibold px-3 mt-4 mb-2" style={{ color: "#a3b0a3" }}>الأدوات</p>
+            <nav className="flex flex-col gap-0.5">
+              {toolsNavItems.map((item) => {
                 const active = location.startsWith(item.href);
                 return (
                   <Link

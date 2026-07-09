@@ -13,12 +13,17 @@ export const meetingsTable = pgTable("meetings", {
   location: text("location"),
   objectives: text("objectives"),
   chairpersonId: integer("chairperson_id"),
-  agendaItems: text("agenda_items").array().notNull().default([]),
+  // @deprecated: replaced by agenda_items table; column retained for backward compatibility
+  agendaItems: text("agenda_items").array().default([]),
   isRecurring: boolean("is_recurring").notNull().default(false),
   recurrencePattern: text("recurrence_pattern"),
   parentMeetingId: integer("parent_meeting_id"),
   invitationsSentAt: timestamp("invitations_sent_at", { withTimezone: true }),
   minutesSentAt: timestamp("minutes_sent_at", { withTimezone: true }),
+  // Governance context link — enables quorum tracking and formal session recording
+  governanceContextId: integer("governance_context_id"),
+  // Multi-tenancy seed (nullable, not enforced)
+  organizationId: integer("organization_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

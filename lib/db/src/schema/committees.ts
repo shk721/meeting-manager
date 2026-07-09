@@ -2,7 +2,10 @@ import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// ─── Committees ────────────────────────────────────────────────────────────
+// @deprecated: Legacy committees tables superseded by governance_contexts + governance_members.
+// Data migrated via POST /api/governance-contexts/migrate/from-committees.
+// Do not write new data to these tables; read from governance_contexts instead.
+// ─── Committees (deprecated) ─────────────────────────────────────────────────
 export const committeesTable = pgTable("committees", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

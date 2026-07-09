@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16,6 +16,9 @@ export const usersTable = pgTable("users", {
   timezone: text("timezone").default("UTC"),
   theme: text("theme").default("auto"),
   language: text("language").default("ar"),
+  // Organizational context (nullable — assigned by admin via settings)
+  organizationId: integer("organization_id"),
+  departmentId: integer("department_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

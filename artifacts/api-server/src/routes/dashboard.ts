@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import { db, meetingsTable, tasksTable, minutesTable, usersTable, meetingAttendeesTable } from "@workspace/db";
 import { formatUser } from "./users";
 import { getMeetingStats, getTaskStats, getInsights, getThisWeekData, getPendingData } from "@workspace/db/analytics-queries";
@@ -168,6 +168,67 @@ router.get("/dashboard/task-stats", async (req, res): Promise<void> => {
 router.get("/dashboard/insights", async (_req, res): Promise<void> => {
   const data = await getInsights();
   res.json(data);
+});
+
+router.get("/dashboard/my-meetings", async (req, res): Promise<void> => {
+  const userId = (req.session as any)?.userId as number | undefined;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const todayStr = today();
+
+  const attendeeRows = await db.select({ meetingId: meetingAttendeesTable.meetingId })
+    .from(meetingAttendeesTable)
+    .where(eq(meetingAttendeesTable.userId, userId));
+  const attendeeMeetingIds = attendeeRows.map(r => r.meetingId);
+
+  let meetings;
+  if (attendeeMeetingIds.length > 0) {
+    meetings = await db.select().from(meetingsTable)
+      .where(or(eq(meetingsTable.chairpersonId, userId), inArray(meetingsTable.id, attendeeMeetingIds)));
+  } else {
+    meetings = await db.select().from(meetingsTable)
+      .where(eq(meetingsTable.chairpersonId, userId));
+  }
+
+  // Deduplicate, filter upcoming, sort by date
+  const seen = new Set<number>();
+  const upcoming = meetings
+    .filter(m => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return (m.status === "scheduled" || m.status === "in_progress") && m.date >= todayStr;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 10);
+
+  res.json(upcoming.map(m => ({
+    id: m.id, title: m.title, date: m.date, time: m.time,
+    status: m.status, project: m.project ?? null, location: m.location ?? null,
+  })));
+});
+
+router.get("/dashboard/my-tasks", async (req, res): Promise<void> => {
+  const userId = (req.session as any)?.userId as number | undefined;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const todayStr = today();
+  const allMyTasks = await db.select().from(tasksTable).where(eq(tasksTable.assigneeId, userId));
+
+  const openTasks = allMyTasks
+    .filter(t => t.status === "open" || t.status === "in_progress")
+    .sort((a, b) => {
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return 0;
+    })
+    .slice(0, 10);
+
+  res.json(openTasks.map(t => ({
+    id: t.id, title: t.title, status: t.status, priority: t.priority,
+    dueDate: t.dueDate ?? null, meetingId: t.meetingId ?? null,
+    isOverdue: t.dueDate ? t.dueDate < todayStr : false,
+  })));
 });
 
 export default router;

@@ -13,3 +13,8 @@ export * from "./analytics";
 export * from "./report-subscriptions";
 export * from "./plans";
 export * from "./app-settings";
+export * from "./organizations";
+export * from "./governance";
+export * from "./agenda-items";
+export * from "./deliverables";
+export * from "./audit-log";

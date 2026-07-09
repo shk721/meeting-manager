@@ -25,6 +25,10 @@ import analyticsRouter from "./analytics";
 import exportRouter from "./export";
 import plansRouter from "./plans";
 import appSettingsRouter from "./app-settings";
+import organizationsRouter from "./organizations";
+import governanceRouter from "./governance";
+import agendaItemsRouter from "./agenda-items";
+import deliverablesRouter from "./deliverables";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -56,5 +60,9 @@ router.use(analyticsRouter);
 router.use(exportRouter);
 router.use(plansRouter);
 router.use(appSettingsRouter);
+router.use(organizationsRouter);
+router.use(governanceRouter);
+router.use(agendaItemsRouter);
+router.use(deliverablesRouter);
 
 export default router;

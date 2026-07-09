@@ -13,13 +13,17 @@ export const plansTable = pgTable("plans", {
   endDate: date("end_date", { mode: "string" }),
   notes: text("notes"),
   createdById: integer("created_by_id"),
+  // Organizational context (nullable for backward compatibility)
+  organizationId: integer("organization_id"),
+  departmentId: integer("department_id"),
+  ownerId: integer("owner_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
 export const planPhasesTable = pgTable("plan_phases", {
   id: serial("id").primaryKey(),
-  planId: integer("plan_id").notNull(),
+  planId: integer("plan_id").notNull().references(() => plansTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   orderIndex: integer("order_index").notNull().default(0),
@@ -31,8 +35,9 @@ export const planPhasesTable = pgTable("plan_phases", {
 
 export const planWorksstreamsTable = pgTable("plan_workstreams", {
   id: serial("id").primaryKey(),
-  planId: integer("plan_id").notNull(),
-  phaseId: integer("phase_id").notNull(),
+  planId: integer("plan_id").notNull().references(() => plansTable.id, { onDelete: "cascade" }),
+  // phaseId is nullable — null means the workstream spans the full plan (cross-phase)
+  phaseId: integer("phase_id").references(() => planPhasesTable.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   description: text("description"),
   orderIndex: integer("order_index").notNull().default(0),

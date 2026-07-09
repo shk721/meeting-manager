@@ -26,6 +26,7 @@ const TABS = [
   { id: "overview",      label: "نظرة عامة" },
   { id: "workstreams",   label: "مسارات العمل" },
   { id: "tasks",         label: "المهام" },
+  { id: "deliverables",  label: "المخرجات" },
   { id: "meetings",      label: "الاجتماعات" },
   { id: "decisions",     label: "القرارات" },
   { id: "timeline",      label: "الخط الزمني" },
@@ -64,6 +65,8 @@ export default function PlanDetail({ id }: { id: string }) {
   const [newPhaseTitle, setNewPhaseTitle] = useState("");
   const [addingWs, setAddingWs] = useState<number | null>(null);
   const [newWsTitle, setNewWsTitle] = useState("");
+  const [showAddDeliverable, setShowAddDeliverable] = useState(false);
+  const [dlvForm, setDlvForm] = useState({ title: "", status: "not_started", progressPercent: 0 });
   const qc = useQueryClient();
 
   const { data: plan, isLoading } = useQuery({
@@ -96,6 +99,27 @@ export default function PlanDetail({ id }: { id: string }) {
   const deleteWorkstream = useMutation({
     mutationFn: (wsId: number) => apiFetch(`/api/plan-workstreams/${wsId}`, "DELETE"),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["plan", planId] }),
+  });
+
+  const { data: deliverables = [] } = useQuery({
+    queryKey: ["deliverables", planId],
+    queryFn: () => apiFetch(`/api/deliverables?planId=${planId}`),
+    enabled: !isNaN(planId),
+  });
+
+  const createDeliverable = useMutation({
+    mutationFn: (body: any) => apiFetch("/api/deliverables", "POST", body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["deliverables", planId] }); setShowAddDeliverable(false); setDlvForm({ title: "", status: "not_started", progressPercent: 0 }); },
+  });
+
+  const patchDeliverable = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: any }) => apiFetch(`/api/deliverables/${id}`, "PATCH", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["deliverables", planId] }),
+  });
+
+  const deleteDeliverable = useMutation({
+    mutationFn: (id: number) => apiFetch(`/api/deliverables/${id}`, "DELETE"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["deliverables", planId] }),
   });
 
   if (isLoading) return <div style={{ textAlign: "center", padding: 60, color: "#8a978a" }}>جارٍ التحميل...</div>;
@@ -282,6 +306,88 @@ export default function PlanDetail({ id }: { id: string }) {
                       </div>
                       <span style={{ fontSize: 11, padding: "2px 9px", borderRadius: 10, background: ts.bg, color: ts.color }}>{ts.label}</span>
                       <div style={{ fontSize: 11.5, color: "#5a675a", fontFamily: "Rubik", fontWeight: 600 }}>{t.completionPercent ?? 0}%</div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* ─── Deliverables ─── */}
+          {activeTab === "deliverables" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => setShowAddDeliverable(true)}
+                  style={{ background: "#1f7a4d", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <Plus size={14} /> إضافة مخرج
+                </button>
+              </div>
+              {showAddDeliverable && (
+                <div style={{ background: "#f4f9f5", border: "1px solid #c8dcc8", borderRadius: 10, padding: 14 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      placeholder="عنوان المخرج *"
+                      value={dlvForm.title}
+                      onChange={e => setDlvForm(f => ({ ...f, title: e.target.value }))}
+                      style={{ flex: 2, border: "1px solid #cdd9cc", borderRadius: 8, padding: "7px 10px", fontSize: 13, outline: "none", minWidth: 160 }}
+                    />
+                    <select
+                      value={dlvForm.status}
+                      onChange={e => setDlvForm(f => ({ ...f, status: e.target.value }))}
+                      style={{ flex: 1, border: "1px solid #cdd9cc", borderRadius: 8, padding: "7px 10px", fontSize: 13, background: "#fff", outline: "none", minWidth: 120 }}
+                    >
+                      <option value="not_started">لم يبدأ</option>
+                      <option value="in_progress">قيد التنفيذ</option>
+                      <option value="under_review">قيد المراجعة</option>
+                      <option value="accepted">مقبول</option>
+                      <option value="rejected">مرفوض</option>
+                    </select>
+                    <button
+                      onClick={() => createDeliverable.mutate({ planId, title: dlvForm.title, status: dlvForm.status, progressPercent: dlvForm.progressPercent })}
+                      disabled={!dlvForm.title.trim() || createDeliverable.isPending}
+                      style={{ background: "#1f7a4d", color: "#fff", border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 13, cursor: "pointer", fontWeight: 600, opacity: !dlvForm.title.trim() ? 0.5 : 1 }}
+                    >
+                      حفظ
+                    </button>
+                    <button onClick={() => setShowAddDeliverable(false)} style={{ border: "1px solid #cdd9cc", background: "#fff", borderRadius: 8, padding: "7px 12px", fontSize: 13, cursor: "pointer" }}>إلغاء</button>
+                  </div>
+                </div>
+              )}
+              {(deliverables as any[]).length === 0 && !showAddDeliverable ? (
+                <div style={{ textAlign: "center", padding: 40, color: "#8a978a" }}>لا توجد مخرجات مرتبطة بهذه الخطة</div>
+              ) : (
+                (deliverables as any[]).map((d: any) => {
+                  const DLV_STATUS: Record<string, { bg: string; color: string; label: string; next: string }> = {
+                    not_started:  { bg: "#f4f6f2", color: "#5a675a",  label: "لم يبدأ",        next: "in_progress" },
+                    in_progress:  { bg: "#dbeafe", color: "#1d4ed8",  label: "قيد التنفيذ",    next: "under_review" },
+                    under_review: { bg: "#fbf1dd", color: "#a97918",  label: "قيد المراجعة",   next: "accepted" },
+                    accepted:     { bg: "#e8f2ea", color: "#1f7a4d",  label: "مقبول",           next: "not_started" },
+                    rejected:     { bg: "#fbeeea", color: "#c0492f",  label: "مرفوض",           next: "not_started" },
+                  };
+                  const ds = DLV_STATUS[d.status] ?? DLV_STATUS.not_started;
+                  return (
+                    <div key={d.id} style={{ background: "#f7f9f6", borderRadius: 10, border: "1px solid #e6ece4", padding: "12px 14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13.5 }}>{d.title}</div>
+                          {d.dueDate && <div style={{ fontSize: 11.5, color: "#8a978a", marginTop: 2 }}>الاستحقاق: {d.dueDate}</div>}
+                        </div>
+                        <button
+                          onClick={() => patchDeliverable.mutate({ id: d.id, body: { status: ds.next } })}
+                          style={{ fontSize: 11, padding: "2px 9px", borderRadius: 10, background: ds.bg, color: ds.color, border: "none", cursor: "pointer", fontWeight: 600 }}
+                          title="انقر للتقدم إلى الحالة التالية"
+                        >
+                          {ds.label}
+                        </button>
+                        <div style={{ fontSize: 11.5, color: "#5a675a", fontWeight: 600, minWidth: 32, textAlign: "center" }}>{d.progressPercent ?? 0}%</div>
+                        <button onClick={() => deleteDeliverable.mutate(d.id)} style={{ border: "none", background: "none", color: "#c0492f", cursor: "pointer", fontSize: 16, padding: "0 2px" }}>×</button>
+                      </div>
+                      {/* Progress bar */}
+                      <div style={{ marginTop: 8, background: "#e6ece4", borderRadius: 999, height: 5, overflow: "hidden" }}>
+                        <div style={{ width: `${d.progressPercent ?? 0}%`, background: "#1f7a4d", height: "100%", borderRadius: 999, transition: "width 0.3s" }} />
+                      </div>
                     </div>
                   );
                 })

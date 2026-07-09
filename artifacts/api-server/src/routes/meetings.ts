@@ -48,6 +48,8 @@ async function getMeetingWithMeta(meetingId: number) {
     minutesApproved: minutes?.status === "approved",
     invitationsSentAt: meeting.invitationsSentAt?.toISOString() ?? null,
     minutesSentAt: meeting.minutesSentAt?.toISOString() ?? null,
+    governanceContextId: meeting.governanceContextId ?? null,
+    organizationId: meeting.organizationId ?? null,
     createdAt: meeting.createdAt.toISOString(),
   };
 }

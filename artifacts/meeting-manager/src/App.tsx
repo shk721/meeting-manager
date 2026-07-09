@@ -21,6 +21,8 @@ import PlansPage from "@/pages/planning/plans";
 import NewPlanPage from "@/pages/planning/plans/new";
 import PlanDetail from "@/pages/planning/plans/[id]";
 import TemplatesPage from "@/pages/planning/templates";
+import OrganizationsPage from "@/pages/organizations";
+import GovernancePage from "@/pages/governance";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -58,6 +60,8 @@ function Router() {
             <Route path="/planning/plans/:id">{(params) => <ProtectedRoute component={PlanDetail} id={params.id} />}</Route>
             <Route path="/planning/plans" component={() => <ProtectedRoute component={PlansPage} />} />
             <Route path="/planning/templates" component={() => <ProtectedRoute component={TemplatesPage} />} />
+            <Route path="/organizations" component={() => <ProtectedRoute component={OrganizationsPage} />} />
+            <Route path="/governance" component={() => <ProtectedRoute component={GovernancePage} />} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

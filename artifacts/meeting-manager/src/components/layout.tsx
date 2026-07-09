@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CheckSquare, FileText, LogOut,
   UserCog, CalendarDays, Calendar, ExternalLink,
   LayoutGrid, BarChart2, Bell, Search, Menu, X,
-  TrendingUp, List, ClipboardList, Settings,
+  TrendingUp, List, ClipboardList, Settings, Building2, Shield,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -27,6 +27,8 @@ function getNavItems(role: string) {
       { title: "التحليلات", href: "/analytics", icon: BarChart2 },
       { title: "المحاضر", href: "/minutes", icon: FileText },
       { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
+      { title: "المنظمات", href: "/organizations", icon: Building2 },
+      { title: "الحوكمة", href: "/governance", icon: Shield },
     ];
   }
   if (role === "manager") {
@@ -38,6 +40,7 @@ function getNavItems(role: string) {
       { title: "المهام", href: "/tasks", icon: CheckSquare },
       { title: "التحليلات", href: "/analytics", icon: BarChart2 },
       { title: "المحاضر", href: "/minutes", icon: FileText },
+      { title: "الحوكمة", href: "/governance", icon: Shield },
     ];
   }
   return [

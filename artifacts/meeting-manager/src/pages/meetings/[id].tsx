@@ -3,7 +3,7 @@ import {
   useGetMeeting, useGetUsers,
   getGetMeetingQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +83,107 @@ function StepIndicator({ done, active, label, num }: { done: boolean; active: bo
 
 function StepLine({ done }: { done: boolean }) {
   return <div className={`flex-1 h-0.5 mt-4 ${done ? "bg-green-500" : "bg-muted-foreground/20"}`} />;
+}
+
+const AGENDA_STATUS_CYCLE: Record<string, string> = {
+  pending: "discussed",
+  discussed: "deferred",
+  deferred: "cancelled",
+  cancelled: "pending",
+};
+
+const AGENDA_STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  pending:   { bg: "#f4f6f2", color: "#5a675a",  label: "معلّق" },
+  discussed: { bg: "#e8f2ea", color: "#1f7a4d",  label: "نوقش" },
+  deferred:  { bg: "#fbf1dd", color: "#a97918",  label: "مؤجل" },
+  cancelled: { bg: "#fbeeea", color: "#c0492f",  label: "ملغى" },
+};
+
+function AgendaItemsSection({ meetingId }: { meetingId: number }) {
+  const qc = useQueryClient();
+  const [newTitle, setNewTitle] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const { data: items = [] } = useQuery<any[]>({
+    queryKey: ["agenda-items", meetingId],
+    queryFn: async () => {
+      const res = await fetch(`/api/agenda-items?meetingId=${meetingId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load agenda items");
+      return res.json();
+    },
+  });
+
+  const createItem = useMutation({
+    mutationFn: (title: string) => apiFetch("/api/agenda-items", "POST", { meetingId, title, orderIndex: items.length }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agenda-items", meetingId] }); setNewTitle(""); setAdding(false); },
+  });
+
+  const patchItem = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: any }) => apiFetch(`/api/agenda-items/${id}`, "PATCH", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda-items", meetingId] }),
+  });
+
+  const deleteItem = useMutation({
+    mutationFn: (id: number) => apiFetch(`/api/agenda-items/${id}`, "DELETE"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda-items", meetingId] }),
+  });
+
+  const sorted = [...items].sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">بنود جدول الأعمال</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+            <Plus className="w-3 h-3 ml-1" /> إضافة بند
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {adding && (
+          <div className="flex gap-2 mb-3">
+            <Input
+              autoFocus
+              placeholder="عنوان البند..."
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && newTitle.trim()) createItem.mutate(newTitle.trim()); if (e.key === "Escape") { setAdding(false); setNewTitle(""); } }}
+            />
+            <Button size="sm" onClick={() => { if (newTitle.trim()) createItem.mutate(newTitle.trim()); }} disabled={!newTitle.trim() || createItem.isPending}>حفظ</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewTitle(""); }}>إلغاء</Button>
+          </div>
+        )}
+        {sorted.length === 0 && !adding ? (
+          <p className="text-sm text-muted-foreground text-center py-4">لا توجد بنود. أضف بنداً أعلاه.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {sorted.map((item: any) => {
+              const st = AGENDA_STATUS_STYLE[item.status] ?? AGENDA_STATUS_STYLE.pending;
+              return (
+                <div key={item.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/40 transition-colors group">
+                  <span className="text-muted-foreground text-xs w-5 text-center shrink-0">{(item.orderIndex ?? 0) + 1}</span>
+                  <span className="flex-1 text-sm">{item.title}</span>
+                  {item.durationMin && <span className="text-xs text-muted-foreground shrink-0">{item.durationMin} د</span>}
+                  <button
+                    onClick={() => patchItem.mutate({ id: item.id, body: { status: AGENDA_STATUS_CYCLE[item.status] ?? "discussed" } })}
+                    style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color, border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                  >
+                    {st.label}
+                  </button>
+                  <button
+                    onClick={() => deleteItem.mutate(item.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                    style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+                  >×</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function MeetingDetail({ id }: { id: string }) {
@@ -644,6 +745,9 @@ export default function MeetingDetail({ id }: { id: string }) {
           })()}
         </CardContent>
       </Card>
+
+      {/* Structured Agenda Items */}
+      <AgendaItemsSection meetingId={meetingId} />
 
       {/* Reminders Card */}
       <Card>

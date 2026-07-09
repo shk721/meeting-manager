@@ -1,10 +1,10 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@workspace/db";
 import {
   governanceContextsTable, governanceMembersTable, committeesTable,
-  committeeRepresentativesTable,
+  committeeRepresentativesTable, meetingAttendeesTable, usersTable,
 } from "@workspace/db/schema";
 
 const router: IRouter = Router();
@@ -135,6 +135,78 @@ router.delete("/governance-members/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   await db.delete(governanceMembersTable).where(eq(governanceMembersTable.id, id));
   res.json({ success: true });
+});
+
+// ─── Quorum Tracking ──────────────────────────────────────────────────────────
+// GET /governance-contexts/:id/quorum?meetingId=:meetingId
+// Computes quorum status for a meeting against the governance context's voting members.
+
+router.get("/governance-contexts/:id/quorum", async (req, res) => {
+  const contextId = parseInt(req.params.id, 10);
+  const meetingId = req.query.meetingId ? parseInt(req.query.meetingId as string, 10) : null;
+  if (!meetingId || isNaN(meetingId)) {
+    res.status(400).json({ error: "meetingId query parameter is required" });
+    return;
+  }
+
+  const [ctx] = await db.select().from(governanceContextsTable)
+    .where(eq(governanceContextsTable.id, contextId));
+  if (!ctx) { res.status(404).json({ error: "Governance context not found" }); return; }
+
+  // Get all voting members
+  const votingMembers = await db.select().from(governanceMembersTable)
+    .where(and(
+      eq(governanceMembersTable.governanceContextId, contextId),
+      eq(governanceMembersTable.isVoting, true)
+    ));
+
+  // Get meeting attendees
+  const attendeeRows = await db.select().from(meetingAttendeesTable)
+    .where(eq(meetingAttendeesTable.meetingId, meetingId));
+  const attendeeUserIds = new Set(attendeeRows.map(a => a.userId));
+
+  // Voting members who are present
+  const presentVotingMembers = votingMembers.filter(
+    m => m.userId !== null && attendeeUserIds.has(m.userId!)
+  );
+
+  const totalVotingMembers = votingMembers.length;
+  const presentCount = presentVotingMembers.length;
+  const quorumPercent = ctx.quorumPercent ?? 50;
+  const quorumMet = totalVotingMembers > 0
+    ? (presentCount / totalVotingMembers) * 100 >= quorumPercent
+    : false;
+
+  // Absent voting members (internal users only — external have no userId)
+  const absentMembers = votingMembers.filter(
+    m => m.userId === null || !attendeeUserIds.has(m.userId)
+  );
+
+  // Enrich absent members with user names where available
+  const absentUserIds = absentMembers.map(m => m.userId).filter((id): id is number => id !== null);
+  const absentUsers = absentUserIds.length > 0
+    ? await db.select({ id: usersTable.id, fullName: usersTable.fullName })
+        .from(usersTable)
+        .where(inArray(usersTable.id, absentUserIds))
+    : [];
+
+  const userMap = new Map(absentUsers.map(u => [u.id, u.fullName]));
+
+  res.json({
+    contextId,
+    meetingId,
+    quorumPercent,
+    totalVotingMembers,
+    presentVotingMemberCount: presentCount,
+    quorumMet,
+    presentPercent: totalVotingMembers > 0 ? Math.round((presentCount / totalVotingMembers) * 100) : 0,
+    absentMembers: absentMembers.map(m => ({
+      id: m.id,
+      userId: m.userId ?? null,
+      name: m.userId ? (userMap.get(m.userId) ?? null) : m.externalName ?? null,
+      role: m.role,
+    })),
+  });
 });
 
 // ─── Migration: committees → governance_contexts ──────────────────────────────

@@ -28,6 +28,8 @@ export const tasksTable = pgTable("tasks", {
   deliverableId: integer("deliverable_id"),
   // Contribution weight (%) toward plan progress — default 1 (equal weight)
   progressWeight: integer("progress_weight").notNull().default(1),
+  // Multi-tenancy seed (nullable, not enforced)
+  organizationId: integer("organization_id"),
   tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -28,6 +28,12 @@ export const decisionsTable = pgTable("decisions", {
   // impactType: scope | resources | timeline | policy | delegation | cancellation | other
   impactType: text("impact_type"),
   impactTarget: text("impact_target"),
+  // decision_type: strategic | operational | procedural | financial | hr | other
+  decisionType: text("decision_type"),
+  // rationale: institutional explanation / justification for the decision
+  rationale: text("rationale"),
+  // Multi-tenancy seed (nullable, not enforced)
+  organizationId: integer("organization_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

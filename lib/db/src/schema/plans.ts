@@ -36,7 +36,8 @@ export const planPhasesTable = pgTable("plan_phases", {
 export const planWorksstreamsTable = pgTable("plan_workstreams", {
   id: serial("id").primaryKey(),
   planId: integer("plan_id").notNull().references(() => plansTable.id, { onDelete: "cascade" }),
-  phaseId: integer("phase_id").notNull().references(() => planPhasesTable.id, { onDelete: "cascade" }),
+  // phaseId is nullable — null means the workstream spans the full plan (cross-phase)
+  phaseId: integer("phase_id").references(() => planPhasesTable.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   description: text("description"),
   orderIndex: integer("order_index").notNull().default(0),

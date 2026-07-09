@@ -11,3 +11,5 @@ export * from "./preferences";
 export * from "./reminders";
 export * from "./analytics";
 export * from "./report-subscriptions";
+export * from "./plans";
+export * from "./app-settings";

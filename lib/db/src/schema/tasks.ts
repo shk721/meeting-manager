@@ -18,6 +18,12 @@ export const tasksTable = pgTable("tasks", {
   componentId: integer("component_id"),
   // Committee context — set when task originates from a committee decision/assignment
   committeeId: integer("committee_id"),
+  // Planning context — set when task is linked to a plan/phase/workstream
+  planId: integer("plan_id"),
+  phaseId: integer("phase_id"),
+  workstreamId: integer("workstream_id"),
+  // Contribution weight (%) toward plan progress — default 1 (equal weight)
+  progressWeight: integer("progress_weight").notNull().default(1),
   tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

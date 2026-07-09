@@ -23,6 +23,8 @@ import schedulingRouter from "./scheduling";
 import remindersRouter from "./reminders";
 import analyticsRouter from "./analytics";
 import exportRouter from "./export";
+import plansRouter from "./plans";
+import appSettingsRouter from "./app-settings";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -52,5 +54,7 @@ router.use(schedulingRouter);
 router.use(remindersRouter);
 router.use(analyticsRouter);
 router.use(exportRouter);
+router.use(plansRouter);
+router.use(appSettingsRouter);
 
 export default router;

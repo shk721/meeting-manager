@@ -5,6 +5,7 @@ import {
   LayoutDashboard, CheckSquare, FileText, LogOut,
   UserCog, CalendarDays, Calendar, ExternalLink,
   LayoutGrid, BarChart2, Bell, Search, Menu, X,
+  TrendingUp, List, ClipboardList, Settings,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -44,6 +45,12 @@ function getNavItems(role: string) {
     { title: "مهامي", href: "/tasks", icon: CheckSquare },
   ];
 }
+
+const planningNavItems = [
+  { title: "لوحة التخطيط", href: "/planning", icon: TrendingUp },
+  { title: "الخطط", href: "/planning/plans", icon: List },
+  { title: "القوالب", href: "/planning/templates", icon: ClipboardList },
+];
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -105,6 +112,38 @@ export default function Layout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+
+        {/* Planning section (admin + manager only) */}
+        {(user.role === "admin" || user.role === "manager") && (
+          <>
+            <p className="text-xs font-semibold px-3 mt-4 mb-2" style={{ color: "#a3b0a3" }}>التخطيط والتنفيذ</p>
+            <nav className="flex flex-col gap-0.5">
+              {planningNavItems.map((item) => {
+                const active = location.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors"
+                    style={active ? {
+                      background: "#e8f2ea",
+                      color: "#1f7a4d",
+                      fontWeight: 700,
+                      borderRight: "3px solid #1f7a4d",
+                    } : {
+                      color: "#5a675a",
+                      borderRight: "3px solid transparent",
+                    }}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <span>{item.title}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        )}
       </div>
 
       {/* Footer */}
@@ -146,6 +185,14 @@ export default function Layout({ children }: { children: ReactNode }) {
             <ExternalLink className="h-3.5 w-3.5" />
             وحدة اللجان
           </a>
+          <Link
+            href="/settings"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-muted"
+            style={{ color: "#5a675a" }}
+          >
+            <Settings className="h-3.5 w-3.5" />
+            الإعدادات
+          </Link>
           <button
             onClick={logout}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors hover:bg-red-50 w-full text-right"

@@ -23,6 +23,7 @@ import PlanDetail from "@/pages/planning/plans/[id]";
 import TemplatesPage from "@/pages/planning/templates";
 import OrganizationsPage from "@/pages/organizations";
 import GovernancePage from "@/pages/governance";
+import DigitalTransformationPage from "@/pages/digital-transformation";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/digital-transformation" component={() => <ProtectedRoute component={DigitalTransformationPage} />} />
       <Route>
         <Layout>
           <Switch>

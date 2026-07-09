@@ -23,7 +23,7 @@ export const plansTable = pgTable("plans", {
 
 export const planPhasesTable = pgTable("plan_phases", {
   id: serial("id").primaryKey(),
-  planId: integer("plan_id").notNull(),
+  planId: integer("plan_id").notNull().references(() => plansTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   orderIndex: integer("order_index").notNull().default(0),
@@ -35,8 +35,8 @@ export const planPhasesTable = pgTable("plan_phases", {
 
 export const planWorksstreamsTable = pgTable("plan_workstreams", {
   id: serial("id").primaryKey(),
-  planId: integer("plan_id").notNull(),
-  phaseId: integer("phase_id").notNull(),
+  planId: integer("plan_id").notNull().references(() => plansTable.id, { onDelete: "cascade" }),
+  phaseId: integer("phase_id").notNull().references(() => planPhasesTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   orderIndex: integer("order_index").notNull().default(0),

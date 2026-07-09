@@ -1,10 +1,11 @@
 import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { meetingsTable } from "./meetings";
 
 export const agendaItemsTable = pgTable("agenda_items", {
   id: serial("id").primaryKey(),
-  meetingId: integer("meeting_id").notNull(),
+  meetingId: integer("meeting_id").notNull().references(() => meetingsTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   orderIndex: integer("order_index").notNull().default(0),

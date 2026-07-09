@@ -27,7 +27,7 @@ export const governanceContextsTable = pgTable("governance_contexts", {
 
 export const governanceMembersTable = pgTable("governance_members", {
   id: serial("id").primaryKey(),
-  governanceContextId: integer("governance_context_id").notNull(),
+  governanceContextId: integer("governance_context_id").notNull().references(() => governanceContextsTable.id, { onDelete: "cascade" }),
   userId: integer("user_id"),
   externalName: text("external_name"),
   externalEmail: text("external_email"),

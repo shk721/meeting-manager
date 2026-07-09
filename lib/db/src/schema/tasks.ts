@@ -1,6 +1,8 @@
 import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { meetingsTable } from "./meetings";
+import { plansTable } from "./plans";
 
 export const tasksTable = pgTable("tasks", {
   id: serial("id").primaryKey(),
@@ -11,7 +13,7 @@ export const tasksTable = pgTable("tasks", {
   completionPercent: integer("completion_percent").notNull().default(0),
   dueDate: date("due_date", { mode: "string" }),
   agendaItem: text("agenda_item"),
-  meetingId: integer("meeting_id"),
+  meetingId: integer("meeting_id").references(() => meetingsTable.id, { onDelete: "set null" }),
   decisionId: integer("decision_id"),
   assigneeId: integer("assignee_id"),
   // DT context — set when task originates from / is linked to a DT component
@@ -19,7 +21,7 @@ export const tasksTable = pgTable("tasks", {
   // Committee context — set when task originates from a committee decision/assignment
   committeeId: integer("committee_id"),
   // Planning context — set when task is linked to a plan/phase/workstream
-  planId: integer("plan_id"),
+  planId: integer("plan_id").references(() => plansTable.id, { onDelete: "set null" }),
   phaseId: integer("phase_id"),
   workstreamId: integer("workstream_id"),
   // Deliverable context — task can belong to a deliverable within a workstream

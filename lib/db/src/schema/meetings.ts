@@ -13,7 +13,8 @@ export const meetingsTable = pgTable("meetings", {
   location: text("location"),
   objectives: text("objectives"),
   chairpersonId: integer("chairperson_id"),
-  agendaItems: text("agenda_items").array().notNull().default([]),
+  // @deprecated: replaced by agenda_items table; column retained for backward compatibility
+  agendaItems: text("agenda_items").array().default([]),
   isRecurring: boolean("is_recurring").notNull().default(false),
   recurrencePattern: text("recurrence_pattern"),
   parentMeetingId: integer("parent_meeting_id"),

@@ -6,12 +6,6 @@ import { z } from "zod";
 
 const router: IRouter = Router();
 
-function authGuard(req: any, res: any): number | null {
-  const userId = req.session?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return null; }
-  return userId;
-}
-
 function formatProfile(user: typeof usersTable.$inferSelect) {
   return {
     id: user.id,
@@ -41,16 +35,16 @@ const UpdateProfileBody = z.object({
 });
 
 router.get("/profile", async (req, res): Promise<void> => {
-  const userId = authGuard(req, res);
-  if (!userId) return;
+  const userId = (req.session as any)?.userId as number | undefined;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const user = await getUserProfile(userId);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
   res.json({ user: formatProfile(user) });
 });
 
 router.put("/profile", async (req, res): Promise<void> => {
-  const userId = authGuard(req, res);
-  if (!userId) return;
+  const userId = (req.session as any)?.userId as number | undefined;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const parsed = UpdateProfileBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const updated = await updateUserProfile(userId, parsed.data);

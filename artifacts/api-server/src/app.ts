@@ -94,4 +94,11 @@ if (fs.existsSync(frontendDist)) {
   });
 }
 
+// Global error handler — catches any unhandled async errors from route handlers
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
+  logger.error({ err }, "Unhandled error");
+  const status = typeof err.status === "number" ? err.status : 500;
+  res.status(status).json({ error: err.message ?? "Internal server error" });
+});
+
 export default app;

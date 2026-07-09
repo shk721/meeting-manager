@@ -1,6 +1,7 @@
 import { pgTable, text, serial, timestamp, integer, date, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { usersTable } from "./users";
 
 export const organizationsTable = pgTable("organizations", {
   id: serial("id").primaryKey(),
@@ -37,8 +38,8 @@ export const departmentsTable = pgTable("departments", {
 
 export const userDepartmentsTable = pgTable("user_departments", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  departmentId: integer("department_id").notNull(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  departmentId: integer("department_id").notNull().references(() => departmentsTable.id, { onDelete: "cascade" }),
   isPrimary: boolean("is_primary").notNull().default(true),
   role: text("role").notNull().default("member"),
   // head | deputy | member

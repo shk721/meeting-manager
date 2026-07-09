@@ -11,7 +11,6 @@ const SearchParams = z.object({
 });
 
 router.get("/search/meetings", async (req, res): Promise<void> => {
-  if (!(req.session as any)?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const parsed = SearchParams.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { q, limit, offset } = parsed.data;
@@ -20,7 +19,6 @@ router.get("/search/meetings", async (req, res): Promise<void> => {
 });
 
 router.get("/search/tasks", async (req, res): Promise<void> => {
-  if (!(req.session as any)?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const parsed = SearchParams.safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { q, limit, offset } = parsed.data;
@@ -29,7 +27,6 @@ router.get("/search/tasks", async (req, res): Promise<void> => {
 });
 
 router.get("/search", async (req, res): Promise<void> => {
-  if (!(req.session as any)?.userId) { res.status(401).json({ error: "Unauthorized" }); return; }
   const parsed = SearchParams.omit({ offset: true }).safeParse(req.query);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { q, limit } = parsed.data;

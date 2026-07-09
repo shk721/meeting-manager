@@ -17,8 +17,7 @@ function parseView(row: typeof savedViewsTable.$inferSelect) {
 }
 
 router.post("/views", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
   const parsed = CreateViewBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const { name, type, filters } = parsed.data;
@@ -29,16 +28,14 @@ router.post("/views", async (req, res): Promise<void> => {
 });
 
 router.get("/views", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
   const views = await db.select().from(savedViewsTable)
     .where(eq(savedViewsTable.userId, userId));
   res.json(views.map(parseView));
 });
 
 router.get("/views/:id", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [view] = await db.select().from(savedViewsTable)
@@ -52,8 +49,7 @@ router.get("/views/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/views/:id", async (req, res): Promise<void> => {
-  const userId = (req.session as any)?.userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const userId = (req.session as any).userId as number;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(savedViewsTable)

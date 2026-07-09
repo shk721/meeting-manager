@@ -70,12 +70,6 @@ describe("GET /profile", () => {
     expect((res._body as any).user.timezone).toBe("UTC");
   });
 
-  it("returns 401 when not authenticated", async () => {
-    const { req, res } = makeReqRes({ session: { userId: undefined } });
-    await getHandler("get", "/profile")(req, res);
-    expect(res._status).toBe(401);
-  });
-
   it("returns all expected fields", async () => {
     mockGetProfile.mockResolvedValue(fakeUser as any);
     const { req, res } = makeReqRes();

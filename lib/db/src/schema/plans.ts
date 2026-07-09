@@ -13,6 +13,10 @@ export const plansTable = pgTable("plans", {
   endDate: date("end_date", { mode: "string" }),
   notes: text("notes"),
   createdById: integer("created_by_id"),
+  // Organizational context (nullable for backward compatibility)
+  organizationId: integer("organization_id"),
+  departmentId: integer("department_id"),
+  ownerId: integer("owner_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -22,6 +22,8 @@ export const tasksTable = pgTable("tasks", {
   planId: integer("plan_id"),
   phaseId: integer("phase_id"),
   workstreamId: integer("workstream_id"),
+  // Deliverable context — task can belong to a deliverable within a workstream
+  deliverableId: integer("deliverable_id"),
   // Contribution weight (%) toward plan progress — default 1 (equal weight)
   progressWeight: integer("progress_weight").notNull().default(1),
   tags: text("tags").array().notNull().default([]),

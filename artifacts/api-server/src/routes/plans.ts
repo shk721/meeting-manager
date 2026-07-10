@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import {
   plansTable, planPhasesTable, planWorksstreamsTable,
-  tasksTable, decisionsTable, deliverablesTable,
+  tasksTable, decisionsTable, deliverablesTable, meetingsTable,
 } from "@workspace/db/schema";
 import { eq, sql, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -226,6 +226,33 @@ router.get("/plans/:id/decisions", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   const decisions = await db.select().from(decisionsTable).where(eq(decisionsTable.planId, id));
   res.json(decisions);
+});
+
+router.get("/plans/:id/meetings", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const meetings = await db.select().from(meetingsTable).where(eq(meetingsTable.planId, id));
+  res.json(meetings);
+});
+
+router.post("/plans/:id/meetings/:meetingId", async (req, res): Promise<void> => {
+  const planId = parseInt(req.params.id, 10);
+  const meetingId = parseInt(req.params.meetingId, 10);
+  const [meeting] = await db.update(meetingsTable)
+    .set({ planId })
+    .where(eq(meetingsTable.id, meetingId))
+    .returning();
+  if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }
+  res.json(meeting);
+});
+
+router.delete("/plans/:id/meetings/:meetingId", async (req, res): Promise<void> => {
+  const meetingId = parseInt(req.params.meetingId, 10);
+  const [meeting] = await db.update(meetingsTable)
+    .set({ planId: null })
+    .where(eq(meetingsTable.id, meetingId))
+    .returning();
+  if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }
+  res.json({ unlinked: true });
 });
 
 // ─── Phases CRUD ────────────────────────────────────────────────────────────

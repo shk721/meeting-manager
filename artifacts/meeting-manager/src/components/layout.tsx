@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CheckSquare, LogOut,
   UserCog, CalendarDays, Calendar, ExternalLink,
   LayoutGrid, BarChart2, Search, Menu,
-  TrendingUp, List, ClipboardList, Settings, Building2, Shield, Cpu,
+  TrendingUp, List, ClipboardList, Settings, Building2, Shield, Cpu, FileText,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -42,12 +42,14 @@ function getNavItems(role: string) {
   return [
     { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
     { title: "مهامي", href: "/tasks", icon: CheckSquare },
+    { title: "التقويم", href: "/calendar", icon: Calendar },
   ];
 }
 
 const toolsNavItems = [
   { title: "التقويم", href: "/calendar", icon: Calendar },
   { title: "التحليلات", href: "/analytics", icon: BarChart2 },
+  { title: "المحاضر", href: "/minutes", icon: FileText },
 ];
 
 const planningNavItems = [
@@ -83,8 +85,8 @@ export default function Layout({ children }: { children: ReactNode }) {
           م
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="font-bold text-sm" style={{ color: "#1c261c" }}>نظام إدارة</span>
-          <span className="text-xs" style={{ color: "#8a978a" }}>الاجتماعات الرسمي</span>
+          <span className="font-bold text-sm" style={{ color: "#1c261c" }}>منصة استخبارات</span>
+          <span className="text-xs" style={{ color: "#8a978a" }}>التنفيذ</span>
         </div>
       </div>
 
@@ -184,8 +186,12 @@ export default function Layout({ children }: { children: ReactNode }) {
 
       {/* Footer */}
       <div className="px-2 pb-3" style={{ borderTop: "1px solid #e6ece4" }}>
-        {/* User chip */}
-        <div className="flex items-center gap-2.5 px-3 py-3">
+        {/* User chip — links to profile */}
+        <Link
+          href="/profile"
+          className="flex items-center gap-2.5 px-3 py-3 rounded-xl transition-colors hover:bg-muted"
+          style={{ textDecoration: "none" }}
+        >
           <div
             className="flex items-center justify-center rounded-full text-white text-xs font-bold flex-shrink-0"
             style={{ width: 34, height: 34, background: "#1f7a4d" }}
@@ -201,7 +207,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               {roleLabels[user.role] ?? user.role}
             </span>
           </div>
-        </div>
+        </Link>
 
         {/* Secondary links */}
         <div className="flex flex-col gap-0.5 mt-1">

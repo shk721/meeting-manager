@@ -2,12 +2,15 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import swaggerUi from "swagger-ui-express";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+const PgSession = connectPgSimple(session);
 
 const app: Express = express();
 
@@ -36,8 +39,17 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const sessionStore = process.env.DATABASE_URL
+  ? new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: "user_sessions",
+      createTableIfMissing: true,
+    })
+  : undefined;
+
 app.use(
   session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET ?? "meeting-manager-secret-key-2024",
     resave: false,
     saveUninitialized: false,

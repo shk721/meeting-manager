@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ChevronLeft, Plus, Trash2, Edit2, Check, X } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Edit2, Check, X, Search, Unlink } from "lucide-react";
 
 async function apiFetch(url: string, method = "GET", body?: any) {
   const res = await fetch(url, {
     method,
     headers: body ? { "Content-Type": "application/json" } : {},
     body: body ? JSON.stringify(body) : undefined,
+    credentials: "include",
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
@@ -417,10 +418,7 @@ export default function PlanDetail({ id }: { id: string }) {
 
           {/* ─── Meetings ─── */}
           {activeTab === "meetings" && (
-            <div style={{ textAlign: "center", padding: 40, color: "#8a978a" }}>
-              <CalendarDaysIcon />
-              <div style={{ marginTop: 8 }}>ربط الاجتماعات يتم من صفحة الاجتماع</div>
-            </div>
+            <MeetingsTab planId={planId} />
           )}
 
           {/* ─── Decisions ─── */}
@@ -543,6 +541,114 @@ export default function PlanDetail({ id }: { id: string }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function MeetingsTab({ planId }: { planId: number }) {
+  const qc = useQueryClient();
+  const [showPicker, setShowPicker] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const { data: linked = [] } = useQuery<any[]>({
+    queryKey: ["plan-meetings", planId],
+    queryFn: () => apiFetch(`/api/plans/${planId}/meetings`),
+  });
+
+  const { data: allMeetings = [] } = useQuery<any[]>({
+    queryKey: ["all-meetings-picker"],
+    queryFn: () => apiFetch("/api/meetings"),
+    enabled: showPicker,
+  });
+
+  const linkMeeting = useMutation({
+    mutationFn: (meetingId: number) => apiFetch(`/api/plans/${planId}/meetings/${meetingId}`, "POST"),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["plan-meetings", planId] }); setShowPicker(false); setSearch(""); },
+  });
+
+  const unlinkMeeting = useMutation({
+    mutationFn: (meetingId: number) => apiFetch(`/api/plans/${planId}/meetings/${meetingId}`, "DELETE"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["plan-meetings", planId] }),
+  });
+
+  const linkedIds = new Set(linked.map((m: any) => m.id));
+  const available = allMeetings.filter((m: any) =>
+    !linkedIds.has(m.id) && (!search || m.title.includes(search))
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={() => { setShowPicker(true); setSearch(""); }}
+          style={{ background: "#1f7a4d", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+        >
+          <Plus size={14} /> ربط اجتماع
+        </button>
+      </div>
+
+      {showPicker && (
+        <div style={{ background: "#f4f9f5", border: "1px solid #c8dcc8", borderRadius: 10, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, background: "#fff", border: "1px solid #e6ece4", borderRadius: 8, padding: "7px 10px" }}>
+            <Search size={14} style={{ color: "#8a978a", flexShrink: 0 }} />
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="ابحث عن اجتماع..."
+              style={{ border: "none", outline: "none", flex: 1, fontSize: 13, fontFamily: "inherit", background: "transparent" }}
+            />
+          </div>
+          <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+            {available.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "16px 0", color: "#8a978a", fontSize: 13 }}>لا توجد نتائج</div>
+            ) : (
+              available.slice(0, 20).map((m: any) => (
+                <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "#fff", borderRadius: 8, border: "1px solid #e6ece4" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{m.title}</div>
+                    <div style={{ fontSize: 11, color: "#8a978a" }}>{m.date} — {m.time}</div>
+                  </div>
+                  <button
+                    onClick={() => linkMeeting.mutate(m.id)}
+                    disabled={linkMeeting.isPending}
+                    style={{ background: "#1f7a4d", color: "#fff", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}
+                  >
+                    ربط
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+          <button onClick={() => setShowPicker(false)} style={{ marginTop: 8, border: "1px solid #e6ece4", background: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: 12, cursor: "pointer", color: "#5a675a" }}>
+            إلغاء
+          </button>
+        </div>
+      )}
+
+      {linked.length === 0 && !showPicker ? (
+        <div style={{ textAlign: "center", padding: 40, color: "#8a978a" }}>
+          <CalendarDaysIcon />
+          <div style={{ marginTop: 8 }}>لا توجد اجتماعات مرتبطة بهذه الخطة</div>
+        </div>
+      ) : (
+        linked.map((m: any) => (
+          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#f7f9f6", borderRadius: 10, border: "1px solid #e6ece4" }}>
+            <div style={{ flex: 1 }}>
+              <Link href={`/meetings/${m.id}`} style={{ fontWeight: 600, fontSize: 13.5, color: "#1f7a4d", textDecoration: "none" }}>{m.title}</Link>
+              <div style={{ fontSize: 11.5, color: "#8a978a", marginTop: 2 }}>{m.date} — {m.time}{m.location ? ` | ${m.location}` : ""}</div>
+            </div>
+            <button
+              onClick={() => unlinkMeeting.mutate(m.id)}
+              disabled={unlinkMeeting.isPending}
+              title="إلغاء الربط"
+              style={{ border: "1px solid #fbeeea", background: "#fbeeea", borderRadius: 7, padding: "5px 8px", cursor: "pointer", color: "#c0492f", display: "flex", alignItems: "center" }}
+            >
+              <Unlink size={13} />
+            </button>
+          </div>
+        ))
+      )}
     </div>
   );
 }

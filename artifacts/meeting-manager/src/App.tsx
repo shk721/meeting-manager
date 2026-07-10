@@ -42,7 +42,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
-      <Route path="/digital-transformation" component={() => <ProtectedRoute component={DigitalTransformationPage} />} />
       <Route>
         <Layout>
           <Switch>
@@ -64,6 +63,7 @@ function Router() {
             <Route path="/planning/templates" component={() => <ProtectedRoute component={TemplatesPage} />} />
             <Route path="/organizations" component={() => <ProtectedRoute component={OrganizationsPage} />} />
             <Route path="/governance" component={() => <ProtectedRoute component={GovernancePage} />} />
+            <Route path="/digital-transformation" component={() => <ProtectedRoute component={DigitalTransformationPage} />} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

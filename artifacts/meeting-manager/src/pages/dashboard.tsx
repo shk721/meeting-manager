@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Spinner } from "@/components/ui/spinner";
-import { CalendarDays, CheckSquare, Clock, MapPin, AlertCircle, Briefcase } from "lucide-react";
+import { CalendarDays, CheckSquare, Clock, MapPin, AlertCircle, Briefcase, TrendingUp } from "lucide-react";
 
 const meetingStatusMap: Record<string, { label: string; bg: string; color: string }> = {
   scheduled: { label: "مجدول", bg: "#e8f2ea", color: "#1f7a4d" },
@@ -60,6 +60,13 @@ export default function Dashboard() {
     queryFn: () => fetchJson("/api/dashboard/my-tasks"),
   });
 
+  const showPlans = user?.role === "admin" || user?.role === "manager";
+  const { data: plansDash } = useQuery<any>({
+    queryKey: ["plans-dashboard"],
+    queryFn: () => fetchJson("/api/plans-dashboard"),
+    enabled: showPlans,
+  });
+
   const todayStr = new Date().toISOString().split("T")[0];
   const endOfWeek = getEndOfWeek();
   const overdueTasks = myTasks.filter(t => t.isOverdue);
@@ -100,6 +107,47 @@ export default function Dashboard() {
           icon={<Clock className="h-5 w-5" style={{ color: "#d97706" }} />}
         />
       </div>
+
+      {/* Active plans widget — admin/manager only */}
+      {showPlans && plansDash?.recentPlans && plansDash.recentPlans.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" style={{ color: "#1f7a4d" }} />
+              خططي النشطة
+            </h2>
+            <Link href="/planning/plans" className="text-sm" style={{ color: "#1f7a4d" }}>عرض الكل</Link>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {(plansDash.recentPlans as any[]).slice(0, 3).map((p: any) => (
+              <Link key={p.id} href={`/planning/plans/${p.id}`}>
+                <div className="p-4 rounded-xl border bg-card hover:shadow-sm transition-shadow cursor-pointer">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <span className="font-semibold text-sm leading-snug">{p.title}</span>
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: "#e8f2ea", color: "#1f7a4d", flexShrink: 0 }}>
+                      نشطة
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs" style={{ color: "#5a675a" }}>
+                      <span>التقدّم</span>
+                      <span className="font-semibold" style={{ color: "#1f7a4d" }}>{p.progress ?? 0}%</span>
+                    </div>
+                    <div style={{ background: "#e6ece4", borderRadius: 999, height: 6, overflow: "hidden" }}>
+                      <div style={{ width: `${p.progress ?? 0}%`, background: "#1f7a4d", height: "100%", borderRadius: 999, transition: "width 0.3s" }} />
+                    </div>
+                  </div>
+                  {p.endDate && (
+                    <div className="mt-2 text-xs" style={{ color: "#8a978a" }}>
+                      ينتهي: {new Date(p.endDate).toLocaleDateString("ar-SA")}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Two-column content */}
       <div className="grid gap-6 lg:grid-cols-2">

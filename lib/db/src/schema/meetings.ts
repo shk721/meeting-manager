@@ -22,6 +22,8 @@ export const meetingsTable = pgTable("meetings", {
   minutesSentAt: timestamp("minutes_sent_at", { withTimezone: true }),
   // Governance context link — enables quorum tracking and formal session recording
   governanceContextId: integer("governance_context_id"),
+  // Plan linkage — one meeting can belong to one plan (nullable)
+  planId: integer("plan_id"),
   // Multi-tenancy seed (nullable, not enforced)
   organizationId: integer("organization_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

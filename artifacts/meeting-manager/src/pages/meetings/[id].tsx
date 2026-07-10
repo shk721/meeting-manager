@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import {
   useGetMeeting, useGetUsers,
   getGetMeetingQueryKey,
@@ -598,6 +599,9 @@ export default function MeetingDetail({ id }: { id: string }) {
                                 {d.agendaItem}
                               </p>
                             )}
+                            <Link href={`/decisions/${d.id}`} className="text-xs text-primary mt-1.5 inline-block hover:underline">
+                              عرض التفاصيل ←
+                            </Link>
                           </div>
                         </div>
                       ))}

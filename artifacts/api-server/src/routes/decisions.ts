@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, decisionsTable } from "@workspace/db";
+import { db, decisionsTable, meetingsTable, usersTable, tasksTable, governanceContextsTable, plansTable } from "@workspace/db";
 import { GetDecisionsQueryParams, CreateDecisionBody, UpdateDecisionParams, UpdateDecisionBody } from "@workspace/api-zod";
+import { formatUser } from "./users";
 
 const router: IRouter = Router();
 
@@ -35,6 +36,47 @@ router.get("/decisions", async (req, res): Promise<void> => {
     decisions = decisions.filter(d => d.meetingId === query.data.meetingId);
   }
   res.json(decisions.map(fmt));
+});
+
+router.get("/decisions/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [decision] = await db.select().from(decisionsTable).where(eq(decisionsTable.id, id));
+  if (!decision) { res.status(404).json({ error: "Decision not found" }); return; }
+
+  const [meeting, assignee, approver, govContext, plan, relatedTasks] = await Promise.all([
+    decision.meetingId
+      ? db.select().from(meetingsTable).where(eq(meetingsTable.id, decision.meetingId)).then(r => r[0] ?? null)
+      : Promise.resolve(null),
+    decision.assignedTo
+      ? db.select().from(usersTable).where(eq(usersTable.id, decision.assignedTo)).then(r => r[0] ?? null)
+      : Promise.resolve(null),
+    decision.approvedBy
+      ? db.select().from(usersTable).where(eq(usersTable.id, decision.approvedBy)).then(r => r[0] ?? null)
+      : Promise.resolve(null),
+    decision.governanceContextId
+      ? db.select().from(governanceContextsTable).where(eq(governanceContextsTable.id, decision.governanceContextId)).then(r => r[0] ?? null)
+      : Promise.resolve(null),
+    (decision as any).planId
+      ? db.select().from(plansTable).where(eq(plansTable.id, (decision as any).planId)).then(r => r[0] ?? null)
+      : Promise.resolve(null),
+    db.select().from(tasksTable).where(eq(tasksTable.decisionId, id)),
+  ]);
+
+  res.json({
+    ...fmt(decision),
+    meeting: meeting ? { id: meeting.id, title: meeting.title, date: meeting.date } : null,
+    assignee: assignee ? formatUser(assignee) : null,
+    approver: approver ? formatUser(approver) : null,
+    governanceContext: govContext ? { id: govContext.id, name: govContext.name, type: govContext.type } : null,
+    plan: plan ? { id: (plan as any).id, title: (plan as any).title } : null,
+    tasks: relatedTasks.map(t => ({
+      id: t.id, title: t.title, status: t.status, priority: t.priority,
+      dueDate: t.dueDate ?? null, completionPercent: t.completionPercent,
+    })),
+  });
 });
 
 router.post("/decisions", async (req, res): Promise<void> => {

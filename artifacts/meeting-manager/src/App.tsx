@@ -25,6 +25,7 @@ import OrganizationsPage from "@/pages/organizations";
 import GovernancePage from "@/pages/governance";
 import DigitalTransformationPage from "@/pages/digital-transformation";
 import DecisionDetail from "@/pages/decisions/[id]";
+import ReportsPage from "@/pages/reports";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ function Router() {
             <Route path="/planning/templates" component={() => <ProtectedRoute component={TemplatesPage} />} />
             <Route path="/organizations" component={() => <ProtectedRoute component={OrganizationsPage} />} />
             <Route path="/governance" component={() => <ProtectedRoute component={GovernancePage} />} />
+            <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
             <Route path="/digital-transformation" component={() => <ProtectedRoute component={DigitalTransformationPage} />} />
             <Route path="/decisions/:id">{(params) => <ProtectedRoute component={DecisionDetail} id={params.id} />}</Route>
             <Route component={NotFound} />

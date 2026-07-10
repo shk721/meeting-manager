@@ -57,6 +57,37 @@ const IMPACT_LABELS: Record<string, string> = {
   other:           "أخرى",
 };
 
+function PlanReportButton({ planId }: { planId: number }) {
+  const [busy, setBusy] = useState(false);
+  async function generate() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/documents/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "plan", entityId: planId }),
+      });
+      if (!res.ok) throw new Error("فشل التوليد");
+      const { downloadUrl } = await res.json();
+      window.open(downloadUrl, "_blank");
+    } catch {
+      alert("تعذّر توليد التقرير. حاول مرة أخرى.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      onClick={generate}
+      disabled={busy}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, border: "1px solid #1f7a4d", background: busy ? "#f0f5f2" : "#e8f2ea", fontSize: 11.5, color: "#1f7a4d", cursor: busy ? "not-allowed" : "pointer" }}
+    >
+      <Download size={12} /> {busy ? "جارٍ..." : "تقرير PDF"}
+    </button>
+  );
+}
+
 export default function PlanDetail({ id }: { id: string }) {
   const planId = parseInt(id, 10);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
@@ -205,6 +236,7 @@ export default function PlanDetail({ id }: { id: string }) {
             >
               <Download size={12} /> Excel
             </a>
+            <PlanReportButton planId={planId} />
           </div>
         </div>
       </div>

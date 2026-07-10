@@ -22,7 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Calendar, Clock, MapPin, Users, Target, FileText,
   Briefcase, Plus, Send, Play, CheckCircle2,
-  Edit, AlertCircle, RefreshCw,
+  Edit, AlertCircle, RefreshCw, Download,
 } from "lucide-react";
 import { RecurringMeetingDialog } from "@/components/RecurringMeetingDialog";
 import { ReminderSettings } from "@/components/ReminderSettings";
@@ -183,6 +183,34 @@ function AgendaItemsSection({ meetingId }: { meetingId: number }) {
         </div>
       )}
     </div>
+  );
+}
+
+function GenerateReportButton({ entityType, entityId }: { entityType: string; entityId: number }) {
+  const [busy, setBusy] = useState(false);
+  async function generate() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/documents/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType, entityId }),
+      });
+      if (!res.ok) throw new Error("فشل التوليد");
+      const { downloadUrl } = await res.json();
+      window.open(downloadUrl, "_blank");
+    } catch {
+      alert("تعذّر توليد التقرير. حاول مرة أخرى.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Button size="sm" variant="outline" onClick={generate} disabled={busy} className="w-full">
+      <Download className="h-3.5 w-3.5 ml-1" />
+      {busy ? "جارٍ التوليد..." : "تقرير PDF"}
+    </Button>
   );
 }
 
@@ -491,6 +519,7 @@ export default function MeetingDetail({ id }: { id: string }) {
                 </Button>
               )}
               <ExportModal meetingId={meetingId} />
+              <GenerateReportButton entityType="meeting" entityId={meetingId} />
               {m.status === "scheduled" && (
                 <Button onClick={() => patchMeeting({ status: "in_progress" })} disabled={isPending} size="sm" className="w-full">
                   <Play className="h-4 w-4 ml-1" />

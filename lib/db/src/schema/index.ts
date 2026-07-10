@@ -18,3 +18,4 @@ export * from "./governance";
 export * from "./agenda-items";
 export * from "./deliverables";
 export * from "./audit-log";
+export * from "./generated-documents";

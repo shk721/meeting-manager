@@ -1,24 +1,47 @@
-import { useGetPendingMinutes } from "@workspace/api-client-react";
-import { Spinner } from "@/components/ui/spinner";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, FileText } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; iconColor: string }> = {
-  draft:            { label: "مسودة",             bg: "#eef1f4", color: "#5a6675",  iconColor: "#7c8a99" },
-  pending_approval: { label: "بانتظار الاعتماد",  bg: "#fbf1dd", color: "#a97918",  iconColor: "#d6b23e" },
-  approved:         { label: "معتمد",              bg: "#e3efe8", color: "#0f7a52",  iconColor: "#1f7a4d" },
+async function fetchJson(url: string) {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; borderColor: string }> = {
+  draft:            { label: "مسودة",             bg: "#eef1f4", color: "#5a6675",  borderColor: "#7c8a99" },
+  pending_approval: { label: "بانتظار الاعتماد",  bg: "#fbf1dd", color: "#a97918",  borderColor: "#d6b23e" },
+  approved:         { label: "معتمد",              bg: "#e3efe8", color: "#0f7a52",  borderColor: "#1f7a4d" },
 };
 
-export default function Minutes() {
-  const { data: minutes, isLoading } = useGetPendingMinutes();
+const FILTER_TABS = [
+  { value: "all",              label: "الكل" },
+  { value: "draft",            label: "مسودة" },
+  { value: "pending_approval", label: "بانتظار الاعتماد" },
+  { value: "approved",         label: "معتمد" },
+];
 
-  const counts = (minutes ?? []).reduce<Record<string, number>>((acc, m) => {
+export default function Minutes() {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const { data: minutes = [], isLoading } = useQuery<any[]>({
+    queryKey: ["minutes-all"],
+    queryFn: () => fetchJson("/api/minutes"),
+  });
+
+  const counts = minutes.reduce<Record<string, number>>((acc, m) => {
     acc[m.status] = (acc[m.status] ?? 0) + 1;
     return acc;
   }, {});
+
+  const visible = minutes.filter(m => {
+    if (statusFilter !== "all" && m.status !== statusFilter) return false;
+    if (search && !m.meetingTitle.includes(search)) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -34,14 +57,15 @@ export default function Minutes() {
           return (
             <div
               key={status}
-              className="rounded-xl border bg-card p-4 flex items-center gap-4"
-              style={{ borderTop: `3px solid ${s.iconColor}` }}
+              className="rounded-xl border bg-card p-4 flex items-center gap-4 cursor-pointer transition-shadow hover:shadow-sm"
+              style={{ borderTop: `3px solid ${s.borderColor}` }}
+              onClick={() => setStatusFilter(statusFilter === status ? "all" : status)}
             >
               <div className="h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
-                <FileText className="h-5 w-5" style={{ color: s.iconColor }} />
+                <FileText className="h-5 w-5" style={{ color: s.borderColor }} />
               </div>
               <div>
-                <p className="font-rubik text-2xl font-bold" style={{ color: "#1c261c" }}>
+                <p className="text-2xl font-bold" style={{ color: "#1c261c" }}>
                   {counts[status] ?? 0}
                 </p>
                 <p className="text-xs text-muted-foreground">{s.label}</p>
@@ -51,73 +75,98 @@ export default function Minutes() {
         })}
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <CardTitle>قائمة المحاضر</CardTitle>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="بحث..." className="pr-8" />
+      {/* Filters */}
+      <div style={{ background: "#fff", border: "1px solid #e6ece4", borderRadius: 14, padding: "12px 14px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+        {/* Status tabs */}
+        <div style={{ display: "flex", gap: 4 }}>
+          {FILTER_TABS.map(tab => (
+            <button
+              key={tab.value}
+              onClick={() => setStatusFilter(tab.value)}
+              style={{
+                padding: "5px 14px", borderRadius: 20, fontSize: 12.5, border: "none", cursor: "pointer", fontFamily: "inherit",
+                background: statusFilter === tab.value ? "#1f7a4d" : "#f4f6f2",
+                color: statusFilter === tab.value ? "#fff" : "#5a675a",
+                fontWeight: statusFilter === tab.value ? 600 : 400,
+              }}
+            >
+              {tab.label}
+              {tab.value !== "all" && (
+                <span style={{ marginRight: 5, opacity: 0.75 }}>({counts[tab.value] ?? 0})</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Search */}
+        <div style={{ position: "relative", width: 220 }}>
+          <Search style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "#8a978a" }} />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="بحث في المحاضر..."
+            className="pr-8"
+            style={{ fontSize: 13 }}
+          />
+        </div>
+      </div>
+
+      {/* List */}
+      <div style={{ background: "#fff", border: "1px solid #e6ece4", borderRadius: 14, overflow: "hidden" }}>
+        {isLoading ? (
+          <div style={{ textAlign: "center", padding: 48, color: "#8a978a" }}>جارٍ التحميل...</div>
+        ) : visible.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 60, gap: 10, textAlign: "center" }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#f4f6f2", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <FileText style={{ width: 28, height: 28, color: "#c2ccc2" }} />
             </div>
+            <p style={{ color: "#8a978a", fontSize: 14 }}>{search ? "لا توجد نتائج للبحث" : "لا توجد محاضر لعرضها"}</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center p-8">
-              <Spinner />
-            </div>
-          ) : minutes && minutes.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>عنوان الاجتماع</TableHead>
-                  <TableHead>التاريخ</TableHead>
-                  <TableHead>الحالة</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {minutes.map((minute) => {
-                  const s = STATUS_STYLE[minute.status] ?? STATUS_STYLE.draft;
-                  return (
-                    <TableRow
-                      key={minute.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      style={{ borderRight: `3px solid ${s.iconColor}` }}
-                    >
-                      <TableCell className="font-medium">
-                        <Link href={`/meetings/${minute.meetingId}`} className="block w-full h-full">
-                          <span className="flex items-center gap-2">
-                            <FileText className="h-3.5 w-3.5 flex-shrink-0" style={{ color: s.iconColor }} />
-                            {minute.meetingTitle}
-                          </span>
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(minute.meetingDate).toLocaleDateString("ar-SA")}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className="inline-block text-xs px-2.5 py-0.5 rounded-full font-medium"
-                          style={{ background: s.bg, color: s.color }}
-                        >
-                          {s.label}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-                <FileText className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground font-medium">لا توجد محاضر لعرضها</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #e6ece4" }}>
+                {["عنوان الاجتماع", "التاريخ", "آخر تحديث", "الحالة"].map(h => (
+                  <th key={h} style={{ padding: "10px 16px", fontSize: 12, color: "#8a978a", fontWeight: 600, textAlign: "right" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map(minute => {
+                const s = STATUS_STYLE[minute.status] ?? STATUS_STYLE.draft;
+                return (
+                  <tr
+                    key={minute.id}
+                    style={{ borderBottom: "1px solid #f0f3ee", borderRight: `3px solid ${s.borderColor}`, transition: "background .1s" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f7f9f6")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "")}
+                  >
+                    <td style={{ padding: "12px 16px" }}>
+                      <Link href={`/meetings/${minute.meetingId}`} style={{ display: "flex", alignItems: "center", gap: 8, color: "#1c261c", textDecoration: "none", fontSize: 13.5, fontWeight: 600 }}>
+                        <FileText style={{ width: 14, height: 14, flexShrink: 0, color: s.borderColor }} />
+                        {minute.meetingTitle}
+                      </Link>
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#5a675a" }}>
+                      {minute.meetingDate ? new Date(minute.meetingDate + "T00:00:00").toLocaleDateString("ar-SA") : "—"}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#8a978a" }}>
+                      {new Date(minute.updatedAt).toLocaleDateString("ar-SA")}
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{ fontSize: 11.5, padding: "3px 10px", borderRadius: 20, background: s.bg, color: s.color, fontWeight: 600 }}>
+                        {s.label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

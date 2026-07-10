@@ -1,10 +1,30 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db, minutesTable, usersTable, meetingsTable } from "@workspace/db";
 import { CreateMeetingMinutesBody } from "@workspace/api-zod";
 import { formatUser } from "./users";
 
 const router: IRouter = Router();
+
+// ─── All minutes (archive) ───────────────────────────────────────────────────
+router.get("/minutes", async (req, res): Promise<void> => {
+  const { status } = req.query;
+  let rows = await db.select().from(minutesTable).orderBy(desc(minutesTable.updatedAt));
+  if (status && typeof status === "string") {
+    rows = rows.filter(m => m.status === status);
+  }
+  const results = await Promise.all(rows.map(async m => {
+    const [meeting] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, m.meetingId));
+    return {
+      id: m.id, meetingId: m.meetingId,
+      meetingTitle: meeting?.title ?? "اجتماع",
+      meetingDate: meeting?.date ?? "",
+      status: m.status,
+      updatedAt: m.updatedAt.toISOString(),
+    };
+  }));
+  res.json(results);
+});
 
 function formatMinutes(minutes: typeof minutesTable.$inferSelect, approvedBy: typeof usersTable.$inferSelect | null) {
   return {

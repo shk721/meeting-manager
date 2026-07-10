@@ -8,6 +8,7 @@ async function apiFetch(url: string, method = "GET", body?: any) {
     method,
     headers: body ? { "Content-Type": "application/json" } : {},
     body: body ? JSON.stringify(body) : undefined,
+    credentials: "include",
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
@@ -110,7 +111,7 @@ export default function PlansPage() {
         /* KANBAN */
         <div style={{ display: "flex", gap: 14, overflowX: "auto", alignItems: "flex-start", paddingBottom: 6 }}>
           {COLUMNS.map(col => {
-            const colPlans = plans.filter((p: any) => p.status === col.status);
+            const colPlans = filtered.filter((p: any) => p.status === col.status);
             return (
               <div key={col.status}
                 onDragOver={e => e.preventDefault()}

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -8,6 +8,7 @@ import {
   TrendingUp, List, ClipboardList, Settings, Building2, Shield, Cpu, FileText,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
+import GlobalSearch from "@/components/GlobalSearch";
 
 const roleLabels: Record<string, string> = {
   admin: "مدير النظام",
@@ -62,6 +63,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   if (!user) return <>{children}</>;
 
@@ -250,6 +263,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full" dir="rtl">
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       {/* Desktop sidebar */}
       <aside
         className="hidden lg:flex flex-col flex-shrink-0"
@@ -291,13 +305,15 @@ export default function Layout({ children }: { children: ReactNode }) {
           </button>
 
           {/* Search pill */}
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm cursor-pointer transition-colors"
             style={{ background: "#f4f6f2", border: "1px solid #e6ece4", color: "#8a978a", minWidth: 200 }}
           >
             <Search className="h-3.5 w-3.5 flex-shrink-0" />
-            <span>بحث...</span>
-          </div>
+            <span style={{ flex: 1, textAlign: "right" }}>بحث...</span>
+            <kbd style={{ fontSize: 10, border: "1px solid #d6dcd6", borderRadius: 4, padding: "1px 4px", lineHeight: 1.4 }}>⌘K</kbd>
+          </button>
 
           <div className="flex-1" />
           <NotificationBell />

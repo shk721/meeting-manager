@@ -3,6 +3,7 @@ import app from "./app";
 import { initSocketIO } from "./lib/socket";
 import { logger } from "./lib/logger";
 import { startDeadlineNotifier } from "./lib/deadline-notifier";
+import { startWeeklyReportMailer } from "./lib/weekly-report-mailer";
 
 const rawPort = process.env["PORT"];
 
@@ -29,4 +30,5 @@ httpServer.listen(port, (err?: Error) => {
 
   logger.info({ port }, "Server listening");
   startDeadlineNotifier();
+  startWeeklyReportMailer();
 });

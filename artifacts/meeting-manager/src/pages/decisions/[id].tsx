@@ -1,9 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { ArrowRight, CalendarDays, CheckSquare, Shield, TrendingUp, User, Clock, FileText } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckSquare, Shield, TrendingUp, User, Clock, FileText, X } from "lucide-react";
 
 async function fetchDecision(id: string) {
   const res = await fetch(`/api/decisions/${id}`, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchJson(url: string) {
+  const res = await fetch(url, { credentials: "include" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -40,10 +47,35 @@ interface Props { id: string }
 
 export default function DecisionDetail({ id }: Props) {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+
   const { data: decision, isLoading, isError } = useQuery({
     queryKey: ["decision", id],
     queryFn: () => fetchDecision(id),
   });
+
+  const { data: allPlans = [] } = useQuery<any[]>({
+    queryKey: ["plans-list"],
+    queryFn: () => fetchJson("/api/plans"),
+    enabled: !!decision,
+  });
+
+  const planMutation = useMutation({
+    mutationFn: (planId: number | null) =>
+      fetch(`/api/decisions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ planId }),
+      }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+    onSuccess: () => {
+      setSelectedPlanId("");
+      queryClient.invalidateQueries({ queryKey: ["decision", id] });
+    },
+  });
+
+  const activePlans = allPlans.filter((p: any) => p.status === "active" || p.status === "in_progress" || p.status === "planning");
 
   if (isLoading) {
     return <div style={{ textAlign: "center", padding: 60, color: "#8a978a" }}>جارٍ التحميل...</div>;
@@ -230,17 +262,48 @@ export default function DecisionDetail({ id }: Props) {
                 </div>
               )}
 
-              {decision.plan && (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <TrendingUp size={15} style={{ color: "#6d28d9", flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 11, color: "#8a978a" }}>الخطة المرتبطة</div>
-                    <Link href={`/planning/plans/${decision.plan.id}`} style={{ fontSize: 13, fontWeight: 600, color: "#6d28d9", textDecoration: "none" }}>
+              {/* Plan link — interactive */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <TrendingUp size={13} style={{ color: "#6d28d9" }} />
+                  <span style={{ fontSize: 11, color: "#8a978a" }}>الخطة المرتبطة</span>
+                </div>
+                {decision.plan ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Link href={`/planning/plans/${decision.plan.id}`} style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#6d28d9", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {decision.plan.title}
                     </Link>
+                    <button
+                      onClick={() => planMutation.mutate(null)}
+                      disabled={planMutation.isPending}
+                      title="فك الارتباط"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 3, borderRadius: 6, border: "1px solid #f4d5d5", background: "#fef5f5", cursor: "pointer", flexShrink: 0 }}
+                    >
+                      <X size={11} style={{ color: "#c0492f" }} />
+                    </button>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <select
+                      value={selectedPlanId}
+                      onChange={e => setSelectedPlanId(e.target.value)}
+                      style={{ flex: 1, fontSize: 12, padding: "5px 8px", borderRadius: 8, border: "1px solid #e6ece4", background: "#f7f9f6", color: "#1c261c", outline: "none" }}
+                    >
+                      <option value="">اختر خطة...</option>
+                      {activePlans.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => selectedPlanId && planMutation.mutate(Number(selectedPlanId))}
+                      disabled={!selectedPlanId || planMutation.isPending}
+                      style={{ padding: "5px 10px", borderRadius: 8, border: "none", background: selectedPlanId ? "#6d28d9" : "#e6ece4", color: selectedPlanId ? "#fff" : "#8a978a", fontSize: 12, cursor: selectedPlanId ? "pointer" : "default", flexShrink: 0 }}
+                    >
+                      ربط
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

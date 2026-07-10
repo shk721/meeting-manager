@@ -2,6 +2,7 @@ import { createServer } from "http";
 import app from "./app";
 import { initSocketIO } from "./lib/socket";
 import { logger } from "./lib/logger";
+import { startDeadlineNotifier } from "./lib/deadline-notifier";
 
 const rawPort = process.env["PORT"];
 
@@ -27,4 +28,5 @@ httpServer.listen(port, (err?: Error) => {
   }
 
   logger.info({ port }, "Server listening");
+  startDeadlineNotifier();
 });

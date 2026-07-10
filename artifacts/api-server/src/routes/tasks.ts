@@ -7,6 +7,7 @@ import {
   AddTaskCommentParams, AddTaskCommentBody,
 } from "@workspace/api-zod";
 import { formatUser } from "./users";
+import { createNotification } from "@workspace/db/notifications-queries";
 
 const router: IRouter = Router();
 
@@ -56,6 +57,22 @@ router.post("/tasks", async (req, res): Promise<void> => {
 
   const { tags, ...rest } = parsed.data;
   const [task] = await db.insert(tasksTable).values({ ...rest, tags: tags ?? [] }).returning();
+
+  if (task.assigneeId) {
+    const sessionUserId = (req.session as any).userId;
+    if (task.assigneeId !== sessionUserId) {
+      await createNotification({
+        userId: task.assigneeId,
+        type: "task_assigned",
+        title: "تم تعيين مهمة لك",
+        message: `تم تعيينك على المهمة «${task.title}»`,
+        relatedId: task.id,
+        relatedType: "task",
+        metadata: { taskId: task.id },
+      });
+    }
+  }
+
   res.status(201).json(await formatTask(task));
 });
 
@@ -145,6 +162,21 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
   if (tags !== undefined) updateData.tags = tags;
 
   const [task] = await db.update(tasksTable).set(updateData).where(eq(tasksTable.id, id)).returning();
+
+  // Notify new assignee if assigneeId changed
+  const newAssigneeId = parsed.data.assigneeId;
+  if (newAssigneeId && newAssigneeId !== existing.assigneeId && newAssigneeId !== sessionUserId) {
+    await createNotification({
+      userId: newAssigneeId,
+      type: "task_assigned",
+      title: "تم تعيين مهمة لك",
+      message: `تم تعيينك على المهمة «${task.title}»`,
+      relatedId: task.id,
+      relatedType: "task",
+      metadata: { taskId: task.id },
+    });
+  }
+
   res.json(await formatTask(task));
 });
 

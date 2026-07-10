@@ -88,7 +88,7 @@ export default function HubPage() {
       {isLoading ? (
         <div className="flex justify-center py-8"><Spinner className="size-8" /></div>
       ) : stats ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <KpiCard
             title="اجتماعات قادمة"
             value={stats.upcomingMeetings}
@@ -109,15 +109,6 @@ export default function HubPage() {
             subColor={stats.overdueTasks > 0 ? "#c0492f" : undefined}
           />
           <KpiCard
-            title="مهام مكتملة"
-            value={stats.completedTasks}
-            sub={`نسبة ${stats.completionRate}%`}
-            icon={TrendingUp}
-            topColor="#0f7a52"
-            iconBg="#e3efe8"
-            iconColor="#0f7a52"
-          />
-          <KpiCard
             title="محاضر بانتظار الاعتماد"
             value={stats.pendingMinutes}
             sub="تنتظر المراجعة"
@@ -125,6 +116,34 @@ export default function HubPage() {
             topColor="#c99a2e"
             iconBg="#fbf1dd"
             iconColor="#a97918"
+          />
+          <KpiCard
+            title="خطط نشطة"
+            value={(stats as any).activePlans ?? 0}
+            sub={`${(stats as any).overduePlans ?? 0} متأخرة — من أصل ${(stats as any).totalPlans ?? 0}`}
+            icon={TrendingUp}
+            topColor="#6d28d9"
+            iconBg="#ede9fe"
+            iconColor="#6d28d9"
+            subColor={(stats as any).overduePlans > 0 ? "#c0492f" : undefined}
+          />
+          <KpiCard
+            title="هيئات الحوكمة النشطة"
+            value={(stats as any).activeGovernanceContexts ?? 0}
+            sub={`من أصل ${(stats as any).totalGovernanceContexts ?? 0} إجمالاً`}
+            icon={Shield}
+            topColor="#a97918"
+            iconBg="#fbf1dd"
+            iconColor="#a97918"
+          />
+          <KpiCard
+            title="نسبة إنجاز المهام"
+            value={`${stats.completionRate}%`}
+            sub={`${stats.completedTasks} مهمة مكتملة`}
+            icon={CheckSquare}
+            topColor="#0f7a52"
+            iconBg="#e3efe8"
+            iconColor="#0f7a52"
           />
         </div>
       ) : null}

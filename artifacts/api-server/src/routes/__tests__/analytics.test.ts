@@ -12,6 +12,7 @@ vi.mock("@workspace/db", () => ({
   minutesTable: {},
   decisionsTable: {},
   usersTable: {},
+  agendaItemsTable: {},
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -72,10 +73,11 @@ describe("GET /analytics/effectiveness", () => {
   it("returns meetings and averageScore", async () => {
     let call = 0;
     const returns = [
-      [{ id: 1, title: "M1", date: "2026-07-01", agendaItems: ["a"], status: "completed" }],
+      [{ id: 1, title: "M1", date: "2026-07-01", status: "completed" }], // meetings
       [{ meetingId: 1 }], // minutes
       [{ meetingId: 1 }], // decisions
       [{ meetingId: 1 }], // tasks
+      [{ meetingId: 1 }], // agendaItems
     ];
     mockDb.select.mockImplementation(() => {
       const data = returns[call] ?? [];
@@ -100,10 +102,11 @@ describe("GET /analytics/effectiveness", () => {
   it("score is 100 when all factors present", async () => {
     let call = 0;
     const returns = [
-      [{ id: 1, title: "Full", date: "2026-07-01", agendaItems: ["item"], status: "completed" }],
-      [{ meetingId: 1 }],
-      [{ meetingId: 1 }],
-      [{ meetingId: 1 }],
+      [{ id: 1, title: "Full", date: "2026-07-01", status: "completed" }], // meetings
+      [{ meetingId: 1 }], // minutes
+      [{ meetingId: 1 }], // decisions
+      [{ meetingId: 1 }], // tasks
+      [{ meetingId: 1 }], // agendaItems
     ];
     mockDb.select.mockImplementation(() => { const d = returns[call] ?? []; call++; return { from: vi.fn().mockResolvedValue(d) }; });
     const { req, res } = makeReqRes();
@@ -114,8 +117,11 @@ describe("GET /analytics/effectiveness", () => {
   it("score is 0 when no factors", async () => {
     let call = 0;
     const returns = [
-      [{ id: 2, title: "Empty", date: "2026-07-01", agendaItems: [], status: "scheduled" }],
-      [], [], [],
+      [{ id: 2, title: "Empty", date: "2026-07-01", status: "scheduled" }], // meetings
+      [], // minutes
+      [], // decisions
+      [], // tasks
+      [], // agendaItems
     ];
     mockDb.select.mockImplementation(() => { const d = returns[call] ?? []; call++; return { from: vi.fn().mockResolvedValue(d) }; });
     const { req, res } = makeReqRes();

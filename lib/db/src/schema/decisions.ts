@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, date, index } from "drizzle-orm/pg-core";
 import { meetingsTable } from "./meetings";
 import { governanceContextsTable } from "./governance";
 import { plansTable } from "./plans";
@@ -37,7 +37,11 @@ export const decisionsTable = pgTable("decisions", {
   // Multi-tenancy seed (nullable, not enforced)
   organizationId: integer("organization_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_decisions_meeting_id").on(t.meetingId),
+  index("idx_decisions_plan_id").on(t.planId),
+  index("idx_decisions_governance_context_id").on(t.governanceContextId),
+]);
 
 export const insertDecisionSchema = createInsertSchema(decisionsTable).omit({ id: true, createdAt: true });
 export type InsertDecision = z.infer<typeof insertDecisionSchema>;

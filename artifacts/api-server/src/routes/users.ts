@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { db, usersTable } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -47,7 +48,8 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
   const existing = await db.select().from(usersTable).where(eq(usersTable.username, username));
   if (existing.length > 0) { res.status(409).json({ error: "اسم المستخدم مستخدم بالفعل" }); return; }
 
-  const [user] = await db.insert(usersTable).values({ username, password, fullName, email, role, department: department || null }).returning();
+  const hashed = await bcrypt.hash(password, 10);
+  const [user] = await db.insert(usersTable).values({ username, password: hashed, fullName, email, role, department: department || null }).returning();
   res.status(201).json(formatUser(user));
 });
 
@@ -69,7 +71,7 @@ router.patch("/users/:id", requireAdmin, async (req, res): Promise<void> => {
   if (department !== undefined) update.department = department || null;
   if (password) {
     if (password.length < 4) { res.status(400).json({ error: "كلمة المرور قصيرة جداً" }); return; }
-    update.password = password;
+    update.password = await bcrypt.hash(password, 10);
   }
 
   const [user] = await db.update(usersTable).set(update).where(eq(usersTable.id, id)).returning();

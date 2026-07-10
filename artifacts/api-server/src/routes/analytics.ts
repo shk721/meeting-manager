@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, lt, isNotNull } from "drizzle-orm";
-import { db, meetingsTable, tasksTable, meetingAttendeesTable, minutesTable, decisionsTable, usersTable } from "@workspace/db";
+import { db, meetingsTable, tasksTable, meetingAttendeesTable, minutesTable, decisionsTable, usersTable, agendaItemsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -26,7 +26,9 @@ router.get("/analytics/effectiveness", async (_req, res): Promise<void> => {
   const allMinutes = await db.select().from(minutesTable);
   const allDecisions = await db.select().from(decisionsTable);
   const allTasks = await db.select().from(tasksTable);
+  const allAgendaItems = await db.select({ meetingId: agendaItemsTable.meetingId }).from(agendaItemsTable);
 
+  const meetingsWithAgenda = new Set(allAgendaItems.map(a => a.meetingId));
   const minutesByMeeting = new Map(allMinutes.map(m => [m.meetingId, true]));
   const decisionsByMeeting = new Map<number, number>();
   for (const d of allDecisions) {
@@ -38,7 +40,7 @@ router.get("/analytics/effectiveness", async (_req, res): Promise<void> => {
   }
 
   const results = allMeetings.map(m => {
-    const hasAgenda = (m.agendaItems?.length ?? 0) > 0;
+    const hasAgenda = meetingsWithAgenda.has(m.id);
     const hasMinutes = minutesByMeeting.has(m.id);
     const hasDecisions = (decisionsByMeeting.get(m.id) ?? 0) > 0;
     const hasTasks = (tasksByMeeting.get(m.id) ?? 0) > 0;

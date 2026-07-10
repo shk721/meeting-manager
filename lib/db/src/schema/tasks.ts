@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, date, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { meetingsTable } from "./meetings";
@@ -33,7 +33,12 @@ export const tasksTable = pgTable("tasks", {
   tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => [
+  index("idx_tasks_meeting_id").on(t.meetingId),
+  index("idx_tasks_plan_id").on(t.planId),
+  index("idx_tasks_assignee_id").on(t.assigneeId),
+  index("idx_tasks_status").on(t.status),
+]);
 
 export const taskCommentsTable = pgTable("task_comments", {
   id: serial("id").primaryKey(),

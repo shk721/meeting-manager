@@ -83,8 +83,8 @@ export default function Layout({ children }: { children: ReactNode }) {
           م
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="font-bold text-sm" style={{ color: "#1c261c" }}>نظام إدارة</span>
-          <span className="text-xs" style={{ color: "#8a978a" }}>الاجتماعات الرسمي</span>
+          <span className="font-bold text-sm" style={{ color: "#1c261c" }}>منصة استخبارات</span>
+          <span className="text-xs" style={{ color: "#8a978a" }}>التنفيذ</span>
         </div>
       </div>
 

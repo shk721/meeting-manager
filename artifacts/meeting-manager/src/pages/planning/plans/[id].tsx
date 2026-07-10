@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ChevronLeft, Plus, Trash2, Edit2, Check, X, Search, Unlink } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Edit2, Check, X, Search, Unlink, Download } from "lucide-react";
 
 async function apiFetch(url: string, method = "GET", body?: any) {
   const res = await fetch(url, {
@@ -188,6 +188,24 @@ export default function PlanDetail({ id }: { id: string }) {
             <text x="50" y="56" fontSize="20" fontWeight="700" fill="#1c261c" textAnchor="middle" fontFamily="Rubik">{progress}%</text>
           </svg>
           <span style={{ fontSize: 11, color: "#8a978a" }}>نسبة التقدّم</span>
+          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <a
+              href={`/api/export/plan/${planId}/pdf`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, border: "1px solid #e6ece4", background: "#fff", fontSize: 11.5, color: "#5a675a", textDecoration: "none", cursor: "pointer" }}
+            >
+              <Download size={12} /> PDF
+            </a>
+            <a
+              href={`/api/export/plan/${planId}/excel`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, border: "1px solid #e6ece4", background: "#fff", fontSize: 11.5, color: "#1f7a4d", textDecoration: "none", cursor: "pointer" }}
+            >
+              <Download size={12} /> Excel
+            </a>
+          </div>
         </div>
       </div>
 

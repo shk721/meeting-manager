@@ -2,11 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Spinner } from "@/components/ui/spinner";
-import { CalendarDays, CheckSquare, Clock, MapPin, AlertCircle, Briefcase, TrendingUp } from "lucide-react";
+import { CalendarDays, CheckSquare, Clock, MapPin, AlertCircle, Briefcase, TrendingUp, FileCheck } from "lucide-react";
 
 const meetingStatusMap: Record<string, { label: string; bg: string; color: string }> = {
   scheduled: { label: "مجدول", bg: "#e8f2ea", color: "#1f7a4d" },
   in_progress: { label: "جارٍ", bg: "#fbf1dd", color: "#a97918" },
+};
+
+const decisionStatusMap: Record<string, { label: string; bg: string; color: string }> = {
+  draft:          { label: "مسودة",           bg: "#f4f6f2", color: "#5a675a" },
+  pending_review: { label: "بانتظار المراجعة", bg: "#fbf1dd", color: "#a97918" },
+  approved:       { label: "معتمد",            bg: "#e8f2ea", color: "#1f7a4d" },
+  rejected:       { label: "مرفوض",            bg: "#fbeeea", color: "#c0492f" },
+  deferred:       { label: "مؤجل",             bg: "#f0f0fb", color: "#5b5bbf" },
 };
 
 const priorityMap: Record<string, { label: string; color: string }> = {
@@ -58,6 +66,11 @@ export default function Dashboard() {
   const { data: myTasks = [], isLoading: loadingTasks } = useQuery<any[]>({
     queryKey: ["my-tasks"],
     queryFn: () => fetchJson("/api/dashboard/my-tasks"),
+  });
+
+  const { data: myDecisions = [], isLoading: loadingDecisions } = useQuery<any[]>({
+    queryKey: ["my-decisions"],
+    queryFn: () => fetchJson("/api/dashboard/my-decisions"),
   });
 
   const showPlans = user?.role === "admin" || user?.role === "manager";
@@ -257,6 +270,48 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* My pending decisions */}
+      {(loadingDecisions || myDecisions.length > 0) && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <FileCheck className="h-5 w-5" style={{ color: "#6d28d9" }} />
+              قراراتي المعلّقة
+            </h2>
+          </div>
+          {loadingDecisions ? (
+            <div className="flex justify-center py-6"><Spinner className="h-6 w-6" /></div>
+          ) : (
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+              {myDecisions.map((d: any) => {
+                const ds = decisionStatusMap[d.status] ?? { label: d.status, bg: "#f4f6f2", color: "#5a675a" };
+                return (
+                  <Link key={d.id} href={`/decisions/${d.id}`}>
+                    <div className="p-3 rounded-xl border bg-card hover:shadow-sm transition-shadow cursor-pointer">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className="text-sm font-medium leading-snug line-clamp-2">{d.title}</span>
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: ds.bg, color: ds.color, whiteSpace: "nowrap", flexShrink: 0 }}>
+                          {ds.label}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs" style={{ color: "#8a978a" }}>
+                        {d.meetingTitle && <span>{d.meetingTitle}</span>}
+                        {d.dueDate && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(d.dueDate + "T00:00:00").toLocaleDateString("ar-SA")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

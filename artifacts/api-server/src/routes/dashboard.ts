@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray, or } from "drizzle-orm";
-import { db, meetingsTable, tasksTable, minutesTable, usersTable, meetingAttendeesTable, plansTable, governanceContextsTable } from "@workspace/db";
+import { eq, inArray, or, and, notInArray } from "drizzle-orm";
+import { db, meetingsTable, tasksTable, minutesTable, usersTable, meetingAttendeesTable, plansTable, governanceContextsTable, decisionsTable } from "@workspace/db";
 import { formatUser } from "./users";
 import { getMeetingStats, getTaskStats, getInsights, getThisWeekData, getPendingData } from "@workspace/db/analytics-queries";
 
@@ -239,6 +239,33 @@ router.get("/dashboard/my-tasks", async (req, res): Promise<void> => {
     id: t.id, title: t.title, status: t.status, priority: t.priority,
     dueDate: t.dueDate ?? null, meetingId: t.meetingId ?? null,
     isOverdue: t.dueDate ? t.dueDate < todayStr : false,
+  })));
+});
+
+router.get("/dashboard/my-decisions", async (req, res): Promise<void> => {
+  const userId = (req.session as any).userId as number;
+
+  const myDecisions = await db.select().from(decisionsTable)
+    .where(and(
+      eq(decisionsTable.assignedTo, userId),
+      notInArray(decisionsTable.status, ["cancelled"]),
+    ));
+
+  const meetingIds = [...new Set(myDecisions.map(d => d.meetingId).filter(Boolean))] as number[];
+  const meetings = meetingIds.length > 0
+    ? await db.select({ id: meetingsTable.id, title: meetingsTable.title })
+        .from(meetingsTable).where(inArray(meetingsTable.id, meetingIds))
+    : [];
+  const meetingMap = Object.fromEntries(meetings.map(m => [m.id, m.title]));
+
+  res.json(myDecisions.slice(0, 10).map(d => ({
+    id: d.id,
+    title: d.title ?? d.content.slice(0, 80),
+    status: d.status ?? "approved",
+    dueDate: d.dueDate ?? null,
+    decisionType: d.decisionType ?? null,
+    meetingId: d.meetingId ?? null,
+    meetingTitle: d.meetingId ? (meetingMap[d.meetingId] ?? null) : null,
   })));
 });
 

@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import swaggerUi from "swagger-ui-express";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { pool as dbPool } from "@workspace/db";
 
 const PgSession = connectPgSimple(session);
 
@@ -41,7 +42,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const sessionStore = process.env.DATABASE_URL
   ? new PgSession({
-      conString: process.env.DATABASE_URL,
+      pool: dbPool,
       tableName: "user_sessions",
       createTableIfMissing: true,
     })

@@ -50,7 +50,7 @@ function Router() {
             <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
             <Route path="/hub" component={() => <ProtectedRoute component={HubPage} />} />
             <Route path="/meetings" component={() => <ProtectedRoute component={Meetings} />} />
-            <Route path="/meetings/:id">{(params) => <ProtectedRoute component={MeetingDetail} id={params.id} />}</Route>
+            <Route path="/meetings/:id/:tab?">{(params) => <ProtectedRoute component={MeetingDetail} id={params.id} tab={params.tab} />}</Route>
             <Route path="/tasks" component={() => <ProtectedRoute component={Tasks} />} />
             <Route path="/minutes" component={() => <ProtectedRoute component={Minutes} />} />
             <Route path="/users" component={() => <ProtectedRoute component={UsersPage} />} />
@@ -60,7 +60,7 @@ function Router() {
             <Route path="/analytics" component={() => <ProtectedRoute component={AnalyticsPage} />} />
             <Route path="/planning" component={() => <ProtectedRoute component={PlanningDashboard} />} />
             <Route path="/planning/plans/new" component={() => <ProtectedRoute component={NewPlanPage} />} />
-            <Route path="/planning/plans/:id">{(params) => <ProtectedRoute component={PlanDetail} id={params.id} />}</Route>
+            <Route path="/planning/plans/:id/:tab?">{(params) => <ProtectedRoute component={PlanDetail} id={params.id} tab={params.tab} />}</Route>
             <Route path="/planning/plans" component={() => <ProtectedRoute component={PlansPage} />} />
             <Route path="/planning/templates" component={() => <ProtectedRoute component={TemplatesPage} />} />
             <Route path="/organizations" component={() => <ProtectedRoute component={OrganizationsPage} />} />

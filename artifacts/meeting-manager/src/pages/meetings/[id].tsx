@@ -18,7 +18,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Calendar, Clock, MapPin, Users, Target, FileText,
   Briefcase, Plus, Send, Play, CheckCircle2,
@@ -29,6 +28,7 @@ import { ReminderSettings } from "@/components/ReminderSettings";
 import { CollaborativeNotes } from "@/components/CollaborativeNotes";
 import { LiveAttendance } from "@/components/LiveAttendance";
 import { ExportModal } from "@/components/ExportModal";
+import WorkspaceLayout from "@/components/WorkspaceLayout";
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
   scheduled: { label: "مجدول", variant: "default" },
@@ -186,8 +186,21 @@ function AgendaItemsSection({ meetingId }: { meetingId: number }) {
   );
 }
 
-function GenerateReportButton({ entityType, entityId }: { entityType: string; entityId: number }) {
+function DocumentsTab({ entityType, entityId }: { entityType: string; entityId: number }) {
   const [busy, setBusy] = useState(false);
+
+  const { data: docs = [], refetch } = useQuery<any[]>({
+    queryKey: ["documents", entityType, entityId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/documents?entityType=${entityType}&entityId=${entityId}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   async function generate() {
     setBusy(true);
     try {
@@ -200,23 +213,71 @@ function GenerateReportButton({ entityType, entityId }: { entityType: string; en
       if (!res.ok) throw new Error("فشل التوليد");
       const { downloadUrl } = await res.json();
       window.open(downloadUrl, "_blank");
+      refetch();
     } catch {
       alert("تعذّر توليد التقرير. حاول مرة أخرى.");
     } finally {
       setBusy(false);
     }
   }
+
   return (
-    <Button size="sm" variant="outline" onClick={generate} disabled={busy} className="w-full">
-      <Download className="h-3.5 w-3.5 ml-1" />
-      {busy ? "جارٍ التوليد..." : "تقرير PDF"}
-    </Button>
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            الوثائق المولّدة
+          </CardTitle>
+          <Button size="sm" onClick={generate} disabled={busy}>
+            <Download className="h-3.5 w-3.5 ml-1" />
+            {busy ? "جارٍ التوليد..." : "توليد تقرير PDF"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {docs.length === 0 ? (
+          <div className="text-center py-8">
+            <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">لا توجد وثائق مولّدة بعد</p>
+            <p className="text-xs text-muted-foreground mt-1">اضغط "توليد تقرير PDF" لإنشاء أول تقرير</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {docs.map((doc: any) => (
+              <div
+                key={doc.id}
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/30"
+              >
+                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{doc.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(doc.createdAt).toLocaleString("ar-SA")}
+                  </p>
+                </div>
+                <a
+                  href={`/api/documents/${doc.id}/download`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+                >
+                  <Download className="h-3 w-3" />
+                  تحميل
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
-export default function MeetingDetail({ id }: { id: string }) {
+export default function MeetingDetail({ id, tab }: { id: string; tab?: string }) {
   const meetingId = parseInt(id, 10);
   const queryClient = useQueryClient();
+  const activeTab = tab ?? "agenda";
 
   const { data: meeting, isLoading } = useGetMeeting(meetingId, {
     query: { enabled: !!meetingId, queryKey: getGetMeetingQueryKey(meetingId) },
@@ -225,7 +286,6 @@ export default function MeetingDetail({ id }: { id: string }) {
 
   const [isPending, setIsPending] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [activeTab, setActiveTab] = useState("agenda");
 
   // Attendees
   const [newAttendeeId, setNewAttendeeId] = useState("");
@@ -381,8 +441,6 @@ export default function MeetingDetail({ id }: { id: string }) {
   const isClosed = m.status === "completed";
   const tasks: any[] = m.tasks ?? [];
   const decisions: any[] = m.decisions ?? [];
-
-  const hasAgendaItems = (m.attendees?.length ?? 0) > 0; // used for invite button
   const hasAttendees = (m.attendees?.length ?? 0) > 0;
 
   let currentStep = 1;
@@ -394,385 +452,382 @@ export default function MeetingDetail({ id }: { id: string }) {
   if (minutesSent) currentStep = 7;
   if (isClosed) currentStep = 8;
 
-  return (
-    <div dir="rtl">
-      {apiError && <p className="text-sm text-red-600 bg-red-50 p-2 rounded mb-4">{apiError}</p>}
+  const meetingTabs = [
+    { id: "agenda", label: "جدول الأعمال" },
+    { id: "decisions", label: "القرارات", badge: decisions.length },
+    { id: "tasks", label: "المهام", badge: tasks.length },
+    { id: "minutes", label: "المحضر" },
+    { id: "documents", label: "الوثائق" },
+  ];
 
-      {/* Workspace: left panel + right panel */}
-      <div className="flex gap-5 items-start">
+  const statusInfo = statusMap[m.status];
 
-        {/* ── Left panel ───────────────────────────────────── */}
-        <div style={{ width: 272, flexShrink: 0, position: "sticky", top: 16, maxHeight: "calc(100vh - 48px)", overflowY: "auto" }}>
-          <div className="flex flex-col gap-4">
-
-            {/* Title + Status */}
-            <div>
-              <div className="flex items-start gap-2 mb-1">
-                <h1 className="text-xl font-bold leading-snug flex-1">{m.title}</h1>
-                <Badge variant={(statusMap[m.status]?.variant as any) || "default"} className="shrink-0 mt-0.5">
-                  {statusMap[m.status]?.label || m.status}
-                </Badge>
-              </div>
-              {(m as any).isRecurring && (
-                <Badge variant="outline" className="text-xs gap-1 mt-1">
-                  <RefreshCw className="h-3 w-3" />
-                  متكرر
-                </Badge>
-              )}
-            </div>
-
-            {/* Metadata */}
-            <Card>
-              <CardContent className="pt-4 pb-3 space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>{new Date(m.date + "T00:00:00").toLocaleDateString("ar-SA")}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span>{m.time}</span>
-                </div>
-                {m.location && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span>{m.location}</span>
-                  </div>
-                )}
-                {m.project && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span>{m.project}</span>
-                  </div>
-                )}
-                {m.objectives && (
-                  <div className="flex items-start gap-2 text-sm pt-1 border-t">
-                    <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                    <span className="text-muted-foreground text-xs leading-relaxed">{m.objectives}</span>
-                  </div>
-                )}
-                {m.chairperson && (
-                  <div className="flex items-center gap-2 text-sm border-t pt-2">
-                    <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs">الرئيس: <span className="font-medium">{m.chairperson.fullName}</span></span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Attendees */}
-            <Card>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    المشاركون ({m.attendees?.length ?? 0})
-                  </span>
-                  {invitationsSent && (
-                    <Badge variant={"success" as any} className="text-[10px]">دعوات أُرسلت</Badge>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {(m.attendees ?? []).map((a: any) => (
-                    <span key={a.id} className="flex items-center gap-1 text-xs bg-muted rounded-full px-2 py-0.5">
-                      {a.fullName}
-                      <button
-                        onClick={() => removeAttendee(a.id)}
-                        className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
-                        title="إزالة"
-                      >✕</button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-1.5">
-                  <select
-                    value={newAttendeeId}
-                    onChange={e => setNewAttendeeId(e.target.value)}
-                    className="text-xs border rounded px-2 py-1 bg-background flex-1"
-                    style={{ fontSize: 12 }}
-                  >
-                    <option value="">إضافة مشارك…</option>
-                    {((users ?? []) as any[])
-                      .filter((u: any) => !(m.attendees ?? []).find((a: any) => a.id === u.id))
-                      .map((u: any) => (
-                        <option key={u.id} value={u.id}>{u.fullName}</option>
-                      ))}
-                  </select>
-                  <Button size="sm" variant="outline" onClick={addAttendee} disabled={!newAttendeeId || isAddingAttendee} className="h-7 px-2">
-                    {isAddingAttendee ? <Spinner className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Action buttons */}
-            <div className="flex flex-col gap-2">
-              {hasAttendees && !invitationsSent && (
-                <Button size="sm" variant="outline" onClick={() => patchMeeting({ invitationsSentAt: new Date().toISOString() })} disabled={isPending} className="w-full">
-                  <Send className="h-3 w-3 ml-1" />
-                  إرسال الدعوات
-                </Button>
-              )}
-              {!(m as any).isRecurring && !(m as any).parentMeetingId && m.status === "scheduled" && (
-                <Button size="sm" variant="outline" onClick={() => setRecurringOpen(true)} className="w-full">
-                  <RefreshCw className="h-3.5 w-3.5 ml-1" />
-                  تعيين تكرار
-                </Button>
-              )}
-              <ExportModal meetingId={meetingId} />
-              <GenerateReportButton entityType="meeting" entityId={meetingId} />
-              {m.status === "scheduled" && (
-                <Button onClick={() => patchMeeting({ status: "in_progress" })} disabled={isPending} size="sm" className="w-full">
-                  <Play className="h-4 w-4 ml-1" />
-                  بدء الاجتماع
-                </Button>
-              )}
-              {m.status === "in_progress" && (
-                <Button onClick={() => patchMeeting({ status: "completed" })} disabled={isPending} size="sm" variant="destructive" className="w-full">
-                  <CheckCircle2 className="h-4 w-4 ml-1" />
-                  إغلاق الاجتماع
-                </Button>
-              )}
-            </div>
-
-            {/* Lifecycle stepper */}
-            <Card>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-start gap-0 overflow-x-auto">
-                  <StepIndicator done={currentStep > 1} active={currentStep === 1} label="الإنشاء" num={1} />
-                  <StepLine done={currentStep > 1} />
-                  <StepIndicator done={currentStep > 2} active={currentStep === 2} label="الجدول" num={2} />
-                  <StepLine done={currentStep > 2} />
-                  <StepIndicator done={currentStep > 3} active={currentStep === 3} label="الدعوات" num={3} />
-                  <StepLine done={currentStep > 3} />
-                  <StepIndicator done={currentStep > 4} active={currentStep === 4} label="البدء" num={4} />
-                  <StepLine done={currentStep > 4} />
-                  <StepIndicator done={currentStep > 5} active={currentStep === 5} label="المحضر" num={5} />
-                  <StepLine done={currentStep > 5} />
-                  <StepIndicator done={currentStep > 6} active={currentStep === 6} label="الاعتماد" num={6} />
-                  <StepLine done={currentStep > 6} />
-                  <StepIndicator done={currentStep > 7} active={currentStep === 7} label="الإرسال" num={7} />
-                  <StepLine done={currentStep > 7} />
-                  <StepIndicator done={currentStep >= 8} active={currentStep === 8} label="الإغلاق" num={8} />
-                </div>
-              </CardContent>
-            </Card>
-
+  const sidebar = (
+    <div className="flex flex-col gap-4">
+      {/* Metadata */}
+      <Card>
+        <CardContent className="pt-4 pb-3 space-y-2">
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>{new Date(m.date + "T00:00:00").toLocaleDateString("ar-SA")}</span>
           </div>
-        </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>{m.time}</span>
+          </div>
+          {m.location && (
+            <div className="flex items-center gap-2 text-sm">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span>{m.location}</span>
+            </div>
+          )}
+          {m.project && (
+            <div className="flex items-center gap-2 text-sm">
+              <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span>{m.project}</span>
+            </div>
+          )}
+          {m.objectives && (
+            <div className="flex items-start gap-2 text-sm pt-1 border-t">
+              <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+              <span className="text-muted-foreground text-xs leading-relaxed">{m.objectives}</span>
+            </div>
+          )}
+          {m.chairperson && (
+            <div className="flex items-center gap-2 text-sm border-t pt-2">
+              <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs">الرئيس: <span className="font-medium">{m.chairperson.fullName}</span></span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* ── Right panel (tabbed) ──────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4 w-full justify-start">
-              <TabsTrigger value="agenda">جدول الأعمال</TabsTrigger>
-              <TabsTrigger value="decisions">
-                القرارات
-                {decisions.length > 0 && (
-                  <span className="mr-1.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{decisions.length}</span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="tasks">
-                المهام
-                {tasks.length > 0 && (
-                  <span className="mr-1.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{tasks.length}</span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="minutes">المحضر</TabsTrigger>
-            </TabsList>
+      {/* Attendees */}
+      <Card>
+        <CardContent className="pt-4 pb-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              المشاركون ({m.attendees?.length ?? 0})
+            </span>
+            {invitationsSent && (
+              <Badge variant={"success" as any} className="text-[10px]">دعوات أُرسلت</Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1 mb-2">
+            {(m.attendees ?? []).map((a: any) => (
+              <span key={a.id} className="flex items-center gap-1 text-xs bg-muted rounded-full px-2 py-0.5">
+                {a.fullName}
+                <button
+                  onClick={() => removeAttendee(a.id)}
+                  className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
+                  title="إزالة"
+                >✕</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-1.5">
+            <select
+              value={newAttendeeId}
+              onChange={e => setNewAttendeeId(e.target.value)}
+              className="text-xs border rounded px-2 py-1 bg-background flex-1"
+              style={{ fontSize: 12 }}
+            >
+              <option value="">إضافة مشارك…</option>
+              {((users ?? []) as any[])
+                .filter((u: any) => !(m.attendees ?? []).find((a: any) => a.id === u.id))
+                .map((u: any) => (
+                  <option key={u.id} value={u.id}>{u.fullName}</option>
+                ))}
+            </select>
+            <Button size="sm" variant="outline" onClick={addAttendee} disabled={!newAttendeeId || isAddingAttendee} className="h-7 px-2">
+              {isAddingAttendee ? <Spinner className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-            {/* Agenda tab */}
-            <TabsContent value="agenda">
-              <Card>
-                <CardContent className="pt-5">
-                  <AgendaItemsSection meetingId={meetingId} />
-                </CardContent>
-              </Card>
-              <Card className="mt-4">
-                <CardContent className="pt-4">
-                  <ReminderSettings meetingId={meetingId} />
-                </CardContent>
-              </Card>
-            </TabsContent>
+      {/* Action buttons */}
+      <div className="flex flex-col gap-2">
+        {hasAttendees && !invitationsSent && (
+          <Button size="sm" variant="outline" onClick={() => patchMeeting({ invitationsSentAt: new Date().toISOString() })} disabled={isPending} className="w-full">
+            <Send className="h-3 w-3 ml-1" />
+            إرسال الدعوات
+          </Button>
+        )}
+        {!(m as any).isRecurring && !(m as any).parentMeetingId && m.status === "scheduled" && (
+          <Button size="sm" variant="outline" onClick={() => setRecurringOpen(true)} className="w-full">
+            <RefreshCw className="h-3.5 w-3.5 ml-1" />
+            تعيين تكرار
+          </Button>
+        )}
+        <ExportModal meetingId={meetingId} />
+        {m.status === "scheduled" && (
+          <Button onClick={() => patchMeeting({ status: "in_progress" })} disabled={isPending} size="sm" className="w-full">
+            <Play className="h-4 w-4 ml-1" />
+            بدء الاجتماع
+          </Button>
+        )}
+        {m.status === "in_progress" && (
+          <Button onClick={() => patchMeeting({ status: "completed" })} disabled={isPending} size="sm" variant="destructive" className="w-full">
+            <CheckCircle2 className="h-4 w-4 ml-1" />
+            إغلاق الاجتماع
+          </Button>
+        )}
+      </div>
 
-            {/* Decisions tab */}
-            <TabsContent value="decisions">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4" />
-                      القرارات
-                    </CardTitle>
-                    <Button size="sm" variant="outline" onClick={() => { setDecisionForm({ content: "", notes: "" }); setDecisionOpen(true); }}>
-                      <Plus className="h-3 w-3 ml-1" />
-                      قرار جديد
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {decisions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">لا توجد قرارات مسجلة بعد</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {decisions.map((d: any, idx: number) => (
-                        <div key={d.id} className="flex gap-3 items-start p-3 rounded-lg bg-muted/30">
-                          <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                            {idx + 1}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm">{d.content}</p>
-                            {d.notes && <p className="text-xs text-muted-foreground mt-1">{d.notes}</p>}
-                            {d.agendaItem && (
-                              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
-                                {d.agendaItem}
-                              </p>
-                            )}
-                            <Link href={`/decisions/${d.id}`} className="text-xs text-primary mt-1.5 inline-block hover:underline">
-                              عرض التفاصيل ←
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+      {/* Lifecycle stepper */}
+      <Card>
+        <CardContent className="pt-4 pb-3">
+          <div className="flex items-start gap-0 overflow-x-auto">
+            <StepIndicator done={currentStep > 1} active={currentStep === 1} label="الإنشاء" num={1} />
+            <StepLine done={currentStep > 1} />
+            <StepIndicator done={currentStep > 2} active={currentStep === 2} label="الجدول" num={2} />
+            <StepLine done={currentStep > 2} />
+            <StepIndicator done={currentStep > 3} active={currentStep === 3} label="الدعوات" num={3} />
+            <StepLine done={currentStep > 3} />
+            <StepIndicator done={currentStep > 4} active={currentStep === 4} label="البدء" num={4} />
+            <StepLine done={currentStep > 4} />
+            <StepIndicator done={currentStep > 5} active={currentStep === 5} label="المحضر" num={5} />
+            <StepLine done={currentStep > 5} />
+            <StepIndicator done={currentStep > 6} active={currentStep === 6} label="الاعتماد" num={6} />
+            <StepLine done={currentStep > 6} />
+            <StepIndicator done={currentStep > 7} active={currentStep === 7} label="الإرسال" num={7} />
+            <StepLine done={currentStep > 7} />
+            <StepIndicator done={currentStep >= 8} active={currentStep === 8} label="الإغلاق" num={8} />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
-            {/* Tasks tab */}
-            <TabsContent value="tasks">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4" />
-                      المهام
-                    </CardTitle>
-                    <Button size="sm" variant="outline" onClick={() => { setTaskForm({ title: "", description: "", priority: "medium", dueDate: "", assigneeId: "" }); setTaskOpen(true); }}>
-                      <Plus className="h-3 w-3 ml-1" />
-                      مهمة جديدة
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {tasks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">لا توجد مهام مضافة بعد</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {tasks.map((t: any) => (
-                        <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{t.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {t.assignee && (
-                                <span className="text-xs text-muted-foreground">{t.assignee.fullName}</span>
-                              )}
-                              {t.dueDate && (
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(t.dueDate + "T00:00:00").toLocaleDateString("ar-SA")}
-                                </span>
-                              )}
-                              <Badge variant="outline" className="text-xs h-4 px-1">
-                                {priorityMap[t.priority] || t.priority}
-                              </Badge>
-                            </div>
-                          </div>
-                          <Select value={t.status} onValueChange={v => handleUpdateTaskStatus(t.id, v)}>
-                            <SelectTrigger className="h-7 text-xs w-[110px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {taskStatusOptions.map(o => (
-                                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+  return (
+    <>
+      {apiError && (
+        <p className="text-sm text-red-600 bg-red-50 p-2 rounded mb-4 mx-0"
+          style={{ margin: "-20px -26px 20px", padding: "8px 26px" }}>
+          {apiError}
+        </p>
+      )}
 
-            {/* Minutes tab */}
-            <TabsContent value="minutes">
-              <div className="space-y-4">
-                {/* Minutes card */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-center">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        محضر الاجتماع
-                        {hasMinutes && (
-                          <Badge variant={(minutesApproved ? "success" : "secondary") as any} className="text-xs">
-                            {m.minutes.status === "draft" ? "مسودة" : m.minutes.status === "approved" ? "معتمد" : m.minutes.status}
-                          </Badge>
-                        )}
-                        {minutesSent && <Badge variant={"success" as any} className="text-xs">تم الإرسال</Badge>}
-                      </CardTitle>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={openMinutesDialog}>
-                          <Edit className="h-3 w-3 ml-1" />
-                          {hasMinutes ? "تعديل" : "إنشاء المحضر"}
-                        </Button>
-                        {hasMinutes && !minutesApproved && (
-                          <Button size="sm" onClick={handleApproveMinutes}>
-                            <CheckCircle2 className="h-3 w-3 ml-1" />
-                            اعتماد
-                          </Button>
-                        )}
-                        {minutesApproved && !minutesSent && (
-                          <Button size="sm" onClick={handleSendMinutes}>
-                            <Send className="h-3 w-3 ml-1" />
-                            إرسال
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {hasMinutes ? (
-                      <div className="space-y-3">
-                        {m.minutes.executiveSummary && (
-                          <div>
-                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">الملخص التنفيذي</h4>
-                            <p className="text-sm whitespace-pre-wrap">{m.minutes.executiveSummary}</p>
-                          </div>
-                        )}
-                        {m.minutes.risks && (
-                          <div>
-                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">المخاطر</h4>
-                            <p className="text-sm whitespace-pre-wrap">{m.minutes.risks}</p>
-                          </div>
-                        )}
-                        {m.minutes.previousFollowUp && (
-                          <div>
-                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">متابعة سابقة</h4>
-                            <p className="text-sm whitespace-pre-wrap">{m.minutes.previousFollowUp}</p>
-                          </div>
-                        )}
-                        {minutesSent && (
-                          <p className="text-xs text-muted-foreground border-t pt-2">
-                            أُرسل المحضر: {new Date(m.minutesSentAt).toLocaleString("ar-SA")}
+      <WorkspaceLayout
+        breadcrumb={{ label: "الاجتماعات", href: "/meetings" }}
+        title={m.title}
+        statusBadge={
+          <Badge variant={(statusInfo?.variant as any) || "default"} className="shrink-0">
+            {statusInfo?.label || m.status}
+          </Badge>
+        }
+        headerRight={
+          (m as any).isRecurring ? (
+            <Badge variant="outline" className="text-xs gap-1">
+              <RefreshCw className="h-3 w-3" />
+              متكرر
+            </Badge>
+          ) : undefined
+        }
+        tabs={meetingTabs}
+        activeTab={activeTab}
+        basePath={`/meetings/${meetingId}`}
+        sidebar={sidebar}
+      >
+        {/* Agenda tab */}
+        {activeTab === "agenda" && (
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="pt-5">
+                <AgendaItemsSection meetingId={meetingId} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <ReminderSettings meetingId={meetingId} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Decisions tab */}
+        {activeTab === "decisions" && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  القرارات
+                </CardTitle>
+                <Button size="sm" variant="outline" onClick={() => { setDecisionForm({ content: "", notes: "" }); setDecisionOpen(true); }}>
+                  <Plus className="h-3 w-3 ml-1" />
+                  قرار جديد
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {decisions.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">لا توجد قرارات مسجلة بعد</p>
+              ) : (
+                <div className="space-y-3">
+                  {decisions.map((d: any, idx: number) => (
+                    <div key={d.id} className="flex gap-3 items-start p-3 rounded-lg bg-muted/30">
+                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm">{d.content}</p>
+                        {d.notes && <p className="text-xs text-muted-foreground mt-1">{d.notes}</p>}
+                        {d.agendaItem && (
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+                            {d.agendaItem}
                           </p>
                         )}
+                        <Link href={`/decisions/${d.id}`} className="text-xs text-primary mt-1.5 inline-block hover:underline">
+                          عرض التفاصيل ←
+                        </Link>
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground py-4 text-center">لم يُنشأ المحضر بعد</p>
-                    )}
-                  </CardContent>
-                </Card>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                <CollaborativeNotes meetingId={meetingId} />
-                <LiveAttendance meetingId={meetingId} />
+        {/* Tasks tab */}
+        {activeTab === "tasks" && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  المهام
+                </CardTitle>
+                <Button size="sm" variant="outline" onClick={() => { setTaskForm({ title: "", description: "", priority: "medium", dueDate: "", assigneeId: "" }); setTaskOpen(true); }}>
+                  <Plus className="h-3 w-3 ml-1" />
+                  مهمة جديدة
+                </Button>
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {tasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">لا توجد مهام مضافة بعد</p>
+              ) : (
+                <div className="space-y-2">
+                  {tasks.map((t: any) => (
+                    <div key={t.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{t.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {t.assignee && (
+                            <span className="text-xs text-muted-foreground">{t.assignee.fullName}</span>
+                          )}
+                          {t.dueDate && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(t.dueDate + "T00:00:00").toLocaleDateString("ar-SA")}
+                            </span>
+                          )}
+                          <Badge variant="outline" className="text-xs h-4 px-1">
+                            {priorityMap[t.priority] || t.priority}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Select value={t.status} onValueChange={v => handleUpdateTaskStatus(t.id, v)}>
+                        <SelectTrigger className="h-7 text-xs w-[110px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {taskStatusOptions.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Minutes tab */}
+        {activeTab === "minutes" && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    محضر الاجتماع
+                    {hasMinutes && (
+                      <Badge variant={(minutesApproved ? "success" : "secondary") as any} className="text-xs">
+                        {m.minutes.status === "draft" ? "مسودة" : m.minutes.status === "approved" ? "معتمد" : m.minutes.status}
+                      </Badge>
+                    )}
+                    {minutesSent && <Badge variant={"success" as any} className="text-xs">تم الإرسال</Badge>}
+                  </CardTitle>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={openMinutesDialog}>
+                      <Edit className="h-3 w-3 ml-1" />
+                      {hasMinutes ? "تعديل" : "إنشاء المحضر"}
+                    </Button>
+                    {hasMinutes && !minutesApproved && (
+                      <Button size="sm" onClick={handleApproveMinutes}>
+                        <CheckCircle2 className="h-3 w-3 ml-1" />
+                        اعتماد
+                      </Button>
+                    )}
+                    {minutesApproved && !minutesSent && (
+                      <Button size="sm" onClick={handleSendMinutes}>
+                        <Send className="h-3 w-3 ml-1" />
+                        إرسال
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {hasMinutes ? (
+                  <div className="space-y-3">
+                    {m.minutes.executiveSummary && (
+                      <div>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">الملخص التنفيذي</h4>
+                        <p className="text-sm whitespace-pre-wrap">{m.minutes.executiveSummary}</p>
+                      </div>
+                    )}
+                    {m.minutes.risks && (
+                      <div>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">المخاطر</h4>
+                        <p className="text-sm whitespace-pre-wrap">{m.minutes.risks}</p>
+                      </div>
+                    )}
+                    {m.minutes.previousFollowUp && (
+                      <div>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">متابعة سابقة</h4>
+                        <p className="text-sm whitespace-pre-wrap">{m.minutes.previousFollowUp}</p>
+                      </div>
+                    )}
+                    {minutesSent && (
+                      <p className="text-xs text-muted-foreground border-t pt-2">
+                        أُرسل المحضر: {new Date(m.minutesSentAt).toLocaleString("ar-SA")}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">لم يُنشأ المحضر بعد</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <CollaborativeNotes meetingId={meetingId} />
+            <LiveAttendance meetingId={meetingId} />
+          </div>
+        )}
+
+        {/* Documents tab */}
+        {activeTab === "documents" && (
+          <DocumentsTab entityType="meeting" entityId={meetingId} />
+        )}
+      </WorkspaceLayout>
 
       {/* Decision Dialog */}
       <Dialog open={decisionOpen} onOpenChange={setDecisionOpen}>
@@ -894,6 +949,6 @@ export default function MeetingDetail({ id }: { id: string }) {
         onClose={() => setRecurringOpen(false)}
         onSuccess={refresh}
       />
-    </div>
+    </>
   );
 }

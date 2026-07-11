@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, generatedDocumentsTable } from "@workspace/db";
 import { getMeetingReportData } from "../services/document-engine/data-providers/meeting";
 import { getPlanReportData } from "../services/document-engine/data-providers/plan";
@@ -68,11 +68,17 @@ router.post("/documents/generate", async (req, res): Promise<void> => {
   }
 });
 
-// GET /api/documents
+// GET /api/documents?entityType=meeting&entityId=5
 router.get("/documents", async (req, res): Promise<void> => {
   const userId = req.session.userId;
+  const { entityType, entityId } = req.query as { entityType?: string; entityId?: string };
+
+  const conditions = [eq(generatedDocumentsTable.createdById, userId!)];
+  if (entityType) conditions.push(eq(generatedDocumentsTable.entityType, entityType));
+  if (entityId && !isNaN(Number(entityId))) conditions.push(eq(generatedDocumentsTable.entityId, Number(entityId)));
+
   const docs = await db.select().from(generatedDocumentsTable)
-    .where(eq(generatedDocumentsTable.createdById, userId!))
+    .where(and(...conditions))
     .orderBy(generatedDocumentsTable.createdAt);
   res.json(docs.reverse());
 });

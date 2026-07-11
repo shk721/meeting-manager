@@ -1,9 +1,9 @@
 import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
 
 export const C = {
-  bg:"#06080f", surface:"#0c1119", card:"#101823", raised:"#141f2e",
-  border:"#182436", accent:"#2563eb", text:"#dde4ef",
-  sub:"#6b84a0", muted:"#2e4159", red:"#ef4444", green:"#10b981", amber:"#f59e0b",
+  bg:"#f4f6f2", surface:"#ffffff", card:"#ffffff", raised:"#f8faf8",
+  border:"#e6ece4", accent:"#1f7a4d", text:"#1c261c",
+  sub:"#6b7c6b", muted:"#a3b0a3", red:"#ef4444", green:"#10b981", amber:"#f59e0b",
 };
 
 export const SP = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:24 } as const;

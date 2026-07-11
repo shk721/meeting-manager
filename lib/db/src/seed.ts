@@ -1,8 +1,20 @@
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "./index.js";
+import { db, pool, usersTable } from "./index.js";
 
 async function seed() {
   console.log("Seeding database...");
+
+  // Ensure the session table exists with the schema connect-pg-simple expects.
+  // createTableIfMissing:true in the store can fail silently; doing it here is reliable.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      sid  varchar   NOT NULL,
+      sess json      NOT NULL,
+      expire timestamp(6) NOT NULL,
+      CONSTRAINT user_sessions_pkey PRIMARY KEY (sid)
+    )
+  `);
+
 
   const [h_admin, h_manager, h_member, h_viewer] = await Promise.all([
     bcrypt.hash("admin123",   10),

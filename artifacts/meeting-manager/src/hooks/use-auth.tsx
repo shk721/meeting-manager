@@ -16,7 +16,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [, setLocation] = useLocation();
+  const [, setLocation] = useLocation(); // used by handleLogout
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -35,7 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await loginMutation.mutateAsync({ data: { username, password } });
       await queryClient.refetchQueries({ queryKey: getGetCurrentUserQueryKey() });
       toast({ title: "تم تسجيل الدخول بنجاح" });
-      setLocation("/");
+      // Navigation is handled by Login page's useEffect watching `user`,
+      // so we avoid a ProtectedRoute bounce before AuthProvider re-renders.
     } catch (e) {
       toast({
         title: "فشل تسجيل الدخول",

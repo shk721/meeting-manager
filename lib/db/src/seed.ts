@@ -11,13 +11,13 @@ async function seed() {
     bcrypt.hash("viewer123",  10),
   ]);
 
-  await db.insert(usersTable).values([
+  const users = [
     {
       username: "admin",
       password: h_admin,
       fullName: "أحمد المنصوري",
       email: "admin@meeting-manager.com",
-      role: "admin",
+      role: "admin" as const,
       department: "الإدارة",
     },
     {
@@ -25,7 +25,7 @@ async function seed() {
       password: h_manager,
       fullName: "سارة القحطاني",
       email: "manager@meeting-manager.com",
-      role: "manager",
+      role: "manager" as const,
       department: "تقنية المعلومات",
     },
     {
@@ -33,7 +33,7 @@ async function seed() {
       password: h_member,
       fullName: "محمد العتيبي",
       email: "member1@meeting-manager.com",
-      role: "member",
+      role: "member" as const,
       department: "الموارد البشرية",
     },
     {
@@ -41,10 +41,15 @@ async function seed() {
       password: h_viewer,
       fullName: "نورة الشمري",
       email: "viewer@meeting-manager.com",
-      role: "viewer",
+      role: "viewer" as const,
       department: "المالية",
     },
-  ]).onConflictDoNothing();
+  ];
+
+  for (const user of users) {
+    await db.insert(usersTable).values(user)
+      .onConflictDoUpdate({ target: usersTable.username, set: { password: user.password } });
+  }
 
   console.log("Seed complete.");
   process.exit(0);

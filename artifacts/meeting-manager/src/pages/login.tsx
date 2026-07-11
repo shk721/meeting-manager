@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Eye, EyeOff, CheckCircle, CalendarDays, FileText } from "lucide-react";
 
@@ -9,8 +10,13 @@ const FEATURES = [
 ];
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+  const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    if (user) setLocation("/");
+  }, [user]);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");

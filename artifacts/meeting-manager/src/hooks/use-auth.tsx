@@ -37,10 +37,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({ title: "تم تسجيل الدخول بنجاح" });
       // Navigation is handled by Login page's useEffect watching `user`,
       // so we avoid a ProtectedRoute bounce before AuthProvider re-renders.
-    } catch (e) {
+    } catch (e: any) {
+      const status = e?.status ?? 0;
+      const serverMsg = e?.data?.error ?? e?.message ?? "";
+      const description = status === 401
+        ? "اسم المستخدم أو كلمة المرور غير صحيحة."
+        : status === 500
+        ? `خطأ في الخادم: ${serverMsg || "Session save failed"}`
+        : serverMsg || "تعذّر الاتصال بالخادم.";
       toast({
         title: "فشل تسجيل الدخول",
-        description: "اسم المستخدم أو كلمة المرور غير صحيحة. يرجى المحاولة مجدداً.",
+        description,
         variant: "destructive",
       });
     }

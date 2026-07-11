@@ -819,7 +819,7 @@ function Overview({ project, onSelect }: { project: Project; onSelect: (id: stri
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:13, padding:18, marginBottom:18 }}>
         <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:14 }}>الخطط الفرعية</div>
         {project.subplans.length === 0
-          ? <EmptyState icon="📁" title="لا توجد خطط فرعية" sub="أضف خطة فرعية لبدء تتبع التحول الرقمي"/>
+          ? <EmptyState icon="📁" title="لا توجد خطط فرعية" sub="أضف خطة فرعية لبدء تتبع مبادرات التمكين الرقمي"/>
           : project.subplans.map(sp => {
             const days = daysLeft(sp.deadline);
             const cfg  = STATUS[sp.status] || STATUS["لم يبدأ"];
@@ -1148,7 +1148,7 @@ export default function DashboardPage() {
         const projects = await dtApi.listProjects();
         let proj: DtProject;
         if (projects.length === 0) {
-          const created = await dtApi.createProject({ title: "خطة التحول الرقمي 2025", deadline: "2025-12-31" });
+          const created = await dtApi.createProject({ title: "مبادرات التمكين الرقمي 2025", deadline: "2025-12-31" });
           proj = await dtApi.getProject(created.id);
         } else {
           proj = await dtApi.getProject(projects[0].id);

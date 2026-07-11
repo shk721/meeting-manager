@@ -119,7 +119,7 @@ export default function PortalPage() {
             </Section>
 
             {/* DT components */}
-            <Section title={`مبادرات التحول الرقمي المرتبطة (${summary.dtComponents.length})`}>
+            <Section title={`مبادرات التمكين الرقمي المرتبطة (${summary.dtComponents.length})`}>
               {summary.dtComponents.length === 0
                 ? <EmptyState icon="📊" title="لا توجد مبادرات مرتبطة" />
                 : summary.dtComponents.map(c => (

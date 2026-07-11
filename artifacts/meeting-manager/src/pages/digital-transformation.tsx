@@ -760,6 +760,33 @@ function Overview({ project, onSelect }: { project: Project; onSelect: (id: stri
   }, {});
   return (
     <div>
+      {/* ── Scope & Intersections panel ── */}
+      <div style={{ background:C.raised, border:`1px solid ${C.border}`, borderRadius:12, padding:"14px 18px", marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+          <span style={{ fontSize:15 }}>🎯</span>
+          <span style={{ fontSize:13, fontWeight:700, color:C.text }}>التمكين الرقمي (المبادرات) — النطاق والتقاطعات</span>
+        </div>
+        <p style={{ fontSize:12, color:C.sub, margin:"0 0 12px", lineHeight:1.7 }}>
+          هذا القسم مخصص لإدارة المبادرات الرقمية الاستراتيجية ومتابعة نضجها عبر الزمن. يختلف عن لوحة التخطيط في تركيزه على <strong style={{ color:C.text }}>تصنيف المحرّكات</strong> (تحدٍّ / فرصة / مبادرة / تنظيمي / استراتيجي) وقياس النضج بـ<strong style={{ color:C.text }}>لقطات دورية قابلة للمقارنة</strong>.
+        </p>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:8 }}>
+          {[
+            { icon:"📋", label:"الخطط التنفيذية", color:"#1f7a4d", desc:"كل مبادرة قابلة للربط بخطة تنفيذية في لوحة التخطيط لتتبع المراحل والمخرجات" },
+            { icon:"📅", label:"الاجتماعات", color:"#2563eb", desc:"القرارات المتعلقة بالمبادرات تُناقَش في الاجتماعات وتُسجَّل كقرارات في النظام" },
+            { icon:"🏛️", label:"الحوكمة", color:"#f59e0b", desc:"المبادرات الكبرى تحتاج اعتماد من هيئات الحوكمة ويمكن ربطها بجلسات المجالس" },
+            { icon:"✅", label:"المهام", color:"#8b5cf6", desc:"كل مكوّن داخل المبادرة ينتج مهام مباشرة قابلة للتتبع والتكليف" },
+          ].map(item => (
+            <div key={item.label} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                <span style={{ fontSize:13 }}>{item.icon}</span>
+                <span style={{ fontSize:11, fontWeight:700, color:item.color }}>{item.label}</span>
+              </div>
+              <p style={{ fontSize:11, color:C.sub, margin:0, lineHeight:1.6 }}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:10, marginBottom:22 }}>
         <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:"15px 17px" }}>
           <div style={{ fontSize:24, fontWeight:800, color:C.accent }}>{overall}%</div>
@@ -784,7 +811,7 @@ function Overview({ project, onSelect }: { project: Project; onSelect: (id: stri
       <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:13, padding:18, marginBottom:18 }}>
         <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:14 }}>الخطط الفرعية</div>
         {project.subplans.length === 0
-          ? <EmptyState icon="📁" title="لا توجد خطط فرعية" sub="أضف خطة فرعية لبدء تتبع التحول الرقمي"/>
+          ? <EmptyState icon="📁" title="لا توجد خطط فرعية" sub="أضف خطة فرعية لبدء تتبع مبادرات التمكين الرقمي"/>
           : project.subplans.map(sp => {
             const days = daysLeft(sp.deadline);
             const cfg  = STATUS[sp.status] || STATUS["لم يبدأ"];
@@ -1087,7 +1114,7 @@ export default function DigitalTransformationPage() {
         const projects = await api.listProjects();
         let proj: any;
         if (projects.length === 0) {
-          const created = await api.createProject({ title: "خطة التحول الرقمي 2025", deadline: "2025-12-31" });
+          const created = await api.createProject({ title: "مبادرات التمكين الرقمي 2025", deadline: "2025-12-31" });
           proj = await api.getProject(created.id);
         } else {
           proj = await api.getProject(projects[0].id);

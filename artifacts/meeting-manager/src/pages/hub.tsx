@@ -14,8 +14,8 @@ const modules = [
     linkColor: "#1f7a4d",
   },
   {
-    title: "التحول الرقمي",
-    description: "تتبع مبادرات التحول الرقمي والخطط الفرعية",
+    title: "التمكين الرقمي (المبادرات)",
+    description: "تتبع المبادرات الرقمية وقياس النضج بلقطات دورية",
     icon: Cpu,
     href: "/digital-transformation",
     iconBg: "#e3efe8",

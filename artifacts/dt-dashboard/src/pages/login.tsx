@@ -37,7 +37,7 @@ export default function Login() {
 
       <div style={{ marginBottom:32, textAlign:"center" }}>
         <div style={{ fontSize:32, marginBottom:8 }}>📊</div>
-        <h1 style={{ fontSize:26, fontWeight:800, color:C.text, margin:0 }}>لوحة التحول الرقمي</h1>
+        <h1 style={{ fontSize:26, fontWeight:800, color:C.text, margin:0 }}>التمكين الرقمي (المبادرات)</h1>
         <p style={{ color:C.muted, marginTop:6, fontSize:13 }}>اختر مستخدماً لتسجيل الدخول</p>
       </div>
 

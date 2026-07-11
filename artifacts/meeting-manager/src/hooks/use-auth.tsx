@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleLogin = async (username: string, password: string) => {
     try {
       await loginMutation.mutateAsync({ data: { username, password } });
-      await queryClient.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() });
+      await queryClient.refetchQueries({ queryKey: getGetCurrentUserQueryKey() });
       toast({ title: "تم تسجيل الدخول بنجاح" });
       setLocation("/");
     } catch (e) {

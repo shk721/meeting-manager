@@ -9,8 +9,8 @@ const USERS = [
 ];
 
 const C = {
-  bg: "#0f172a", surface: "#1e293b", border: "#334155",
-  text: "#f1f5f9", sub: "#cbd5e1", muted: "#64748b", accent: "#6366f1",
+  bg: "#f4f6f2", surface: "#ffffff", border: "#e6ece4",
+  text: "#1c261c", sub: "#6b7c6b", muted: "#a3b0a3", accent: "#1f7a4d",
 };
 
 export default function Login() {

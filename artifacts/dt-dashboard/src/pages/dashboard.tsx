@@ -5,9 +5,9 @@ import { useAuth } from "@/hooks/use-auth";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
-  bg:"#06080f", surface:"#0c1119", card:"#101823", raised:"#141f2e",
-  border:"#182436", accent:"#2563eb", text:"#dde4ef",
-  sub:"#6b84a0", muted:"#2e4159", red:"#ef4444",
+  bg:"#f4f6f2", surface:"#ffffff", card:"#ffffff", raised:"#f8faf8",
+  border:"#e6ece4", accent:"#1f7a4d", text:"#1c261c",
+  sub:"#6b7c6b", muted:"#a3b0a3", red:"#ef4444",
 };
 
 const DRIVER = {
@@ -20,10 +20,10 @@ const DRIVER = {
 const DRIVER_KEYS = Object.keys(DRIVER) as Array<keyof typeof DRIVER>;
 
 const STATUS: Record<string, { color: string; bar: string }> = {
-  "لم يبدأ":      { color:"#475569", bar:"#1e293b" },
-  "جاري التنفيذ": { color:"#3b82f6", bar:"#1e3a5f" },
-  "متأخر":        { color:"#ef4444", bar:"#3b1f1f" },
-  "مكتمل":        { color:"#10b981", bar:"#1a3a2a" },
+  "لم يبدأ":      { color:"#64748b", bar:"#e2e8f0" },
+  "جاري التنفيذ": { color:"#2563eb", bar:"#dbeafe" },
+  "متأخر":        { color:"#ef4444", bar:"#fee2e2" },
+  "مكتمل":        { color:"#10b981", bar:"#d1fae5" },
 };
 const STATUS_KEYS = Object.keys(STATUS);
 
@@ -156,7 +156,7 @@ function recalcSP(sp: SubPlan): SubPlan {
 }
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
-function Ring({ pct, size=52, stroke=4, color="#2563eb" }: { pct:number; size?:number; stroke?:number; color?:string }) {
+function Ring({ pct, size=52, stroke=4, color="#1f7a4d" }: { pct:number; size?:number; stroke?:number; color?:string }) {
   const r = (size - stroke) / 2, circ = 2 * Math.PI * r, off = circ - (pct / 100) * circ;
   return (
     <svg width={size} height={size} style={{ transform:"rotate(-90deg)" }}>
@@ -248,7 +248,7 @@ function Toast({ msg, onDone }: { msg: string; onDone: () => void }) {
     <div style={{ position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)",
       background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
       padding:"10px 20px", fontSize:13, color:C.text, fontWeight:600,
-      zIndex:300, boxShadow:"0 8px 32px #00000060", animation:"fadeUp .25s ease" }}>
+      zIndex:300, boxShadow:"0 4px 20px #1c261c18", animation:"fadeUp .25s ease" }}>
       <style>{`@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
       {msg}
     </div>

@@ -114,7 +114,7 @@ export default function DashboardPage() {
         </div>
         <Link href="/portal"><Btn sm variant="ghost">🔎 البوابة الشخصية</Btn></Link>
         <a href="/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📅 إدارة الاجتماعات</Btn></a>
-        <a href="/dt/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📊 التحول الرقمي</Btn></a>
+        <a href="/dt/" style={{ textDecoration:"none" }}><Btn sm variant="ghost">📊 التمكين الرقمي</Btn></a>
         <button onClick={() => window.location.href = "/"} title="الإشعارات"
           style={{ position:"relative", background:"none", border:"none", cursor:"pointer",
             padding:"4px 8px", fontSize:18, color:C.sub }}>

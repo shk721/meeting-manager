@@ -27,7 +27,7 @@ function getNavItems(role: string) {
       { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
       { title: "المنظمات", href: "/organizations", icon: Building2 },
       { title: "الحوكمة", href: "/governance", icon: Shield },
-      { title: "التحول الرقمي", href: "/digital-transformation", icon: Cpu },
+      { title: "التمكين الرقمي", href: "/digital-transformation", icon: Cpu },
       { title: "التقارير", href: "/reports", icon: FileText },
     ];
   }
@@ -38,7 +38,7 @@ function getNavItems(role: string) {
       { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
       { title: "المهام", href: "/tasks", icon: CheckSquare },
       { title: "الحوكمة", href: "/governance", icon: Shield },
-      { title: "التحول الرقمي", href: "/digital-transformation", icon: Cpu },
+      { title: "التمكين الرقمي", href: "/digital-transformation", icon: Cpu },
       { title: "التقارير", href: "/reports", icon: FileText },
     ];
   }
@@ -232,7 +232,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             style={{ color: "#5a675a" }}
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            لوحة التحول الرقمي
+            التمكين الرقمي (المبادرات)
           </a>
           <a
             href="/committees/"

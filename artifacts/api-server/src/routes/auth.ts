@@ -40,9 +40,15 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   (req.session as any).userId = user.id;
 
-  res.json({
-    user: formatUser(user),
-    token: `session-${user.id}`,
+  req.session.save((err) => {
+    if (err) {
+      res.status(500).json({ error: "Session save failed" });
+      return;
+    }
+    res.json({
+      user: formatUser(user),
+      token: `session-${user.id}`,
+    });
   });
 });
 

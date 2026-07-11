@@ -28,6 +28,7 @@ function getNavItems(role: string) {
       { title: "المنظمات", href: "/organizations", icon: Building2 },
       { title: "الحوكمة", href: "/governance", icon: Shield },
       { title: "التحول الرقمي", href: "/digital-transformation", icon: Cpu },
+      { title: "التقارير", href: "/reports", icon: FileText },
     ];
   }
   if (role === "manager") {
@@ -38,6 +39,7 @@ function getNavItems(role: string) {
       { title: "المهام", href: "/tasks", icon: CheckSquare },
       { title: "الحوكمة", href: "/governance", icon: Shield },
       { title: "التحول الرقمي", href: "/digital-transformation", icon: Cpu },
+      { title: "التقارير", href: "/reports", icon: FileText },
     ];
   }
   return [

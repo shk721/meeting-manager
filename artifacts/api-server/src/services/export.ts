@@ -197,3 +197,136 @@ export function generateExcelBuffer(meetings: Meeting[]): Buffer {
   XLSX.utils.book_append_sheet(wb, ws, "Meetings");
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
+
+interface PlanPhase {
+  title: string;
+  status: string;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+interface PlanDecision {
+  title?: string | null;
+  content: string;
+  status: string;
+  createdAt: string;
+}
+
+interface PlanTask {
+  title: string;
+  status: string;
+  priority: string;
+  dueDate?: string | null;
+  completionPercent: number;
+  assigneeName?: string | null;
+}
+
+interface PlanData {
+  title: string;
+  description?: string | null;
+  type: string;
+  status: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  progress: number;
+  phases: PlanPhase[];
+  tasks: PlanTask[];
+  decisions: PlanDecision[];
+}
+
+export function generatePlanPDF(plan: PlanData): Buffer {
+  const chunks: Buffer[] = [];
+  const doc = new PDFDocument({ margin: 50, size: "A4" });
+  doc.on("data", (chunk) => chunks.push(chunk));
+
+  doc.fontSize(22).text(plan.title, { align: "center" });
+  doc.moveDown(0.3);
+  doc.fontSize(12).text(
+    `النوع: ${plan.type === "readiness" ? "جاهزية" : "تشغيلية"}  |  الحالة: ${plan.status}  |  التقدم: ${plan.progress}%`,
+    { align: "center" }
+  );
+  if (plan.startDate || plan.endDate) {
+    doc.text(`الفترة: ${plan.startDate ?? "—"} ← ${plan.endDate ?? "—"}`, { align: "center" });
+  }
+  doc.moveDown();
+
+  if (plan.description) {
+    doc.fontSize(14).text("الوصف:", { underline: true });
+    doc.fontSize(11).text(plan.description);
+    doc.moveDown();
+  }
+
+  if (plan.phases.length > 0) {
+    doc.fontSize(14).text("المراحل:", { underline: true });
+    plan.phases.forEach((ph, i) => {
+      const dates = [ph.startDate, ph.endDate].filter(Boolean).join(" → ");
+      doc.fontSize(11).text(`${i + 1}. ${ph.title} [${ph.status}]${dates ? "  |  " + dates : ""}`);
+    });
+    doc.moveDown();
+  }
+
+  if (plan.tasks.length > 0) {
+    doc.fontSize(14).text("المهام:", { underline: true });
+    plan.tasks.forEach((t, i) => {
+      const due = t.dueDate ? ` (${t.dueDate})` : "";
+      const pct = t.completionPercent > 0 ? ` — ${t.completionPercent}%` : "";
+      doc.fontSize(11).text(`${i + 1}. [${t.status}] ${t.title}${due}${pct}`);
+    });
+    doc.moveDown();
+  }
+
+  if (plan.decisions.length > 0) {
+    doc.fontSize(14).text("القرارات:", { underline: true });
+    plan.decisions.forEach((d, i) => {
+      doc.fontSize(11).text(`${i + 1}. [${d.status}] ${d.title ?? d.content.slice(0, 80)}`);
+    });
+  }
+
+  doc.end();
+  return Buffer.concat(chunks);
+}
+
+export function generatePlanExcel(plan: PlanData): Buffer {
+  const wb = XLSX.utils.book_new();
+
+  const overview = [
+    { الحقل: "العنوان", القيمة: plan.title },
+    { الحقل: "النوع", القيمة: plan.type === "readiness" ? "جاهزية" : "تشغيلية" },
+    { الحقل: "الحالة", القيمة: plan.status },
+    { الحقل: "التقدم", القيمة: `${plan.progress}%` },
+    { الحقل: "تاريخ البداية", القيمة: plan.startDate ?? "" },
+    { الحقل: "تاريخ النهاية", القيمة: plan.endDate ?? "" },
+    { الحقل: "الوصف", القيمة: plan.description ?? "" },
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(overview), "ملخص");
+
+  const phasesData = plan.phases.map((ph, i) => ({
+    "#": i + 1,
+    العنوان: ph.title,
+    الحالة: ph.status,
+    "تاريخ البداية": ph.startDate ?? "",
+    "تاريخ النهاية": ph.endDate ?? "",
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(phasesData.length ? phasesData : [{}]), "المراحل");
+
+  const tasksData = plan.tasks.map((t, i) => ({
+    "#": i + 1,
+    العنوان: t.title,
+    الحالة: t.status,
+    الأولوية: t.priority,
+    "تاريخ الاستحقاق": t.dueDate ?? "",
+    "الإنجاز%": t.completionPercent,
+    المكلّف: t.assigneeName ?? "",
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tasksData.length ? tasksData : [{}]), "المهام");
+
+  const decisionsData = plan.decisions.map((d, i) => ({
+    "#": i + 1,
+    العنوان: d.title ?? d.content.slice(0, 80),
+    الحالة: d.status,
+    التاريخ: d.createdAt.slice(0, 10),
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(decisionsData.length ? decisionsData : [{}]), "القرارات");
+
+  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}

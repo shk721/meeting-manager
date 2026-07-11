@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray, or } from "drizzle-orm";
-import { db, meetingsTable, tasksTable, minutesTable, usersTable, meetingAttendeesTable } from "@workspace/db";
+import { eq, inArray, or, and, notInArray } from "drizzle-orm";
+import { db, meetingsTable, tasksTable, minutesTable, usersTable, meetingAttendeesTable, plansTable, governanceContextsTable, decisionsTable } from "@workspace/db";
 import { formatUser } from "./users";
 import { getMeetingStats, getTaskStats, getInsights, getThisWeekData, getPendingData } from "@workspace/db/analytics-queries";
 
@@ -9,9 +9,13 @@ const router: IRouter = Router();
 const today = () => new Date().toISOString().split("T")[0];
 
 router.get("/dashboard/stats", async (_req, res): Promise<void> => {
-  const allMeetings = await db.select().from(meetingsTable);
-  const allTasks = await db.select().from(tasksTable);
-  const allMinutes = await db.select().from(minutesTable);
+  const [allMeetings, allTasks, allMinutes, allPlans, allGovernance] = await Promise.all([
+    db.select().from(meetingsTable),
+    db.select().from(tasksTable),
+    db.select().from(minutesTable),
+    db.select().from(plansTable),
+    db.select().from(governanceContextsTable),
+  ]);
 
   const todayStr = today();
   const upcomingMeetings = allMeetings.filter(m =>
@@ -27,6 +31,10 @@ router.get("/dashboard/stats", async (_req, res): Promise<void> => {
   const completionRate = allTasks.length > 0
     ? Math.round((completedTasks / allTasks.length) * 100)
     : 0;
+
+  const activePlans = allPlans.filter(p => p.status === "active" || p.status === "in_progress").length;
+  const overduePlans = allPlans.filter(p => p.status === "overdue").length;
+  const activeGovernanceContexts = allGovernance.filter(g => g.status === "active").length;
 
   const tasksByStatus = [
     { label: "مفتوح", value: allTasks.filter(t => t.status === "open").length, color: "#3b82f6" },
@@ -62,6 +70,11 @@ router.get("/dashboard/stats", async (_req, res): Promise<void> => {
     tasksByStatus,
     tasksByPriority,
     meetingsByStatus,
+    activePlans,
+    overduePlans,
+    totalPlans: allPlans.length,
+    activeGovernanceContexts,
+    totalGovernanceContexts: allGovernance.length,
   });
 });
 
@@ -226,6 +239,33 @@ router.get("/dashboard/my-tasks", async (req, res): Promise<void> => {
     id: t.id, title: t.title, status: t.status, priority: t.priority,
     dueDate: t.dueDate ?? null, meetingId: t.meetingId ?? null,
     isOverdue: t.dueDate ? t.dueDate < todayStr : false,
+  })));
+});
+
+router.get("/dashboard/my-decisions", async (req, res): Promise<void> => {
+  const userId = (req.session as any).userId as number;
+
+  const myDecisions = await db.select().from(decisionsTable)
+    .where(and(
+      eq(decisionsTable.assignedTo, userId),
+      notInArray(decisionsTable.status, ["cancelled"]),
+    ));
+
+  const meetingIds = [...new Set(myDecisions.map(d => d.meetingId).filter(Boolean))] as number[];
+  const meetings = meetingIds.length > 0
+    ? await db.select({ id: meetingsTable.id, title: meetingsTable.title })
+        .from(meetingsTable).where(inArray(meetingsTable.id, meetingIds))
+    : [];
+  const meetingMap = Object.fromEntries(meetings.map(m => [m.id, m.title]));
+
+  res.json(myDecisions.slice(0, 10).map(d => ({
+    id: d.id,
+    title: d.title ?? d.content.slice(0, 80),
+    status: d.status ?? "approved",
+    dueDate: d.dueDate ?? null,
+    decisionType: d.decisionType ?? null,
+    meetingId: d.meetingId ?? null,
+    meetingTitle: d.meetingId ? (meetingMap[d.meetingId] ?? null) : null,
   })));
 });
 

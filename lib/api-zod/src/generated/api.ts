@@ -415,6 +415,7 @@ export const UpdateDecisionBody = zod.object({
   "assignedTo": zod.number().nullable().optional(),
   "decisionType": zod.string().nullable().optional(),
   "rationale": zod.string().nullable().optional(),
+  "planId": zod.number().nullable().optional(),
 })
 
 export const UpdateDecisionResponse = zod.object({

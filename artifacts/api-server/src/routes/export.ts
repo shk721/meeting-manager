@@ -3,6 +3,7 @@ import { eq, inArray, and } from "drizzle-orm";
 import {
   db, meetingsTable, minutesTable, tasksTable, decisionsTable,
   meetingAttendeesTable, usersTable, reportSubscriptionsTable,
+  plansTable, planPhasesTable,
 } from "@workspace/db";
 import {
   generateMeetingPDF,
@@ -11,6 +12,8 @@ import {
   generateMeetingsCSV,
   generateActionItemsCSV,
   generateExcelBuffer,
+  generatePlanPDF,
+  generatePlanExcel,
 } from "../services/export";
 
 const router: IRouter = Router();
@@ -166,6 +169,94 @@ router.get("/export/actionitems/csv", async (_req, res): Promise<void> => {
   const csv = generateActionItemsCSV(openTasks);
   res.set({ "Content-Type": "text/csv", "Content-Disposition": "attachment; filename=\"action-items.csv\"" });
   res.send(csv);
+});
+
+// GET /export/plan/:id/pdf
+router.get("/export/plan/:id/pdf", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id));
+  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+
+  const [phases, rawTasks, rawDecisions] = await Promise.all([
+    db.select().from(planPhasesTable).where(eq(planPhasesTable.planId, id)),
+    db.select().from(tasksTable).where(eq(tasksTable.planId, id)),
+    db.select().from(decisionsTable).where(eq(decisionsTable.planId, id)),
+  ]);
+
+  const assigneeIds = [...new Set(rawTasks.map(t => t.assigneeId).filter(Boolean))] as number[];
+  const assignees = assigneeIds.length > 0
+    ? await db.select().from(usersTable).where(inArray(usersTable.id, assigneeIds))
+    : [];
+  const assigneeMap = Object.fromEntries(assignees.map(u => [u.id, u.fullName]));
+
+  const totalPct = rawTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0);
+  const progress = rawTasks.length > 0 ? Math.round(totalPct / rawTasks.length) : 0;
+
+  const pdfBuffer = generatePlanPDF({
+    title: plan.title,
+    description: plan.description ?? null,
+    type: plan.type,
+    status: plan.status,
+    startDate: plan.startDate ?? null,
+    endDate: plan.endDate ?? null,
+    progress,
+    phases: phases.map(ph => ({ title: ph.title, status: ph.status, startDate: ph.startDate ?? null, endDate: ph.endDate ?? null })),
+    tasks: rawTasks.map(t => ({ title: t.title, status: t.status, priority: t.priority, dueDate: t.dueDate ?? null, completionPercent: t.completionPercent, assigneeName: t.assigneeId ? (assigneeMap[t.assigneeId] ?? null) : null })),
+    decisions: rawDecisions.map(d => ({ title: d.title ?? null, content: d.content, status: d.status ?? "approved", createdAt: d.createdAt.toISOString() })),
+  });
+
+  res.set({
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="plan-${id}.pdf"`,
+    "Content-Length": pdfBuffer.length,
+  });
+  res.send(pdfBuffer);
+});
+
+// GET /export/plan/:id/excel
+router.get("/export/plan/:id/excel", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id));
+  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+
+  const [phases, rawTasks, rawDecisions] = await Promise.all([
+    db.select().from(planPhasesTable).where(eq(planPhasesTable.planId, id)),
+    db.select().from(tasksTable).where(eq(tasksTable.planId, id)),
+    db.select().from(decisionsTable).where(eq(decisionsTable.planId, id)),
+  ]);
+
+  const assigneeIds = [...new Set(rawTasks.map(t => t.assigneeId).filter(Boolean))] as number[];
+  const assignees = assigneeIds.length > 0
+    ? await db.select().from(usersTable).where(inArray(usersTable.id, assigneeIds))
+    : [];
+  const assigneeMap = Object.fromEntries(assignees.map(u => [u.id, u.fullName]));
+
+  const totalPct = rawTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0);
+  const progress = rawTasks.length > 0 ? Math.round(totalPct / rawTasks.length) : 0;
+
+  const buffer = generatePlanExcel({
+    title: plan.title,
+    description: plan.description ?? null,
+    type: plan.type,
+    status: plan.status,
+    startDate: plan.startDate ?? null,
+    endDate: plan.endDate ?? null,
+    progress,
+    phases: phases.map(ph => ({ title: ph.title, status: ph.status, startDate: ph.startDate ?? null, endDate: ph.endDate ?? null })),
+    tasks: rawTasks.map(t => ({ title: t.title, status: t.status, priority: t.priority, dueDate: t.dueDate ?? null, completionPercent: t.completionPercent, assigneeName: t.assigneeId ? (assigneeMap[t.assigneeId] ?? null) : null })),
+    decisions: rawDecisions.map(d => ({ title: d.title ?? null, content: d.content, status: d.status ?? "approved", createdAt: d.createdAt.toISOString() })),
+  });
+
+  res.set({
+    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "Content-Disposition": `attachment; filename="plan-${id}.xlsx"`,
+    "Content-Length": buffer.length,
+  });
+  res.send(buffer);
 });
 
 // POST /export/subscribe

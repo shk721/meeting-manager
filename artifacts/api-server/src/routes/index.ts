@@ -29,6 +29,7 @@ import organizationsRouter from "./organizations";
 import governanceRouter from "./governance";
 import agendaItemsRouter from "./agenda-items";
 import deliverablesRouter from "./deliverables";
+import documentsRouter from "./documents";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -64,5 +65,6 @@ router.use(organizationsRouter);
 router.use(governanceRouter);
 router.use(agendaItemsRouter);
 router.use(deliverablesRouter);
+router.use(documentsRouter);
 
 export default router;

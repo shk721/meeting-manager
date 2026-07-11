@@ -24,6 +24,8 @@ import TemplatesPage from "@/pages/planning/templates";
 import OrganizationsPage from "@/pages/organizations";
 import GovernancePage from "@/pages/governance";
 import DigitalTransformationPage from "@/pages/digital-transformation";
+import DecisionDetail from "@/pages/decisions/[id]";
+import ReportsPage from "@/pages/reports";
 import Layout from "@/components/layout";
 
 const queryClient = new QueryClient();
@@ -48,7 +50,7 @@ function Router() {
             <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
             <Route path="/hub" component={() => <ProtectedRoute component={HubPage} />} />
             <Route path="/meetings" component={() => <ProtectedRoute component={Meetings} />} />
-            <Route path="/meetings/:id">{(params) => <ProtectedRoute component={MeetingDetail} id={params.id} />}</Route>
+            <Route path="/meetings/:id/:tab?">{(params) => <ProtectedRoute component={MeetingDetail} id={params.id} tab={params.tab} />}</Route>
             <Route path="/tasks" component={() => <ProtectedRoute component={Tasks} />} />
             <Route path="/minutes" component={() => <ProtectedRoute component={Minutes} />} />
             <Route path="/users" component={() => <ProtectedRoute component={UsersPage} />} />
@@ -58,12 +60,14 @@ function Router() {
             <Route path="/analytics" component={() => <ProtectedRoute component={AnalyticsPage} />} />
             <Route path="/planning" component={() => <ProtectedRoute component={PlanningDashboard} />} />
             <Route path="/planning/plans/new" component={() => <ProtectedRoute component={NewPlanPage} />} />
-            <Route path="/planning/plans/:id">{(params) => <ProtectedRoute component={PlanDetail} id={params.id} />}</Route>
+            <Route path="/planning/plans/:id/:tab?">{(params) => <ProtectedRoute component={PlanDetail} id={params.id} tab={params.tab} />}</Route>
             <Route path="/planning/plans" component={() => <ProtectedRoute component={PlansPage} />} />
             <Route path="/planning/templates" component={() => <ProtectedRoute component={TemplatesPage} />} />
             <Route path="/organizations" component={() => <ProtectedRoute component={OrganizationsPage} />} />
             <Route path="/governance" component={() => <ProtectedRoute component={GovernancePage} />} />
+            <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
             <Route path="/digital-transformation" component={() => <ProtectedRoute component={DigitalTransformationPage} />} />
+            <Route path="/decisions/:id">{(params) => <ProtectedRoute component={DecisionDetail} id={params.id} />}</Route>
             <Route component={NotFound} />
           </Switch>
         </Layout>

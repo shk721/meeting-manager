@@ -86,7 +86,7 @@ export function wrapInBase(title: string, body: string, subtitle?: string): stri
   </div>
   ${body}
   <div class="doc-footer">
-    <span>وثيقة مولَّدة تلقائياً — منصة استخبارات الاجتماعات</span>
+    <span>وثيقة مولَّدة تلقائياً — منصة المتابعة و التنفيذ المؤسسي</span>
     <span>${escHtml(title)}</span>
   </div>
 </div>

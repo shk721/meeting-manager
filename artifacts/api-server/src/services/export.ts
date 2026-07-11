@@ -1,5 +1,10 @@
 import PDFDocument from "pdfkit";
 import * as XLSX from "xlsx";
+import {
+  Document, Packer, Paragraph, TextRun, HeadingLevel,
+  AlignmentType, BorderStyle, Table, TableRow, TableCell,
+  WidthType, ShadingType,
+} from "docx";
 
 interface Meeting {
   id: number;
@@ -15,6 +20,8 @@ interface Meeting {
 interface MinutesData {
   executiveSummary?: string | null;
   discussionItems?: string | null;
+  risks?: string | null;
+  previousFollowUp?: string | null;
 }
 
 interface Task {
@@ -329,4 +336,164 @@ export function generatePlanExcel(plan: PlanData): Buffer {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(decisionsData.length ? decisionsData : [{}]), "القرارات");
 
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+// ─── Word (docx) export for meeting minutes ───────────────────────────────────
+
+function rtlPara(text: string, opts?: { bold?: boolean; size?: number }): Paragraph {
+  return new Paragraph({
+    bidirectional: true,
+    alignment: AlignmentType.RIGHT,
+    children: [
+      new TextRun({ text, bold: opts?.bold ?? false, size: opts?.size ?? 24, rightToLeft: true, font: "Arial" }),
+    ],
+  });
+}
+
+function sectionHeader(title: string): Paragraph {
+  return new Paragraph({
+    bidirectional: true,
+    alignment: AlignmentType.RIGHT,
+    spacing: { before: 280, after: 120 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "1f7a4d", space: 4 } },
+    children: [
+      new TextRun({ text: title, bold: true, size: 28, color: "1f7a4d", rightToLeft: true, font: "Arial" }),
+    ],
+  });
+}
+
+function bodyPara(text: string): Paragraph {
+  return new Paragraph({
+    bidirectional: true,
+    alignment: AlignmentType.RIGHT,
+    spacing: { after: 80 },
+    children: [new TextRun({ text, size: 22, rightToLeft: true, font: "Arial" })],
+  });
+}
+
+export async function generateMinutesDocx(
+  meeting: Meeting,
+  minutes: MinutesData | null,
+  tasks: Task[],
+  decisions: Decision[],
+  attendees: User[]
+): Promise<Buffer> {
+  const children: (Paragraph | Table)[] = [];
+
+  // ── Title ──
+  children.push(
+    new Paragraph({
+      bidirectional: true,
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+      children: [new TextRun({ text: meeting.title, bold: true, size: 40, rightToLeft: true, font: "Arial" })],
+    })
+  );
+
+  // ── Meta ──
+  children.push(rtlPara(`التاريخ: ${meeting.date}   |   الوقت: ${meeting.time}`, { size: 22 }));
+  if (meeting.location) children.push(rtlPara(`المكان: ${meeting.location}`, { size: 22 }));
+  children.push(new Paragraph({ children: [new TextRun("")] }));
+
+  // ── Attendees ──
+  if (attendees.length > 0) {
+    children.push(sectionHeader("الحضور"));
+    children.push(rtlPara(attendees.map(a => a.fullName).join("  ،  "), { size: 22 }));
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Executive Summary ──
+  if (minutes?.executiveSummary) {
+    children.push(sectionHeader("الملخص التنفيذي"));
+    for (const line of minutes.executiveSummary.split("\n").filter(Boolean)) {
+      children.push(bodyPara(line));
+    }
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Discussion Items ──
+  if (minutes?.discussionItems) {
+    children.push(sectionHeader("بنود النقاش"));
+    for (const line of minutes.discussionItems.split("\n").filter(Boolean)) {
+      children.push(bodyPara(line));
+    }
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Previous Follow-up ──
+  if (minutes?.previousFollowUp) {
+    children.push(sectionHeader("متابعة ما سبق"));
+    for (const line of minutes.previousFollowUp.split("\n").filter(Boolean)) {
+      children.push(bodyPara(line));
+    }
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Decisions ──
+  if (decisions.length > 0) {
+    children.push(sectionHeader("القرارات"));
+    decisions.forEach((d, i) => {
+      children.push(
+        new Paragraph({
+          bidirectional: true,
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 80 },
+          children: [
+            new TextRun({ text: `${i + 1}. `, bold: true, size: 22, rightToLeft: true, font: "Arial" }),
+            new TextRun({ text: d.content, size: 22, rightToLeft: true, font: "Arial" }),
+          ],
+        })
+      );
+    });
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Tasks table ──
+  if (tasks.length > 0) {
+    children.push(sectionHeader("المهام والإجراءات"));
+    const statusMap: Record<string, string> = {
+      pending: "معلّقة", in_progress: "جارية", completed: "مكتملة", cancelled: "ملغاة",
+    };
+    const headerRow = new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "المهمة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 50, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الحالة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 25, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "تاريخ الاستحقاق", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 25, type: WidthType.PERCENTAGE } }),
+      ],
+    });
+    const dataRows = tasks.map(t => new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.title, size: 20, rightToLeft: true, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: statusMap[t.status] ?? t.status, size: 20, rightToLeft: true, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: t.dueDate ?? "—", size: 20, rightToLeft: true, font: "Arial" })] })] }),
+      ],
+    }));
+    children.push(new Table({ rows: [headerRow, ...dataRows], width: { size: 100, type: WidthType.PERCENTAGE } }));
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Risks ──
+  if (minutes?.risks) {
+    children.push(sectionHeader("المخاطر والملاحظات"));
+    for (const line of minutes.risks.split("\n").filter(Boolean)) {
+      children.push(bodyPara(line));
+    }
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Footer ──
+  children.push(
+    new Paragraph({
+      bidirectional: true,
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 400 },
+      children: [new TextRun({ text: "وثيقة مولَّدة تلقائياً — منصة المتابعة و التنفيذ المؤسسي", size: 18, color: "a3b0a3", rightToLeft: true, font: "Arial" })],
+    })
+  );
+
+  const doc = new Document({
+    sections: [{ properties: { bidi: true }, children }],
+  });
+
+  return Packer.toBuffer(doc);
 }

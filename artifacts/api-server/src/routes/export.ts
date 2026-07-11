@@ -14,6 +14,7 @@ import {
   generateExcelBuffer,
   generatePlanPDF,
   generatePlanExcel,
+  generateMinutesDocx,
 } from "../services/export";
 
 const router: IRouter = Router();
@@ -47,6 +48,34 @@ router.get("/export/meeting/:id/pdf", async (req, res): Promise<void> => {
     "Content-Length": pdfBuffer.length,
   });
   res.send(pdfBuffer);
+});
+
+// GET /export/meeting/:id/docx
+router.get("/export/meeting/:id/docx", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [meeting] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, id));
+  if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }
+
+  const [minutes] = await db.select().from(minutesTable).where(eq(minutesTable.meetingId, id));
+  const tasks = await db.select().from(tasksTable).where(eq(tasksTable.meetingId, id));
+  const decisions = await db.select().from(decisionsTable).where(eq(decisionsTable.meetingId, id));
+  const attendeeRows = await db.select().from(meetingAttendeesTable).where(eq(meetingAttendeesTable.meetingId, id));
+  const attendeeIds = attendeeRows.map(a => a.userId);
+  const attendees = attendeeIds.length > 0
+    ? await db.select().from(usersTable).where(inArray(usersTable.id, attendeeIds))
+    : [];
+
+  const buffer = await generateMinutesDocx(meeting, minutes ?? null, tasks, decisions, attendees);
+
+  const safeName = meeting.title.replace(/[^a-zA-Z0-9؀-ۿ\s]/g, "").trim().replace(/\s+/g, "-");
+  res.set({
+    "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "Content-Disposition": `attachment; filename="minutes-${safeName}-${id}.docx"`,
+    "Content-Length": buffer.length,
+  });
+  res.send(buffer);
 });
 
 // GET /export/meeting/:id/ical

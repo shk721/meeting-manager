@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
-type ExportFormat = "pdf" | "ical" | "csv" | "json";
+type ExportFormat = "pdf" | "docx" | "ical" | "csv" | "json";
 
 interface Props {
   meetingId?: number;
@@ -13,6 +13,7 @@ interface Props {
 
 const formatLabels: Record<ExportFormat, string> = {
   pdf: "PDF",
+  docx: "Word (.docx)",
   ical: "iCal (تقويم)",
   csv: "CSV",
   json: "JSON",
@@ -29,6 +30,8 @@ export function ExportModal({ meetingId, meetingIds, trigger }: Props) {
       if (meetingId) {
         if (format === "pdf") {
           window.location.href = `/api/export/meeting/${meetingId}/pdf`;
+        } else if (format === "docx") {
+          window.location.href = `/api/export/meeting/${meetingId}/docx`;
         } else if (format === "ical") {
           window.location.href = `/api/export/meeting/${meetingId}/ical`;
         } else if (format === "csv") {
@@ -86,7 +89,7 @@ export function ExportModal({ meetingId, meetingIds, trigger }: Props) {
           <div>
             <p className="text-sm font-medium mb-2">اختر الصيغة</p>
             <div className="grid grid-cols-2 gap-2">
-              {(["pdf", "ical", "csv", "json"] as ExportFormat[]).map(f => (
+              {(["pdf", "docx", "ical", "csv", "json"] as ExportFormat[]).map(f => (
                 <button
                   key={f}
                   onClick={() => setFormat(f)}

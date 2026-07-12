@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useGetTasks, useGetMeetings, useGetUsers, getGetTasksQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, CheckSquare, List, LayoutGrid } from "lucide-react";
+import { Plus, Search, CheckSquare, List, LayoutGrid, Pencil, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
@@ -57,14 +61,11 @@ async function apiFetch(path: string, method: string, body?: any) {
   return res.json();
 }
 
-// ─── StatusChip ───────────────────────────────────────────────────────────────
+// ─── Chips ────────────────────────────────────────────────────────────────────
 function StatusChip({ status }: { status: string }) {
   const s = STATUS_STYLE[status] ?? STATUS_STYLE.open;
   return (
-    <span
-      className="inline-block text-xs px-2.5 py-0.5 rounded-full font-medium"
-      style={{ background: s.bg, color: s.text }}
-    >
+    <span className="inline-block text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ background: s.bg, color: s.text }}>
       {s.label}
     </span>
   );
@@ -73,25 +74,15 @@ function StatusChip({ status }: { status: string }) {
 function PriorityChip({ priority }: { priority: string }) {
   const p = PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.medium;
   return (
-    <span
-      className="inline-block text-xs px-2.5 py-0.5 rounded-full font-medium"
-      style={{ background: p.bg, color: p.text }}
-    >
+    <span className="inline-block text-xs px-2.5 py-0.5 rounded-full font-medium" style={{ background: p.bg, color: p.text }}>
       {p.label}
     </span>
   );
 }
 
 // ─── KanbanCard ───────────────────────────────────────────────────────────────
-function KanbanCard({
-  task,
-  onDragStart,
-}: {
-  task: any;
-  onDragStart: (id: number) => void;
-}) {
+function KanbanCard({ task, onDragStart, onClick }: { task: any; onDragStart: (id: number) => void; onClick: (task: any) => void }) {
   const p = PRIORITY_STYLE[task.priority] ?? PRIORITY_STYLE.medium;
-  const s = STATUS_STYLE[task.status] ?? STATUS_STYLE.open;
   const isDone = task.status === "completed";
   const isOverdue = task.status === "overdue";
   const barColor = isDone ? "#0f7a52" : isOverdue ? "#c0492f" : "#1f7a4d";
@@ -100,63 +91,31 @@ function KanbanCard({
   return (
     <div
       draggable
-      onDragStart={() => onDragStart(task.id)}
-      className="rounded-xl p-3 cursor-grab active:cursor-grabbing select-none"
-      style={{
-        background: "#fff",
-        border: "1px solid #e6ece4",
-        borderRight: `3px solid ${p.border}`,
-      }}
+      onDragStart={(e) => { e.stopPropagation(); onDragStart(task.id); }}
+      onClick={() => onClick(task)}
+      className="rounded-xl p-3 cursor-pointer select-none group"
+      style={{ background: "#fff", border: "1px solid #e6ece4", borderRight: `3px solid ${p.border}` }}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = "#c3d9cb")}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = "#e6ece4")}
     >
-      {/* source chip */}
       {task.meetingId && (
-        <span
-          className="inline-block text-xs px-1.5 py-0.5 rounded mb-1.5"
-          style={{ background: "#eef2ec", color: "#5a675a", border: "1px solid #e6ece4" }}
-        >
-          اجتماع
-        </span>
+        <span className="inline-block text-xs px-1.5 py-0.5 rounded mb-1.5" style={{ background: "#eef2ec", color: "#5a675a", border: "1px solid #e6ece4" }}>اجتماع</span>
       )}
       {task.componentId && (
-        <span
-          className="inline-block text-xs px-1.5 py-0.5 rounded mb-1.5"
-          style={{ background: "#e3efe8", color: "#0f7a52", border: "1px solid #c3ddd0" }}
-        >
-          تحول رقمي
-        </span>
+        <span className="inline-block text-xs px-1.5 py-0.5 rounded mb-1.5" style={{ background: "#e3efe8", color: "#0f7a52", border: "1px solid #c3ddd0" }}>تمكين رقمي</span>
       )}
-
-      <p
-        className="text-sm font-medium mb-2 leading-snug"
-        style={{
-          color: isDone ? "#8a978a" : "#1c261c",
-          textDecoration: isDone ? "line-through" : "none",
-        }}
-      >
+      <p className="text-sm font-medium mb-2 leading-snug" style={{ color: isDone ? "#8a978a" : "#1c261c", textDecoration: isDone ? "line-through" : "none" }}>
         {task.title}
       </p>
-
-      {/* progress bar */}
       <div className="h-1 rounded-full mb-2" style={{ background: "#eef2ec" }}>
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, background: barColor }}
-        />
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
       </div>
-
-      {/* footer */}
       <div className="flex items-center justify-between gap-1">
         <PriorityChip priority={task.priority} />
-        {task.dueDate && (
-          <span className="text-xs" style={{ color: "#8a978a" }}>
-            {new Date(task.dueDate).toLocaleDateString("ar-SA")}
-          </span>
-        )}
+        {task.dueDate && <span className="text-xs" style={{ color: "#8a978a" }}>{new Date(task.dueDate).toLocaleDateString("ar-SA")}</span>}
         {task.assignee?.fullName && (
-          <div
-            className="flex items-center justify-center rounded-full text-white text-xs font-bold flex-shrink-0"
-            style={{ width: 24, height: 24, background: "#1f7a4d", fontSize: 10 }}
-          >
+          <div className="flex items-center justify-center rounded-full text-white text-xs font-bold flex-shrink-0"
+            style={{ width: 24, height: 24, background: "#1f7a4d", fontSize: 10 }}>
             {task.assignee.fullName.substring(0, 2)}
           </div>
         )}
@@ -166,7 +125,7 @@ function KanbanCard({
 }
 
 // ─── KanbanBoard ──────────────────────────────────────────────────────────────
-function KanbanBoard({ tasks, onStatusChange }: { tasks: any[]; onStatusChange: (id: number, status: string) => void }) {
+function KanbanBoard({ tasks, onStatusChange, onTaskClick }: { tasks: any[]; onStatusChange: (id: number, status: string) => void; onTaskClick: (task: any) => void }) {
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
@@ -183,45 +142,25 @@ function KanbanBoard({ tasks, onStatusChange }: { tasks: any[]; onStatusChange: 
         const colTasks = tasks.filter((t) => t.status === col.key);
         const isOver = dragOverCol === col.key;
         return (
-          <div
-            key={col.key}
-            className="flex flex-col flex-shrink-0 rounded-2xl"
-            style={{ minWidth: 224, background: "#eef2ec" }}
+          <div key={col.key} className="flex flex-col flex-shrink-0 rounded-2xl" style={{ minWidth: 224, background: "#eef2ec" }}
             onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.key); }}
             onDragLeave={() => setDragOverCol(null)}
-            onDrop={() => handleDrop(col.key)}
-          >
-            {/* column header */}
-            <div
-              className="flex items-center gap-2 px-3 py-2.5 rounded-t-2xl"
-              style={{
-                background: isOver ? "#e8f2ea" : "#eef2ec",
-                transition: "background 0.15s",
-              }}
-            >
-              <span
-                className="rounded-full flex-shrink-0"
-                style={{ width: 8, height: 8, background: col.dot }}
-              />
+            onDrop={() => handleDrop(col.key)}>
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-t-2xl"
+              style={{ background: isOver ? "#e8f2ea" : "#eef2ec", transition: "background 0.15s" }}>
+              <span className="rounded-full flex-shrink-0" style={{ width: 8, height: 8, background: col.dot }} />
               <span className="text-sm font-semibold" style={{ color: "#1c261c" }}>{col.label}</span>
-              <span
-                className="text-xs px-1.5 py-0.5 rounded-full font-bold mr-auto"
-                style={{ background: "#fff", color: "#5a675a" }}
-              >
+              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold mr-auto" style={{ background: "#fff", color: "#5a675a" }}>
                 {colTasks.length}
               </span>
             </div>
-
-            {/* cards */}
             <div className="flex flex-col gap-2 p-2 flex-1">
               {colTasks.map((task) => (
-                <KanbanCard key={task.id} task={task} onDragStart={setDraggedId} />
+                <KanbanCard key={task.id} task={task} onDragStart={setDraggedId} onClick={onTaskClick} />
               ))}
               {colTasks.length === 0 && (
-                <div
-                  className="flex-1 rounded-xl border-2 border-dashed flex items-center justify-center min-h-[80px]"
-                  style={{ borderColor: isOver ? "#1f7a4d" : "#d7ded1", color: "#a3b0a3" }}
-                >
+                <div className="flex-1 rounded-xl border-2 border-dashed flex items-center justify-center min-h-[80px]"
+                  style={{ borderColor: isOver ? "#1f7a4d" : "#d7ded1", color: "#a3b0a3" }}>
                   <span className="text-xs">أفلت هنا</span>
                 </div>
               )}
@@ -233,6 +172,198 @@ function KanbanBoard({ tasks, onStatusChange }: { tasks: any[]; onStatusChange: 
   );
 }
 
+// ─── Edit / Detail Dialog ─────────────────────────────────────────────────────
+function TaskEditDialog({
+  task, users, meetings, onClose, onSaved, onDeleted,
+}: {
+  task: any; users: any[]; meetings: any[];
+  onClose: () => void; onSaved: () => void; onDeleted: () => void;
+}) {
+  const [form, setForm] = useState({
+    title: task.title ?? "",
+    description: task.description ?? "",
+    status: task.status ?? "open",
+    priority: task.priority ?? "medium",
+    dueDate: task.dueDate ?? "",
+    assigneeId: task.assignee?.id ? String(task.assignee.id) : "",
+    meetingId: task.meetingId ? String(task.meetingId) : "",
+    completionPercent: task.completionPercent ?? 0,
+  });
+  const [isPending, setIsPending] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleSave = async () => {
+    if (!form.title.trim()) return;
+    setError("");
+    setIsPending(true);
+    try {
+      await apiFetch(`/api/tasks/${task.id}`, "PATCH", {
+        title: form.title.trim(),
+        description: form.description || undefined,
+        status: form.status,
+        priority: form.priority,
+        dueDate: form.dueDate || undefined,
+        assigneeId: form.assigneeId ? parseInt(form.assigneeId) : null,
+        meetingId: form.meetingId ? parseInt(form.meetingId) : null,
+        completionPercent: Number(form.completionPercent),
+      });
+      onSaved();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await apiFetch(`/api/tasks/${task.id}`, "DELETE");
+      onDeleted();
+    } catch (e: any) {
+      setError(e.message);
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <Dialog open onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-lg" dir="rtl">
+          <div style={{ height: 4, background: "linear-gradient(90deg,#d6b23e,#1f7a4d)", margin: "-24px -24px 16px", borderRadius: "14px 14px 0 0" }} />
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>تفاصيل المهمة</span>
+              <button onClick={() => setConfirmDelete(true)} title="حذف المهمة"
+                className="text-destructive hover:opacity-80 transition-opacity"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}>
+                <Trash2 className="h-4 w-4" style={{ color: "#c0492f" }} />
+              </button>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-1">
+            {/* Title */}
+            <div className="space-y-1">
+              <Label>عنوان المهمة *</Label>
+              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="أدخل عنوان المهمة" />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1">
+              <Label>الوصف</Label>
+              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="اختياري" rows={3} />
+            </div>
+
+            {/* Status + Priority */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>الحالة</Label>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">مفتوح</SelectItem>
+                    <SelectItem value="in_progress">قيد التنفيذ</SelectItem>
+                    <SelectItem value="on_hold">معلق</SelectItem>
+                    <SelectItem value="overdue">متأخر</SelectItem>
+                    <SelectItem value="completed">مكتمل</SelectItem>
+                    <SelectItem value="cancelled">ملغى</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>الأولوية</Label>
+                <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">منخفض</SelectItem>
+                    <SelectItem value="medium">متوسط</SelectItem>
+                    <SelectItem value="high">عالٍ</SelectItem>
+                    <SelectItem value="critical">حرج</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Due date + Assignee */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>تاريخ الاستحقاق</Label>
+                <Input type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>المسؤول</Label>
+                <Select value={form.assigneeId || "__none__"} onValueChange={v => setForm(f => ({ ...f, assigneeId: v === "__none__" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="بدون مسؤول" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— بدون مسؤول —</SelectItem>
+                    {users.map((u: any) => <SelectItem key={u.id} value={String(u.id)}>{u.fullName}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Completion percent */}
+            <div className="space-y-2">
+              <Label>نسبة الإنجاز: <span style={{ color: "#1f7a4d", fontWeight: 700 }}>{form.completionPercent}%</span></Label>
+              <input
+                type="range" min={0} max={100} step={5}
+                value={form.completionPercent}
+                onChange={e => setForm(f => ({ ...f, completionPercent: Number(e.target.value) }))}
+                className="w-full"
+                style={{ accentColor: "#1f7a4d" }}
+              />
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: "#eef2ec" }}>
+                <div className="h-full rounded-full transition-all" style={{ width: `${form.completionPercent}%`, background: "#1f7a4d" }} />
+              </div>
+            </div>
+
+            {/* Meeting */}
+            <div className="space-y-1">
+              <Label>الاجتماع المرتبط</Label>
+              <Select value={form.meetingId || "__none__"} onValueChange={v => setForm(f => ({ ...f, meetingId: v === "__none__" ? "" : v }))}>
+                <SelectTrigger><SelectValue placeholder="اختياري" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— بدون اجتماع —</SelectItem>
+                  {meetings.map((m: any) => <SelectItem key={m.id} value={String(m.id)}>{m.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {error && <p className="text-sm px-1" style={{ color: "#c0492f" }}>{error}</p>}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>إلغاء</Button>
+            <Button onClick={handleSave} disabled={isPending || !form.title.trim()} style={{ background: "#1f7a4d" }}>
+              {isPending && <Spinner className="h-4 w-4 ml-2" />}
+              حفظ التعديلات
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف المهمة؟</AlertDialogTitle>
+            <AlertDialogDescription>سيتم حذف المهمة «{task.title}» نهائياً ولا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} style={{ background: "#c0492f" }}>
+              {isDeleting ? "جارٍ الحذف..." : "حذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Tasks() {
   const queryClient = useQueryClient();
@@ -241,7 +372,8 @@ export default function Tasks() {
   const { data: users } = useGetUsers();
 
   const [taskView, setTaskView] = useState<"list" | "kanban">("list");
-  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTask, setEditTask] = useState<any>(null);
   const [isPending, setIsPending] = useState(false);
   const [search, setSearch] = useState("");
   const [apiError, setApiError] = useState("");
@@ -249,6 +381,8 @@ export default function Tasks() {
     title: "", description: "", status: "open", priority: "medium",
     dueDate: "", assigneeId: "", meetingId: "",
   });
+
+  const refreshTasks = () => queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey({}) });
 
   const handleCreate = async () => {
     if (!form.title) return;
@@ -264,8 +398,8 @@ export default function Tasks() {
         assigneeId: form.assigneeId ? parseInt(form.assigneeId) : undefined,
         meetingId: form.meetingId ? parseInt(form.meetingId) : undefined,
       });
-      queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey({}) });
-      setOpen(false);
+      await refreshTasks();
+      setCreateOpen(false);
       setForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "", meetingId: "" });
     } catch (e: any) {
       setApiError(e.message);
@@ -279,19 +413,26 @@ export default function Tasks() {
     if (newStatus === "completed") extra.completionPercent = 100;
     try {
       await apiFetch(`/api/tasks/${taskId}`, "PATCH", { status: newStatus, ...extra });
-      queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey({}) });
+      await refreshTasks();
     } catch {}
+  };
+
+  const handleTaskSaved = async () => {
+    await refreshTasks();
+    setEditTask(null);
+  };
+
+  const handleTaskDeleted = async () => {
+    await refreshTasks();
+    setEditTask(null);
   };
 
   const filtered = (tasks ?? []).filter((t: any) =>
     t.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const resetForm = () => {
-    setForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "", meetingId: "" });
-    setApiError("");
-    setOpen(true);
-  };
+  const usersList = (users ?? []) as any[];
+  const meetingsList = (meetings ?? []) as any[];
 
   return (
     <div className="space-y-5">
@@ -302,36 +443,21 @@ export default function Tasks() {
           <p className="text-sm mt-0.5" style={{ color: "#8a978a" }}>تتبع وإدارة مهام الفريق</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* View switcher */}
-          <div
-            className="flex rounded-xl overflow-hidden"
-            style={{ border: "1px solid #e6ece4", background: "#f4f6f2" }}
-          >
-            {[
-              { key: "list", icon: List, label: "قائمة" },
-              { key: "kanban", icon: LayoutGrid, label: "كانبان" },
-            ].map(({ key, icon: Icon, label }) => (
-              <button
-                key={key}
-                onClick={() => setTaskView(key as any)}
+          <div className="flex rounded-xl overflow-hidden" style={{ border: "1px solid #e6ece4", background: "#f4f6f2" }}>
+            {[{ key: "list", icon: List, label: "قائمة" }, { key: "kanban", icon: LayoutGrid, label: "كانبان" }].map(({ key, icon: Icon, label }) => (
+              <button key={key} onClick={() => setTaskView(key as any)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"
-                style={taskView === key ? {
-                  background: "#fff", color: "#1f7a4d", boxShadow: "0 1px 3px rgba(0,0,0,.08)",
-                } : { color: "#5a675a" }}
-              >
+                style={taskView === key ? { background: "#fff", color: "#1f7a4d", boxShadow: "0 1px 3px rgba(0,0,0,.08)" } : { color: "#5a675a" }}>
                 <Icon className="h-3.5 w-3.5" />
                 {label}
               </button>
             ))}
           </div>
-
-          <button
-            onClick={resetForm}
+          <button onClick={() => { setForm({ title: "", description: "", status: "open", priority: "medium", dueDate: "", assigneeId: "", meetingId: "" }); setApiError(""); setCreateOpen(true); }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
             style={{ background: "#1f7a4d" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#155c39")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#1f7a4d")}
-          >
+            onMouseEnter={e => (e.currentTarget.style.background = "#155c39")}
+            onMouseLeave={e => (e.currentTarget.style.background = "#1f7a4d")}>
             <Plus className="h-4 w-4" />
             مهمة جديدة
           </button>
@@ -341,20 +467,14 @@ export default function Tasks() {
       {/* Search */}
       <div className="relative w-full sm:max-w-xs">
         <Search className="absolute right-3 top-2.5 h-4 w-4" style={{ color: "#8a978a" }} />
-        <Input
-          placeholder="بحث في المهام..."
-          className="pr-9"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <Input placeholder="بحث في المهام..." className="pr-9" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner className="size-8" /></div>
       ) : taskView === "kanban" ? (
-        <KanbanBoard tasks={filtered} onStatusChange={handleStatusChange} />
+        <KanbanBoard tasks={filtered} onStatusChange={handleStatusChange} onTaskClick={setEditTask} />
       ) : (
-        /* ── List view ── */
         <Card>
           <CardContent className="pt-4">
             {filtered.length > 0 ? (
@@ -368,21 +488,19 @@ export default function Tasks() {
                     <TableHead style={{ color: "#5a675a" }}>الحالة</TableHead>
                     <TableHead style={{ color: "#5a675a" }}>الاستحقاق</TableHead>
                     <TableHead style={{ color: "#5a675a" }}>الإنجاز</TableHead>
+                    <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((task: any) => (
-                    <TableRow
-                      key={task.id}
-                      className="hover:bg-muted/30"
+                    <TableRow key={task.id}
+                      className="cursor-pointer hover:bg-muted/40"
                       style={{ borderBottom: "1px solid #f0f3ee" }}
-                    >
-                      <TableCell className="font-medium" style={{ color: "#1c261c" }}>
-                        {task.title}
-                      </TableCell>
+                      onClick={() => setEditTask(task)}>
+                      <TableCell className="font-medium" style={{ color: "#1c261c" }}>{task.title}</TableCell>
                       <TableCell>
                         {task.componentId ? (
-                          <span className="inline-block text-xs px-2 py-0.5 rounded" style={{ background: "#e3efe8", color: "#0f7a52", border: "1px solid #c3ddd0" }}>تحول رقمي</span>
+                          <span className="inline-block text-xs px-2 py-0.5 rounded" style={{ background: "#e3efe8", color: "#0f7a52", border: "1px solid #c3ddd0" }}>تمكين رقمي</span>
                         ) : task.meetingId ? (
                           <span className="inline-block text-xs px-2 py-0.5 rounded" style={{ background: "#eef2ec", color: "#5a675a", border: "1px solid #e6ece4" }}>اجتماع</span>
                         ) : (
@@ -398,13 +516,13 @@ export default function Tasks() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="w-14 h-1.5 rounded-full" style={{ background: "#eef2ec" }}>
-                            <div
-                              className="h-full rounded-full"
-                              style={{ width: `${task.completionPercent ?? 0}%`, background: "#1f7a4d" }}
-                            />
+                            <div className="h-full rounded-full" style={{ width: `${task.completionPercent ?? 0}%`, background: "#1f7a4d" }} />
                           </div>
                           <span className="text-xs" style={{ color: "#8a978a" }}>{task.completionPercent ?? 0}%</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Pencil className="h-3.5 w-3.5" style={{ color: "#a3b0a3" }} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -412,21 +530,16 @@ export default function Tasks() {
               </Table>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                <div
-                  className="flex items-center justify-center rounded-full"
-                  style={{ width: 64, height: 64, background: "#eef2ec" }}
-                >
+                <div className="flex items-center justify-center rounded-full" style={{ width: 64, height: 64, background: "#eef2ec" }}>
                   <CheckSquare className="h-8 w-8" style={{ color: "#8a978a" }} />
                 </div>
                 <p className="font-medium" style={{ color: "#8a978a" }}>
                   {search ? "لا توجد نتائج مطابقة للبحث" : "لا توجد مهام لعرضها"}
                 </p>
                 {!search && (
-                  <button
-                    onClick={resetForm}
+                  <button onClick={() => setCreateOpen(true)}
                     className="text-sm font-semibold px-4 py-1.5 rounded-xl"
-                    style={{ background: "#e8f2ea", color: "#1f7a4d" }}
-                  >
+                    style={{ background: "#e8f2ea", color: "#1f7a4d" }}>
                     <Plus className="inline h-3.5 w-3.5 ml-1" />
                     إضافة أول مهمة
                   </button>
@@ -437,25 +550,36 @@ export default function Tasks() {
         </Card>
       )}
 
-      {/* New task dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      {/* Edit dialog */}
+      {editTask && (
+        <TaskEditDialog
+          task={editTask}
+          users={usersList}
+          meetings={meetingsList}
+          onClose={() => setEditTask(null)}
+          onSaved={handleTaskSaved}
+          onDeleted={handleTaskDeleted}
+        />
+      )}
+
+      {/* Create dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md" dir="rtl">
-          {/* Gold-green top strip */}
           <div style={{ height: 5, background: "linear-gradient(90deg,#d6b23e,#1f7a4d)", margin: "-24px -24px 16px", borderRadius: "14px 14px 0 0" }} />
           <DialogHeader><DialogTitle>مهمة جديدة</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
               <Label>عنوان المهمة *</Label>
-              <Input placeholder="أدخل عنوان المهمة" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+              <Input placeholder="أدخل عنوان المهمة" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <Label>الوصف</Label>
-              <Textarea placeholder="اختياري" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+              <Textarea placeholder="اختياري" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>الأولوية</Label>
-                <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
+                <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">منخفض</SelectItem>
@@ -467,7 +591,7 @@ export default function Tasks() {
               </div>
               <div className="space-y-1">
                 <Label>الحالة</Label>
-                <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="open">مفتوح</SelectItem>
@@ -480,40 +604,34 @@ export default function Tasks() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>تاريخ الاستحقاق</Label>
-                <Input type="date" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} />
+                <Input type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>المسؤول</Label>
-                <Select value={form.assigneeId} onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}>
+                <Select value={form.assigneeId || "__none__"} onValueChange={v => setForm(f => ({ ...f, assigneeId: v === "__none__" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="اختر..." /></SelectTrigger>
                   <SelectContent>
-                    {((users ?? []) as any[]).map((u: any) => (
-                      <SelectItem key={u.id} value={String(u.id)}>{u.fullName}</SelectItem>
-                    ))}
+                    <SelectItem value="__none__">— بدون مسؤول —</SelectItem>
+                    {usersList.map((u: any) => <SelectItem key={u.id} value={String(u.id)}>{u.fullName}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1">
               <Label>الاجتماع المرتبط</Label>
-              <Select value={form.meetingId} onValueChange={(v) => setForm((f) => ({ ...f, meetingId: v }))}>
+              <Select value={form.meetingId || "__none__"} onValueChange={v => setForm(f => ({ ...f, meetingId: v === "__none__" ? "" : v }))}>
                 <SelectTrigger><SelectValue placeholder="اختياري" /></SelectTrigger>
                 <SelectContent>
-                  {((meetings ?? []) as any[]).map((m: any) => (
-                    <SelectItem key={m.id} value={String(m.id)}>{m.title}</SelectItem>
-                  ))}
+                  <SelectItem value="__none__">— بدون اجتماع —</SelectItem>
+                  {meetingsList.map((m: any) => <SelectItem key={m.id} value={String(m.id)}>{m.title}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
           {apiError && <p className="text-sm text-red-600 px-1">{apiError}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-            <Button
-              onClick={handleCreate}
-              disabled={isPending || !form.title}
-              style={{ background: "#1f7a4d" }}
-            >
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>إلغاء</Button>
+            <Button onClick={handleCreate} disabled={isPending || !form.title} style={{ background: "#1f7a4d" }}>
               {isPending && <Spinner className="h-4 w-4 ml-2" />}
               إضافة المهمة
             </Button>

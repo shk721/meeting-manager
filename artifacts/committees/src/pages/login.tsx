@@ -1,77 +1,144 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { ApiError } from "@/api/client";
 
-const USERS = [
-  { username: "admin",    password: "admin123",   name: "أحمد المنصوري", role: "مدير النظام" },
-  { username: "manager1", password: "manager123", name: "سارة القحطاني", role: "مدير" },
-  { username: "member1",  password: "member123",  name: "محمد العتيبي",  role: "عضو" },
-];
-
 const C = {
-  bg: "#0f172a", surface: "#1e293b", border: "#334155",
-  text: "#f1f5f9", sub: "#cbd5e1", muted: "#64748b", accent: "#6366f1",
+  bg: "#f4f6f2", surface: "#ffffff", border: "#e6ece4",
+  text: "#1c261c", sub: "#6b7c6b", muted: "#a3b0a3", accent: "#a97918",
+  accentDark: "#8a6010", error: "#c0492f", errorBg: "#fbeeea",
 };
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (username: string, password: string) => {
+  useEffect(() => {
+    if (user) window.location.href = "/committees/";
+  }, [user]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError("يرجى إدخال اسم المستخدم وكلمة المرور");
+      return;
+    }
     setError(null);
-    setLoading(username);
+    setLoading(true);
     try {
-      await login(username, password);
-    } catch (e) {
-      setError(e instanceof ApiError ? "بيانات الدخول غير صحيحة" : "حدث خطأ، حاول مرة أخرى");
+      await login(username.trim(), password);
+    } catch (err) {
+      setError(err instanceof ApiError ? "اسم المستخدم أو كلمة المرور غير صحيحة" : "حدث خطأ، حاول مرة أخرى");
     } finally {
-      setLoading(null);
+      setLoading(false);
     }
   };
 
+  const inputStyle = {
+    width: "100%", background: C.surface, border: `1px solid ${C.border}`,
+    borderRadius: 10, padding: "11px 14px", fontSize: 14, color: C.text,
+    outline: "none", boxSizing: "border-box" as const, fontFamily: "'Cairo',sans-serif",
+  };
+
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, color:C.text,
-      fontFamily:"'Cairo',sans-serif", direction:"rtl",
-      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
-
-      <div style={{ marginBottom:32, textAlign:"center" }}>
-        <div style={{ fontSize:32, marginBottom:8 }}>🏛️</div>
-        <h1 style={{ fontSize:26, fontWeight:800, color:C.text, margin:0 }}>إدارة اللجان</h1>
-        <p style={{ color:C.muted, marginTop:6, fontSize:13 }}>اختر مستخدماً لتسجيل الدخول</p>
+    <div style={{
+      minHeight: "100vh", background: C.bg, color: C.text,
+      fontFamily: "'Cairo',sans-serif", direction: "rtl",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24,
+    }}>
+      {/* Header */}
+      <div style={{ marginBottom: 32, textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🏛️</div>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: C.text, margin: 0 }}>إدارة اللجان</h1>
+        <p style={{ color: C.muted, marginTop: 6, fontSize: 13 }}>سجّل الدخول للمتابعة</p>
       </div>
 
-      <div style={{ display:"flex", gap:16, flexWrap:"wrap", justifyContent:"center", maxWidth:700 }}>
-        {USERS.map(u => (
-          <div key={u.username}
-            style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12,
-              padding:"24px 28px", minWidth:180, textAlign:"center",
-              cursor: loading ? "not-allowed" : "pointer", opacity: loading && loading !== u.username ? 0.5 : 1,
-              transition:"border-color .15s, transform .15s" }}
-            onClick={() => !loading && handleLogin(u.username, u.password)}
-            onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.borderColor = C.accent; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; }}>
-            <div style={{ width:48, height:48, borderRadius:"50%", background:`${C.accent}22`,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:20, margin:"0 auto 12px" }}>👤</div>
-            <div style={{ fontWeight:700, fontSize:15, color:C.text }}>{u.name}</div>
-            <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>{u.role}</div>
-            {loading === u.username && (
-              <div style={{ fontSize:11, color:C.accent, marginTop:8 }}>جارٍ الدخول...</div>
-            )}
+      {/* Form card */}
+      <div style={{
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
+        padding: "28px 32px", width: "100%", maxWidth: 380,
+        boxShadow: "0 2px 12px rgba(28,38,28,0.06)",
+      }}>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Username */}
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.sub, marginBottom: 6 }}>
+              اسم المستخدم
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="admin"
+              autoComplete="username"
+              style={inputStyle}
+              onFocus={e => (e.currentTarget.style.borderColor = C.accent)}
+              onBlur={e => (e.currentTarget.style.borderColor = C.border)}
+            />
           </div>
-        ))}
+
+          {/* Password */}
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.sub, marginBottom: 6 }}>
+              كلمة المرور
+            </label>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                style={{ ...inputStyle, paddingLeft: 40 }}
+                onFocus={e => (e.currentTarget.style.borderColor = C.accent)}
+                onBlur={e => (e.currentTarget.style.borderColor = C.border)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                style={{
+                  position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", cursor: "pointer", color: C.muted,
+                  fontSize: 15, padding: 0, lineHeight: 1,
+                }}
+              >
+                {showPassword ? "🙈" : "👁"}
+              </button>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{
+              background: C.errorBg, color: C.error, border: `1px solid ${C.error}30`,
+              borderRadius: 8, padding: "9px 14px", fontSize: 13,
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              background: C.accent, color: "#fff", border: "none", borderRadius: 10,
+              padding: "12px 0", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.75 : 1, fontFamily: "'Cairo',sans-serif", marginTop: 4,
+            }}
+            onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.background = C.accentDark; }}
+            onMouseLeave={e => { if (!loading) (e.currentTarget as HTMLElement).style.background = C.accent; }}
+          >
+            {loading ? "جارٍ تسجيل الدخول..." : "تسجيل الدخول ←"}
+          </button>
+        </form>
       </div>
 
-      {error && (
-        <div style={{ marginTop:20, color:"#f87171", fontSize:13, background:"#ef444420",
-          padding:"8px 16px", borderRadius:8, border:"1px solid #ef444440" }}>
-          {error}
-        </div>
-      )}
-
-      <Link href="/portal" style={{ marginTop:28, color:C.muted, fontSize:12, textDecoration:"underline" }}>
+      <Link href="/portal" style={{ marginTop: 20, color: C.muted, fontSize: 12, textDecoration: "underline" }}>
         🔎 البوابة الشخصية — عرض ملخصي بدون تسجيل دخول
       </Link>
     </div>

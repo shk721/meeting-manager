@@ -17,11 +17,13 @@ router.get("/calendar/events", async (req, res): Promise<void> => {
   const results = await Promise.all(meetings.map(async (m) => {
     const attendeeRows = await db.select().from(meetingAttendeesTable)
       .where(eq(meetingAttendeesTable.meetingId, m.id));
+    const startDt = new Date(`${m.date}T${m.time}:00`);
+    const endDt = new Date(startDt.getTime() + 60 * 60 * 1000); // default 1-hour duration
     return {
       id: m.id,
       title: m.title,
-      start: `${m.date}T${m.time}:00`,
-      end: `${m.date}T${m.time}:00`,
+      start: startDt.toISOString(),
+      end: endDt.toISOString(),
       status: m.status,
       attendeeCount: attendeeRows.length,
       isRecurring: m.isRecurring,

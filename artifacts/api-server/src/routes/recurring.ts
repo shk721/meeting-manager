@@ -75,6 +75,10 @@ router.post("/meetings/:id/make-recurring", async (req, res): Promise<void> => {
     res.status(400).json({ error: "freq must be daily, weekly, or monthly" });
     return;
   }
+  if (!Number.isInteger(interval) || interval < 1) {
+    res.status(400).json({ error: "interval must be a positive integer >= 1" });
+    return;
+  }
 
   const [meeting] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, id));
   if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }

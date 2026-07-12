@@ -183,6 +183,7 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
 router.delete("/tasks/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(taskCommentsTable).where(eq(taskCommentsTable.taskId, id));
   await db.delete(taskChangelogTable).where(eq(taskChangelogTable.taskId, id));
   await db.delete(tasksTable).where(eq(tasksTable.id, id));

@@ -38,8 +38,15 @@ async function baseline(): Promise<void> {
     )
   `);
 
-  // Read migration tags from journal and compute SQL content hash (sha256) for each
-  // to match what drizzle's migrator inserts when it runs migrations normally.
+  // Read migration tags from journal and compute SQL content hash (sha256) for each.
+  // Only baseline a migration if its sentinel table/column already exists in the DB —
+  // this ensures new migrations (whose effects are not yet in the DB) run normally.
+  const SENTINELS: Record<string, string> = {
+    "0000_cute_nick_fury":    "SELECT 1 FROM information_schema.tables WHERE table_name = 'users' AND table_schema = 'public'",
+    "0001_ancient_hercules":  "SELECT 1 FROM information_schema.tables WHERE table_name = 'topics' AND table_schema = 'public'",
+    "0002_busy_barracuda":    "SELECT 1 FROM information_schema.tables WHERE table_name = 'agenda_item_comments' AND table_schema = 'public'",
+  };
+
   const { createHash } = await import("crypto");
   const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
   let journal: { entries: { tag: string; when: number }[] } = { entries: [] };
@@ -50,6 +57,14 @@ async function baseline(): Promise<void> {
   }
 
   for (const entry of journal.entries) {
+    const sentinel = SENTINELS[entry.tag];
+    if (sentinel) {
+      const { rows } = await pool.query(sentinel);
+      if (rows.length === 0) {
+        console.log(`Baseline: skipping ${entry.tag} — table not yet in DB, will migrate.`);
+        continue;
+      }
+    }
     const sqlPath = path.join(migrationsFolder, `${entry.tag}.sql`);
     try {
       const sql = await readFile(sqlPath, "utf-8");
@@ -59,6 +74,7 @@ async function baseline(): Promise<void> {
          ON CONFLICT DO NOTHING`,
         [hash, entry.when],
       );
+      console.log(`Baseline: marked ${entry.tag} as applied.`);
     } catch {
       // skip missing SQL files
     }

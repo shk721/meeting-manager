@@ -5,8 +5,8 @@ import path from "path";
 const url = process.env.DATABASE_URL ?? "postgresql://localhost:5432/placeholder";
 
 export default defineConfig({
-  schema: path.join(__dirname, "./src/schema/index.ts"),
-  out: path.join(__dirname, "./src/migrations"),
+  schema: "./src/schema/index.ts",
+  out: "./src/migrations",
   dialect: "postgresql",
   dbCredentials: { url },
 });

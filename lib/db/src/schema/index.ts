@@ -19,3 +19,4 @@ export * from "./agenda-items";
 export * from "./deliverables";
 export * from "./audit-log";
 export * from "./generated-documents";
+export * from "./topics";

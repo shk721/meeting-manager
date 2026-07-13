@@ -3,7 +3,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { pool } from "./index.js";
 import path from "path";
 import { fileURLToPath } from "url";
-import { readFile, readdir } from "fs/promises";
+import { readFile } from "fs/promises";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = path.join(__dirname, "migrations");
@@ -38,28 +38,29 @@ async function baseline(): Promise<void> {
     )
   `);
 
-  // Each migration .sql file has a corresponding .json file containing the hash
-  let files: string[] = [];
+  // Read migration tags from journal and compute SQL content hash (sha256) for each
+  // to match what drizzle's migrator inserts when it runs migrations normally.
+  const { createHash } = await import("crypto");
+  const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
+  let journal: { entries: { tag: string; when: number }[] } = { entries: [] };
   try {
-    files = await readdir(migrationsFolder);
+    journal = JSON.parse(await readFile(journalPath, "utf-8"));
   } catch {
     return;
   }
 
-  for (const file of files) {
-    if (!file.endsWith(".json") || file.startsWith("_")) continue;
+  for (const entry of journal.entries) {
+    const sqlPath = path.join(migrationsFolder, `${entry.tag}.sql`);
     try {
-      const meta = JSON.parse(
-        await readFile(path.join(migrationsFolder, file), "utf-8"),
-      ) as { hash?: string };
-      if (meta.hash) {
-        await pool.query(
-          `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
-          [meta.hash, Date.now()],
-        );
-      }
+      const sql = await readFile(sqlPath, "utf-8");
+      const hash = createHash("sha256").update(sql).digest("hex");
+      await pool.query(
+        `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`,
+        [hash, entry.when],
+      );
     } catch {
-      // skip unreadable meta files
+      // skip missing SQL files
     }
   }
 }

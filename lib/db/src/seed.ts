@@ -59,8 +59,7 @@ async function seed() {
   ];
 
   for (const user of users) {
-    await db.insert(usersTable).values(user)
-      .onConflictDoUpdate({ target: usersTable.username, set: { password: user.password } });
+    await db.insert(usersTable).values(user).onConflictDoNothing();
   }
 
   console.log("Seed complete.");

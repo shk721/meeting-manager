@@ -22,16 +22,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  // Support plain-text passwords from before bcrypt migration: compare directly
-  // and re-hash on successful login so the account is upgraded automatically.
-  let valid = await bcrypt.compare(password, user.password);
-  if (!valid && !user.password.startsWith("$2")) {
-    valid = password === user.password;
-    if (valid) {
-      const hashed = await bcrypt.hash(password, 10);
-      await db.update(usersTable).set({ password: hashed }).where(eq(usersTable.id, user.id));
-    }
-  }
+  const valid = await bcrypt.compare(password, user.password);
 
   if (!valid) {
     res.status(401).json({ error: "Invalid credentials" });

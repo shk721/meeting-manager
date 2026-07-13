@@ -100,10 +100,151 @@ const AGENDA_STATUS_STYLE: Record<string, { bg: string; color: string; label: st
   cancelled: { bg: "#fbeeea", color: "#c0492f",  label: "ملغى" },
 };
 
+function AgendaItemDetail({ item, onClose }: { item: any; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [newComment, setNewComment] = useState("");
+  const [addingComment, setAddingComment] = useState(false);
+
+  const { data: detail } = useQuery<any>({
+    queryKey: ["agenda-item-detail", item.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/agenda-items/${item.id}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load");
+      return res.json();
+    },
+  });
+
+  const postComment = useMutation({
+    mutationFn: (content: string) => apiFetch(`/api/agenda-items/${item.id}/comments`, "POST", { content }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agenda-item-detail", item.id] }); setNewComment(""); setAddingComment(false); },
+  });
+
+  const deleteComment = useMutation({
+    mutationFn: (commentId: number) => apiFetch(`/api/agenda-items/${item.id}/comments/${commentId}`, "DELETE"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda-item-detail", item.id] }),
+  });
+
+  const decisions: any[] = detail?.decisions ?? [];
+  const tasks: any[] = detail?.tasks ?? [];
+  const deliverables: any[] = detail?.deliverables ?? [];
+  const comments: any[] = detail?.comments ?? [];
+
+  const OUTCOME_LABELS: Record<string, string> = {
+    pending: "معلّق", discussed: "نوقش", decided: "قُرِّر", deferred: "مؤجل", cancelled: "ملغى",
+  };
+  const OUTCOME_COLORS: Record<string, string> = {
+    pending: "#8a978a", discussed: "#1f7a4d", decided: "#1a6dc2", deferred: "#a97918", cancelled: "#c0492f",
+  };
+
+  return (
+    <div style={{ borderTop: "1px solid #e6ece4", marginTop: 4 }}>
+      {/* ملاحظات النقاش */}
+      {(detail?.discussionNotes || detail?.notes) && (
+        <div style={{ padding: "8px 12px", background: "#f8faf8", fontSize: 13, color: "#3a4a3a" }}>
+          {detail.discussionNotes || detail.notes}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 16, padding: "10px 12px", flexWrap: "wrap" }}>
+        {/* القرارات */}
+        {decisions.length > 0 && (
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 4 }}>القرارات ({decisions.length})</div>
+            {decisions.map((d: any) => (
+              <div key={d.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c", borderBottom: "1px solid #f0f4f0" }}>
+                {d.title || d.content.slice(0, 60)}
+                {d.content.length > 60 && "…"}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* المهام */}
+        {tasks.length > 0 && (
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 4 }}>المهام ({tasks.length})</div>
+            {tasks.map((t: any) => (
+              <div key={t.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c", display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.status === "completed" ? "#1f7a4d" : "#e0a020", flexShrink: 0 }} />
+                {t.title}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* المخرجات */}
+        {deliverables.length > 0 && (
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 4 }}>المخرجات ({deliverables.length})</div>
+            {deliverables.map((d: any) => (
+              <div key={d.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c" }}>
+                {d.title} <span style={{ color: "#8a978a" }}>({d.progressPercent}%)</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* التعليقات */}
+      <div style={{ padding: "6px 12px 10px" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 6 }}>
+          التعليقات {comments.length > 0 && `(${comments.length})`}
+        </div>
+        {comments.map((c: any) => (
+          <div key={c.id} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "flex-start" }} className="group">
+            <div style={{ fontSize: 12, flex: 1 }}>
+              <span style={{ fontWeight: 600, color: "#3a4a3a" }}>{c.author?.name ?? "مجهول"}: </span>
+              <span style={{ color: "#3a4a3a" }}>{c.content}</span>
+              <span style={{ color: "#a0a8a0", fontSize: 10, marginRight: 6 }}>
+                {new Date(c.createdAt).toLocaleString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            </div>
+            <button
+              onClick={() => deleteComment.mutate(c.id)}
+              className="opacity-0 group-hover:opacity-100"
+              style={{ border: "none", background: "none", color: "#c0492f", cursor: "pointer", fontSize: 14, lineHeight: 1, flexShrink: 0 }}
+            >×</button>
+          </div>
+        ))}
+        {addingComment ? (
+          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <input
+              autoFocus
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && newComment.trim()) postComment.mutate(newComment.trim());
+                if (e.key === "Escape") { setAddingComment(false); setNewComment(""); }
+              }}
+              placeholder="أضف تعليقاً..."
+              style={{ flex: 1, fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #d0d8d0", outline: "none" }}
+            />
+            <button
+              onClick={() => { if (newComment.trim()) postComment.mutate(newComment.trim()); }}
+              disabled={!newComment.trim() || postComment.isPending}
+              style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, background: "#1f7a4d", color: "#fff", border: "none", cursor: "pointer" }}
+            >إرسال</button>
+            <button
+              onClick={() => { setAddingComment(false); setNewComment(""); }}
+              style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, background: "#f0f4f0", color: "#5a675a", border: "none", cursor: "pointer" }}
+            >إلغاء</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAddingComment(true)}
+            style={{ fontSize: 11, color: "#5a8a6a", border: "none", background: "none", cursor: "pointer", padding: 0, marginTop: 2 }}
+          >+ تعليق</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AgendaItemsSection({ meetingId }: { meetingId: number }) {
   const qc = useQueryClient();
   const [newTitle, setNewTitle] = useState("");
   const [adding, setAdding] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const { data: items = [] } = useQuery<any[]>({
     queryKey: ["agenda-items", meetingId],
@@ -126,7 +267,7 @@ function AgendaItemsSection({ meetingId }: { meetingId: number }) {
 
   const deleteItem = useMutation({
     mutationFn: (id: number) => apiFetch(`/api/agenda-items/${id}`, "DELETE"),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda-items", meetingId] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agenda-items", meetingId] }); setExpandedId(null); },
   });
 
   const sorted = [...items].sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
@@ -158,25 +299,34 @@ function AgendaItemsSection({ meetingId }: { meetingId: number }) {
       {sorted.length === 0 && !adding ? (
         <p className="text-sm text-muted-foreground text-center py-6">لا توجد بنود. أضف بنداً أعلاه.</p>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           {sorted.map((item: any) => {
             const st = AGENDA_STATUS_STYLE[item.status] ?? AGENDA_STATUS_STYLE.pending;
+            const isExpanded = expandedId === item.id;
             return (
-              <div key={item.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/40 transition-colors group">
-                <span className="text-muted-foreground text-xs w-5 text-center shrink-0">{(item.orderIndex ?? 0) + 1}</span>
-                <span className="flex-1 text-sm">{item.title}</span>
-                {item.durationMin && <span className="text-xs text-muted-foreground shrink-0">{item.durationMin} د</span>}
-                <button
-                  onClick={() => patchItem.mutate({ id: item.id, body: { status: AGENDA_STATUS_CYCLE[item.status] ?? "discussed" } })}
-                  style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color, border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+              <div key={item.id} style={{ border: "1px solid #e6ece4", borderRadius: 8, overflow: "hidden" }}>
+                <div
+                  className="flex items-center gap-2 p-2 hover:bg-muted/40 transition-colors group cursor-pointer"
+                  onClick={() => setExpandedId(isExpanded ? null : item.id)}
                 >
-                  {st.label}
-                </button>
-                <button
-                  onClick={() => deleteItem.mutate(item.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
-                  style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
-                >×</button>
+                  <span className="text-muted-foreground text-xs w-5 text-center shrink-0">{(item.orderIndex ?? 0) + 1}</span>
+                  <span className="flex-1 text-sm">{item.title}</span>
+                  {item.durationMin && <span className="text-xs text-muted-foreground shrink-0">{item.durationMin} د</span>}
+                  <button
+                    onClick={e => { e.stopPropagation(); patchItem.mutate({ id: item.id, body: { status: AGENDA_STATUS_CYCLE[item.status] ?? "discussed" } }); }}
+                    style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color, border: "none", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}
+                  >
+                    {st.label}
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); deleteItem.mutate(item.id); }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                    style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+                  >×</button>
+                </div>
+                {isExpanded && (
+                  <AgendaItemDetail item={item} onClose={() => setExpandedId(null)} />
+                )}
               </div>
             );
           })}

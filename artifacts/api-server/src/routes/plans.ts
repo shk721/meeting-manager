@@ -6,6 +6,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, sql, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { auditLog } from "../lib/audit-log";
 
 const router: IRouter = Router();
 
@@ -165,6 +166,7 @@ router.post("/plans", async (req, res): Promise<void> => {
     }
   }
 
+  auditLog({ entityType: "plan", entityId: plan.id, action: "create", actorId: userId });
   const enriched = await enrichPlan(plan);
   res.status(201).json(enriched);
 });
@@ -196,6 +198,8 @@ router.patch("/plans/:id", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const [updated] = await db.update(plansTable).set(parsed.data).where(eq(plansTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Plan not found" }); return; }
+  const sessionUserId = (req.session as any).userId;
+  auditLog({ entityType: "plan", entityId: id, action: "update", actorId: sessionUserId });
   const enriched = await enrichPlan(updated);
   res.json(enriched);
 });
@@ -211,6 +215,8 @@ router.delete("/plans/:id", async (req, res): Promise<void> => {
   }
   await db.delete(planPhasesTable).where(eq(planPhasesTable.planId, id));
   await db.delete(plansTable).where(eq(plansTable.id, id));
+  const sessionUserId = (req.session as any).userId;
+  auditLog({ entityType: "plan", entityId: id, action: "delete", actorId: sessionUserId });
   res.json({ deleted: true });
 });
 

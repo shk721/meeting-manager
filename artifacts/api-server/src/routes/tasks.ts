@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, lte, gte } from "drizzle-orm";
+import { eq, and, or, ilike, lte, gte } from "drizzle-orm";
 import { db, tasksTable, usersTable, taskCommentsTable, taskChangelogTable } from "@workspace/db";
 import {
   GetTasksQueryParams, CreateTaskBody,
@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-zod";
 import { formatUser } from "./users";
 import { createNotification } from "@workspace/db/notifications-queries";
+import { auditLog } from "../lib/audit-log";
 
 const router: IRouter = Router();
 
@@ -32,20 +33,25 @@ router.get("/tasks", async (req, res): Promise<void> => {
   const query = GetTasksQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
-  let tasks = await db.select().from(tasksTable).orderBy(tasksTable.createdAt);
-
-  if (query.data.status) tasks = tasks.filter(t => t.status === query.data.status);
-  if (query.data.priority) tasks = tasks.filter(t => t.priority === query.data.priority);
-  if (query.data.assigneeId) tasks = tasks.filter(t => t.assigneeId === query.data.assigneeId);
-  if (query.data.meetingId) tasks = tasks.filter(t => t.meetingId === query.data.meetingId);
-  if ((query.data as any).componentId) tasks = tasks.filter(t => t.componentId === Number((query.data as any).componentId));
-  if ((query.data as any).committeeId) tasks = tasks.filter(t => t.committeeId === Number((query.data as any).committeeId));
+  const conditions = [];
+  if (query.data.status) conditions.push(eq(tasksTable.status, query.data.status));
+  if (query.data.priority) conditions.push(eq(tasksTable.priority, query.data.priority));
+  if (query.data.assigneeId) conditions.push(eq(tasksTable.assigneeId, query.data.assigneeId));
+  if (query.data.meetingId) conditions.push(eq(tasksTable.meetingId, query.data.meetingId));
+  const componentId = Number((query.data as any).componentId);
+  if (!isNaN(componentId) && componentId > 0) conditions.push(eq(tasksTable.componentId, componentId));
+  const committeeId = Number((query.data as any).committeeId);
+  if (!isNaN(committeeId) && committeeId > 0) conditions.push(eq(tasksTable.committeeId, committeeId));
   if (query.data.search) {
-    const s = query.data.search.toLowerCase();
-    tasks = tasks.filter(t => t.title.toLowerCase().includes(s) || (t.description ?? "").toLowerCase().includes(s));
+    const s = `%${query.data.search}%`;
+    conditions.push(or(ilike(tasksTable.title, s), ilike(tasksTable.description, s))!);
   }
-  if (query.data.dueBefore) tasks = tasks.filter(t => t.dueDate && t.dueDate <= query.data.dueBefore!);
-  if (query.data.dueAfter) tasks = tasks.filter(t => t.dueDate && t.dueDate >= query.data.dueAfter!);
+  if (query.data.dueBefore) conditions.push(lte(tasksTable.dueDate, query.data.dueBefore));
+  if (query.data.dueAfter) conditions.push(gte(tasksTable.dueDate, query.data.dueAfter));
+
+  const tasks = await db.select().from(tasksTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(tasksTable.createdAt);
 
   const results = await Promise.all(tasks.map(formatTask));
   res.json(results);
@@ -68,22 +74,22 @@ router.post("/tasks", async (req, res): Promise<void> => {
     res.status(400).json({ error: `Invalid priority. Must be one of: ${VALID_TASK_PRIORITIES.join(', ')}` }); return;
   }
 
+  const sessionUserId = (req.session as any).userId;
   const { tags, ...rest } = parsed.data;
   const [task] = await db.insert(tasksTable).values({ ...rest, tags: tags ?? [] }).returning();
 
-  if (task.assigneeId) {
-    const sessionUserId = (req.session as any).userId;
-    if (task.assigneeId !== sessionUserId) {
-      await createNotification({
-        userId: task.assigneeId,
-        type: "task_assigned",
-        title: "تم تعيين مهمة لك",
-        message: `تم تعيينك على المهمة «${task.title}»`,
-        relatedId: task.id,
-        relatedType: "task",
-        metadata: { taskId: task.id },
-      });
-    }
+  auditLog({ entityType: "task", entityId: task.id, action: "create", actorId: sessionUserId });
+
+  if (task.assigneeId && task.assigneeId !== sessionUserId) {
+    await createNotification({
+      userId: task.assigneeId,
+      type: "task_assigned",
+      title: "تم تعيين مهمة لك",
+      message: `تم تعيينك على المهمة «${task.title}»`,
+      relatedId: task.id,
+      relatedType: "task",
+      metadata: { taskId: task.id },
+    });
   }
 
   res.status(201).json(await formatTask(task));
@@ -176,6 +182,12 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
 
   const [task] = await db.update(tasksTable).set(updateData).where(eq(tasksTable.id, id)).returning();
 
+  if (changeEntries.length > 0) {
+    const changes: Record<string, [unknown, unknown]> = {};
+    for (const e of changeEntries) changes[e.field] = [e.oldValue, e.newValue];
+    auditLog({ entityType: "task", entityId: id, action: "update", actorId: sessionUserId, changes });
+  }
+
   // Notify new assignee if assigneeId changed
   const newAssigneeId = parsed.data.assigneeId;
   if (newAssigneeId && newAssigneeId !== existing.assigneeId && newAssigneeId !== sessionUserId) {
@@ -197,9 +209,11 @@ router.delete("/tasks/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const sessionUserId = (req.session as any).userId;
   await db.delete(taskCommentsTable).where(eq(taskCommentsTable.taskId, id));
   await db.delete(taskChangelogTable).where(eq(taskChangelogTable.taskId, id));
   await db.delete(tasksTable).where(eq(tasksTable.id, id));
+  auditLog({ entityType: "task", entityId: id, action: "delete", actorId: sessionUserId });
   res.sendStatus(204);
 });
 

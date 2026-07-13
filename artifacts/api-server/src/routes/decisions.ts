@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, decisionsTable, meetingsTable, usersTable, tasksTable, governanceContextsTable, plansTable } from "@workspace/db";
 import { GetDecisionsQueryParams, CreateDecisionBody, UpdateDecisionParams, UpdateDecisionBody } from "@workspace/api-zod";
 import { formatUser } from "./users";
+import { auditLog } from "../lib/audit-log";
 
 const router: IRouter = Router();
 
@@ -31,10 +32,11 @@ router.get("/decisions", async (req, res): Promise<void> => {
   const query = GetDecisionsQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
-  let decisions = await db.select().from(decisionsTable).orderBy(decisionsTable.createdAt);
-  if (query.data.meetingId) {
-    decisions = decisions.filter(d => d.meetingId === query.data.meetingId);
-  }
+  const conditions = [];
+  if (query.data.meetingId) conditions.push(eq(decisionsTable.meetingId, query.data.meetingId));
+  const decisions = await db.select().from(decisionsTable)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(decisionsTable.createdAt);
   res.json(decisions.map(fmt));
 });
 
@@ -83,6 +85,8 @@ router.post("/decisions", async (req, res): Promise<void> => {
   const parsed = CreateDecisionBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const [d] = await db.insert(decisionsTable).values(parsed.data).returning();
+  const sessionUserId = (req.session as any).userId;
+  auditLog({ entityType: "decision", entityId: d.id, action: "create", actorId: sessionUserId });
   res.status(201).json(fmt(d));
 });
 
@@ -93,12 +97,17 @@ router.patch("/decisions/:id", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const [d] = await db.update(decisionsTable).set(parsed.data).where(eq(decisionsTable.id, id)).returning();
   if (!d) { res.status(404).json({ error: "Not found" }); return; }
+  const sessionUserId = (req.session as any).userId;
+  auditLog({ entityType: "decision", entityId: id, action: "update", actorId: sessionUserId });
   res.json(fmt(d));
 });
 
 router.delete("/decisions/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  await db.delete(decisionsTable).where(eq(decisionsTable.id, parseInt(raw, 10)));
+  const id = parseInt(raw, 10);
+  await db.delete(decisionsTable).where(eq(decisionsTable.id, id));
+  const sessionUserId = (req.session as any).userId;
+  auditLog({ entityType: "decision", entityId: id, action: "delete", actorId: sessionUserId });
   res.sendStatus(204);
 });
 

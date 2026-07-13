@@ -4,9 +4,11 @@ import { db, generatedDocumentsTable } from "@workspace/db";
 import { getMeetingReportData } from "../services/document-engine/data-providers/meeting";
 import { getPlanReportData } from "../services/document-engine/data-providers/plan";
 import { getGovernanceReportData } from "../services/document-engine/data-providers/governance";
+import { getAgendaItemReportData } from "../services/document-engine/data-providers/agenda-item";
 import { generateMeetingReportHtml } from "../services/document-engine/html-templates/meeting-report";
 import { generatePlanReportHtml } from "../services/document-engine/html-templates/plan-report";
 import { generateGovernanceReportHtml } from "../services/document-engine/html-templates/governance-report";
+import { generateAgendaItemReportHtml } from "../services/document-engine/html-templates/agenda-item-report";
 import { renderHtmlToPdf } from "../services/document-engine/pdf-renderer";
 import fs from "fs/promises";
 
@@ -43,8 +45,13 @@ router.post("/documents/generate", async (req, res): Promise<void> => {
       if (!data) { res.status(404).json({ error: "Governance context not found" }); return; }
       html = generateGovernanceReportHtml(data);
       title = `تقرير هيئة — ${data.context.name}`;
+    } else if (entityType === "agenda_item") {
+      const data = await getAgendaItemReportData(id);
+      if (!data) { res.status(404).json({ error: "Agenda item not found" }); return; }
+      html = generateAgendaItemReportHtml(data);
+      title = `تقرير بند أجندة — ${data.item.title}`;
     } else {
-      res.status(400).json({ error: "entityType must be meeting | plan | governance" });
+      res.status(400).json({ error: "entityType must be meeting | plan | governance | agenda_item" });
       return;
     }
 

@@ -2,10 +2,12 @@ import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { plansTable } from "./plans";
+import { agendaItemsTable } from "./agenda-items";
 
 export const deliverablesTable = pgTable("deliverables", {
   id: serial("id").primaryKey(),
   planId: integer("plan_id").notNull().references(() => plansTable.id, { onDelete: "cascade" }),
+  agendaItemId: integer("agenda_item_id").references(() => agendaItemsTable.id, { onDelete: "set null" }),
   phaseId: integer("phase_id"),
   workstreamId: integer("workstream_id"),
   title: text("title").notNull(),

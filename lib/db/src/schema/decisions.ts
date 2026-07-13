@@ -2,6 +2,7 @@ import { pgTable, text, serial, timestamp, integer, date, index } from "drizzle-
 import { meetingsTable } from "./meetings";
 import { governanceContextsTable } from "./governance";
 import { plansTable } from "./plans";
+import { agendaItemsTable } from "./agenda-items";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -21,7 +22,7 @@ export const decisionsTable = pgTable("decisions", {
   // Who approved and when
   approvedBy: integer("approved_by"),
   // Link to the specific agenda item that produced this decision
-  agendaItemId: integer("agenda_item_id"),
+  agendaItemId: integer("agenda_item_id").references(() => agendaItemsTable.id, { onDelete: "set null" }),
   // Execution
   dueDate: date("due_date", { mode: "string" }),
   assignedTo: integer("assigned_to"),
@@ -41,6 +42,7 @@ export const decisionsTable = pgTable("decisions", {
   index("idx_decisions_meeting_id").on(t.meetingId),
   index("idx_decisions_plan_id").on(t.planId),
   index("idx_decisions_governance_context_id").on(t.governanceContextId),
+  index("idx_decisions_agenda_item_id").on(t.agendaItemId),
 ]);
 
 export const insertDecisionSchema = createInsertSchema(decisionsTable).omit({ id: true, createdAt: true });

@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-zod";
 import { formatUser } from "./users";
 import { createNotification } from "@workspace/db/notifications-queries";
+import { auditLog } from "../lib/audit-log";
 
 const router: IRouter = Router();
 
@@ -109,6 +110,9 @@ router.post("/meetings", async (req, res): Promise<void> => {
       })
     ));
   }
+
+  const sessionUserId = (req.session as any).userId;
+  auditLog({ entityType: "meeting", entityId: meeting.id, action: "create", actorId: sessionUserId });
 
   const result = await getMeetingWithMeta(meeting.id);
   res.status(201).json(result);
@@ -210,6 +214,9 @@ router.patch("/meetings/:id", async (req, res): Promise<void> => {
     }
   }
 
+  const sessionUserId = (req.session as any).userId;
+  auditLog({ entityType: "meeting", entityId: id, action: "update", actorId: sessionUserId });
+
   const result = await getMeetingWithMeta(id);
   res.json(result);
 });
@@ -252,6 +259,8 @@ router.delete("/meetings/:id", async (req, res): Promise<void> => {
   await db.delete(decisionsTable).where(eq(decisionsTable.meetingId, id));
   await db.delete(tasksTable).where(eq(tasksTable.meetingId, id));
   await db.delete(meetingsTable).where(eq(meetingsTable.id, id));
+  const sessionUserId = (req.session as any).userId;
+  auditLog({ entityType: "meeting", entityId: id, action: "delete", actorId: sessionUserId });
   res.sendStatus(204);
 });
 

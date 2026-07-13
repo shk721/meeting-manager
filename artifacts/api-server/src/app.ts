@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -11,11 +12,53 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { pool as dbPool } from "@workspace/db";
 
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  throw new Error("SESSION_SECRET environment variable is required but was not set.");
+}
+
 const PgSession = connectPgSimple(session);
 
 const app: Express = express();
 
 app.set("trust proxy", 1);
+
+// CORS: allow origins from ALLOWED_ORIGINS env var (comma-separated) or localhost in dev
+const rawOrigins = process.env.ALLOWED_ORIGINS;
+const allowedOrigins = rawOrigins
+  ? rawOrigins.split(",").map((o) => o.trim()).filter(Boolean)
+  : process.env.NODE_ENV === "production"
+    ? []
+    : ["http://localhost:5173", "http://localhost:3000", "http://localhost:4173"];
+
+app.use(
+  cors({
+    origin: allowedOrigins.length > 0
+      ? (origin, cb) => {
+          if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+          cb(new Error(`CORS: origin ${origin} not allowed`));
+        }
+      : false,
+    credentials: true,
+  }),
+);
+
+// Rate limiting
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts. Try again in 15 minutes." },
+  skipSuccessfulRequests: true,
+});
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Slow down." },
+});
 
 app.use(
   pinoHttp({
@@ -36,7 +79,6 @@ app.use(
     },
   }),
 );
-app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -51,7 +93,7 @@ const sessionStore = process.env.DATABASE_URL
 app.use(
   session({
     store: sessionStore,
-    secret: process.env.SESSION_SECRET ?? "meeting-manager-secret-key-2024",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -63,7 +105,8 @@ app.use(
   }),
 );
 
-app.use("/api", router);
+app.use("/api/auth/login", loginLimiter);
+app.use("/api", globalLimiter, router);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

@@ -51,9 +51,22 @@ router.get("/tasks", async (req, res): Promise<void> => {
   res.json(results);
 });
 
+const VALID_TASK_STATUSES = ['open', 'in_progress', 'completed', 'cancelled', 'on_hold'] as const;
+const VALID_TASK_PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
+
 router.post("/tasks", async (req, res): Promise<void> => {
   const parsed = CreateTaskBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  if (!parsed.data.title.trim()) {
+    res.status(400).json({ error: "Title cannot be empty" }); return;
+  }
+  if (!VALID_TASK_STATUSES.includes(parsed.data.status as any)) {
+    res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_TASK_STATUSES.join(', ')}` }); return;
+  }
+  if (!VALID_TASK_PRIORITIES.includes(parsed.data.priority as any)) {
+    res.status(400).json({ error: `Invalid priority. Must be one of: ${VALID_TASK_PRIORITIES.join(', ')}` }); return;
+  }
 
   const { tags, ...rest } = parsed.data;
   const [task] = await db.insert(tasksTable).values({ ...rest, tags: tags ?? [] }).returning();

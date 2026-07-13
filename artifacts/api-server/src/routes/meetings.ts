@@ -83,6 +83,11 @@ router.post("/meetings", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!parsed.data.title.trim()) {
+    res.status(400).json({ error: "Title cannot be empty" });
+    return;
+  }
+
   const { attendeeIds, agendaItems, ...rest } = parsed.data;
 
   const [meeting] = await db.insert(meetingsTable).values({

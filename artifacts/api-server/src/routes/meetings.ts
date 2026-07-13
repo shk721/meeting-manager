@@ -83,6 +83,11 @@ router.post("/meetings", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!parsed.data.title.trim()) {
+    res.status(400).json({ error: "Title cannot be empty" });
+    return;
+  }
+
   const { attendeeIds, agendaItems, ...rest } = parsed.data;
 
   const [meeting] = await db.insert(meetingsTable).values({
@@ -235,6 +240,7 @@ router.delete("/meetings/:id/attendees/:userId", async (req, res): Promise<void>
 router.delete("/meetings/:id", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const taskRows = await db.select({ id: tasksTable.id }).from(tasksTable).where(eq(tasksTable.meetingId, id));
   const taskIds = taskRows.map(t => t.id);
   if (taskIds.length > 0) {

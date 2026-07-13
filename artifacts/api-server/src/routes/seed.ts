@@ -5,8 +5,8 @@ import { db, usersTable } from "@workspace/db";
 const router: IRouter = Router();
 
 router.post("/seed", async (req, res): Promise<void> => {
-  const expectedKey = process.env.SEED_KEY ?? "meeting-manager-seed-2024";
-  if (process.env.NODE_ENV !== "development" && req.headers["x-seed-key"] !== expectedKey) {
+  const expectedKey = process.env.SEED_KEY;
+  if (!expectedKey || req.headers["x-seed-key"] !== expectedKey) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

@@ -104,6 +104,26 @@ function AgendaItemDetail({ item, onClose }: { item: any; onClose: () => void })
   const qc = useQueryClient();
   const [newComment, setNewComment] = useState("");
   const [addingComment, setAddingComment] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  async function generatePdf() {
+    setGeneratingPdf(true);
+    try {
+      const res = await fetch("/api/documents/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "agenda_item", entityId: item.id }),
+      });
+      if (!res.ok) throw new Error();
+      const { downloadUrl } = await res.json();
+      window.open(downloadUrl, "_blank");
+    } catch {
+      alert("تعذّر توليد التقرير");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
 
   const { data: detail } = useQuery<any>({
     queryKey: ["agenda-item-detail", item.id],
@@ -138,6 +158,17 @@ function AgendaItemDetail({ item, onClose }: { item: any; onClose: () => void })
 
   return (
     <div style={{ borderTop: "1px solid #e6ece4", marginTop: 4 }}>
+      {/* شريط الإجراءات */}
+      <div style={{ display: "flex", justifyContent: "flex-end", padding: "6px 12px 0" }}>
+        <button
+          onClick={generatingPdf ? undefined : generatePdf}
+          disabled={generatingPdf}
+          style={{ fontSize: 11, padding: "3px 10px", borderRadius: 6, background: generatingPdf ? "#c8d8c8" : "#1f7a4d", color: "#fff", border: "none", cursor: generatingPdf ? "default" : "pointer", fontWeight: 600 }}
+        >
+          {generatingPdf ? "جارٍ التوليد..." : "📄 توليد PDF"}
+        </button>
+      </div>
+
       {/* ملاحظات النقاش */}
       {(detail?.discussionNotes || detail?.notes) && (
         <div style={{ padding: "8px 12px", background: "#f8faf8", fontSize: 13, color: "#3a4a3a" }}>

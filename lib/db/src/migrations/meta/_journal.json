@@ -15,6 +15,13 @@
       "when": 1783977998216,
       "tag": "0001_ancient_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783978645935,
+      "tag": "0002_busy_barracuda",
+      "breakpoints": true
     }
   ]
 }

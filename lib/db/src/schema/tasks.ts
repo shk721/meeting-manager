@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { meetingsTable } from "./meetings";
 import { plansTable } from "./plans";
+import { agendaItemsTable } from "./agenda-items";
 
 export const tasksTable = pgTable("tasks", {
   id: serial("id").primaryKey(),
@@ -13,6 +14,7 @@ export const tasksTable = pgTable("tasks", {
   completionPercent: integer("completion_percent").notNull().default(0),
   dueDate: date("due_date", { mode: "string" }),
   agendaItem: text("agenda_item"),
+  agendaItemId: integer("agenda_item_id").references(() => agendaItemsTable.id, { onDelete: "set null" }),
   meetingId: integer("meeting_id").references(() => meetingsTable.id, { onDelete: "set null" }),
   decisionId: integer("decision_id"),
   assigneeId: integer("assignee_id"),
@@ -38,6 +40,7 @@ export const tasksTable = pgTable("tasks", {
   index("idx_tasks_plan_id").on(t.planId),
   index("idx_tasks_assignee_id").on(t.assigneeId),
   index("idx_tasks_status").on(t.status),
+  index("idx_tasks_agenda_item_id").on(t.agendaItemId),
 ]);
 
 export const taskCommentsTable = pgTable("task_comments", {

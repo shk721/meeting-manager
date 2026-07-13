@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { meetingsTable } from "./meetings";
 import { topicsTable } from "./topics";
+import { usersTable } from "./users";
 
 export const agendaItemsTable = pgTable("agenda_items", {
   id: serial("id").primaryKey(),
@@ -28,3 +29,14 @@ export const agendaItemsTable = pgTable("agenda_items", {
 export const insertAgendaItemSchema = createInsertSchema(agendaItemsTable).omit({ id: true, createdAt: true });
 export type AgendaItem = typeof agendaItemsTable.$inferSelect;
 export type InsertAgendaItem = z.infer<typeof insertAgendaItemSchema>;
+
+// Comments on agenda items — capture discussion threads per-item
+export const agendaItemCommentsTable = pgTable("agenda_item_comments", {
+  id: serial("id").primaryKey(),
+  agendaItemId: integer("agenda_item_id").notNull().references(() => agendaItemsTable.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  authorId: integer("author_id").references(() => usersTable.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AgendaItemComment = typeof agendaItemCommentsTable.$inferSelect;

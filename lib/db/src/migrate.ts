@@ -45,6 +45,7 @@ async function baseline(): Promise<void> {
     "0000_cute_nick_fury":    "SELECT 1 FROM information_schema.tables WHERE table_name = 'users' AND table_schema = 'public'",
     "0001_ancient_hercules":  "SELECT 1 FROM information_schema.tables WHERE table_name = 'topics' AND table_schema = 'public'",
     "0002_busy_barracuda":    "SELECT 1 FROM information_schema.tables WHERE table_name = 'agenda_item_comments' AND table_schema = 'public'",
+    "0003_plan_staff":        "SELECT 1 FROM information_schema.tables WHERE table_name = 'plan_staff' AND table_schema = 'public'",
   };
 
   const { createHash } = await import("crypto");

@@ -31,6 +31,7 @@ const TABS = [
   { id: "deliverables",  label: "المخرجات" },
   { id: "meetings",      label: "الاجتماعات" },
   { id: "decisions",     label: "القرارات" },
+  { id: "staff",         label: "الكوادر البشرية" },
   { id: "timeline",      label: "الخط الزمني" },
   { id: "progress",      label: "التقدّم" },
   { id: "notes",         label: "ملاحظات" },
@@ -134,6 +135,355 @@ function DocumentsTab({ entityType, entityId }: { entityType: string; entityId: 
               </a>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Staff Tab ───────────────────────────────────────────────────────────────
+
+const EMP_STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  secondment:    { label: "انتداب",               color: "#a97918", bg: "#fbf1dd" },
+  assignment:    { label: "تكليف",                color: "#1a6dc2", bg: "#e0edf8" },
+  regular_hours: { label: "خلال الدوام الرسمي",   color: "#1f7a4d", bg: "#e8f2ea" },
+};
+
+const EMPTY_STAFF_FORM = {
+  userId: "" as string,
+  externalName: "", externalEmail: "", externalPhone: "",
+  role: "عضو", specialty: "",
+  employmentStatus: "regular_hours" as string,
+  workLocation: "", department: "",
+  startDate: "", endDate: "", notes: "",
+};
+
+function StaffTab({ planId }: { planId: number }) {
+  const qc = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [form, setForm] = useState({ ...EMPTY_STAFF_FORM });
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
+  const [filterDept, setFilterDept] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  const { data: staff = [] } = useQuery<any[]>({
+    queryKey: ["plan-staff", planId],
+    queryFn: () => apiFetch(`/api/plans/${planId}/staff`),
+  });
+
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ["users"],
+    queryFn: () => apiFetch("/api/users"),
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["plan-staff", planId] });
+
+  const createStaff = useMutation({
+    mutationFn: (body: any) => apiFetch(`/api/plans/${planId}/staff`, "POST", body),
+    onSuccess: () => { invalidate(); setAdding(false); setForm({ ...EMPTY_STAFF_FORM }); },
+  });
+
+  const updateStaff = useMutation({
+    mutationFn: ({ staffId, body }: { staffId: number; body: any }) =>
+      apiFetch(`/api/plans/${planId}/staff/${staffId}`, "PATCH", body),
+    onSuccess: () => { invalidate(); setEditing(null); setForm({ ...EMPTY_STAFF_FORM }); },
+  });
+
+  const deleteStaff = useMutation({
+    mutationFn: (staffId: number) => apiFetch(`/api/plans/${planId}/staff/${staffId}`, "DELETE"),
+    onSuccess: invalidate,
+  });
+
+  function submitForm(staffId?: number) {
+    const body: any = {
+      role: form.role || "عضو",
+      specialty: form.specialty || null,
+      employmentStatus: form.employmentStatus,
+      workLocation: form.workLocation || null,
+      department: form.department || null,
+      startDate: form.startDate || null,
+      endDate: form.endDate || null,
+      notes: form.notes || null,
+    };
+    if (form.userId) {
+      body.userId = Number(form.userId);
+    } else {
+      body.externalName  = form.externalName  || null;
+      body.externalEmail = form.externalEmail || null;
+      body.externalPhone = form.externalPhone || null;
+    }
+    if (staffId) updateStaff.mutate({ staffId, body });
+    else createStaff.mutate(body);
+  }
+
+  function startEdit(s: any) {
+    setEditing(s.id);
+    setAdding(false);
+    setForm({
+      userId: s.userId ? String(s.userId) : "",
+      externalName: s.externalName ?? "", externalEmail: s.externalEmail ?? "", externalPhone: s.externalPhone ?? "",
+      role: s.role ?? "عضو", specialty: s.specialty ?? "",
+      employmentStatus: s.employmentStatus ?? "regular_hours",
+      workLocation: s.workLocation ?? "", department: s.department ?? "",
+      startDate: s.startDate ?? "", endDate: s.endDate ?? "", notes: s.notes ?? "",
+    });
+  }
+
+  async function exportExcel() {
+    setExporting(true);
+    const params = new URLSearchParams();
+    if (filterLocation) params.set("location", filterLocation);
+    if (filterDept) params.set("department", filterDept);
+    if (filterStatus) params.set("status", filterStatus);
+    const url = `/api/plans/${planId}/staff/export?${params}`;
+    try {
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `plan-staff-${planId}.xlsx`;
+      a.click();
+    } catch { alert("تعذّر التصدير"); }
+    finally { setExporting(false); }
+  }
+
+  const filtered = staff.filter(s =>
+    (!filterStatus   || s.employmentStatus === filterStatus) &&
+    (!filterLocation || (s.workLocation ?? "").includes(filterLocation)) &&
+    (!filterDept     || (s.department    ?? "").includes(filterDept))
+  );
+
+  const s: Record<string, React.CSSProperties> = {
+    input: { fontSize: 13, padding: "6px 10px", borderRadius: 7, border: "1px solid #d8e4d8", outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box" as const },
+    label: { fontSize: 11.5, fontWeight: 600, color: "#5a675a", marginBottom: 2, display: "block" as const },
+    saveBtn: { background: "#1f7a4d", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" },
+    cancelBtn: { background: "#f0f4f0", color: "#5a675a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, cursor: "pointer" },
+  };
+
+  const StaffForm = ({ staffId }: { staffId?: number }) => (
+    <div style={{ background: "#f4f9f5", border: "1px solid #c8dcc8", borderRadius: 12, padding: 18, marginBottom: 12 }}>
+      <div style={{ fontWeight: 700, fontSize: 13.5, color: "#1f7a4d", marginBottom: 14 }}>
+        {staffId ? "تعديل بيانات الكادر" : "إضافة كادر جديد"}
+      </div>
+
+      {/* موظف من النظام أو خارجي */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div>
+          <label style={s.label}>موظف من النظام</label>
+          <select value={form.userId} onChange={e => setForm(f => ({ ...f, userId: e.target.value, externalName: "", externalEmail: "", externalPhone: "" }))}
+            style={s.input}>
+            <option value="">— اختر موظفاً —</option>
+            {(users as any[]).map((u: any) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+          </select>
+        </div>
+        {!form.userId && (
+          <div>
+            <label style={s.label}>الاسم (خارجي)</label>
+            <input value={form.externalName} onChange={e => setForm(f => ({ ...f, externalName: e.target.value }))} placeholder="اسم الكادر" style={s.input} />
+          </div>
+        )}
+      </div>
+
+      {!form.userId && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+          <div>
+            <label style={s.label}>البريد الإلكتروني</label>
+            <input value={form.externalEmail} onChange={e => setForm(f => ({ ...f, externalEmail: e.target.value }))} type="email" placeholder="email@example.com" style={s.input} />
+          </div>
+          <div>
+            <label style={s.label}>رقم الجوال</label>
+            <input value={form.externalPhone} onChange={e => setForm(f => ({ ...f, externalPhone: e.target.value }))} placeholder="+966xxxxxxxxx" style={s.input} />
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div>
+          <label style={s.label}>الدور في الخطة</label>
+          <input value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} placeholder="مشرف / منسق / عضو..." style={s.input} />
+        </div>
+        <div>
+          <label style={s.label}>التخصص</label>
+          <input value={form.specialty} onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))} placeholder="الاختصاص الوظيفي" style={s.input} />
+        </div>
+        <div>
+          <label style={s.label}>الحالة الوظيفية</label>
+          <select value={form.employmentStatus} onChange={e => setForm(f => ({ ...f, employmentStatus: e.target.value }))} style={s.input}>
+            <option value="regular_hours">خلال الدوام الرسمي</option>
+            <option value="secondment">انتداب</option>
+            <option value="assignment">تكليف</option>
+          </select>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div>
+          <label style={s.label}>موقع العمل</label>
+          <input value={form.workLocation} onChange={e => setForm(f => ({ ...f, workLocation: e.target.value }))} placeholder="المنطقة / المدينة / الموقع" style={s.input} />
+        </div>
+        <div>
+          <label style={s.label}>القسم / الاقتصاد</label>
+          <input value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} placeholder="اسم القسم أو الاقتصاد" style={s.input} />
+        </div>
+      </div>
+
+      {(form.employmentStatus === "secondment" || form.employmentStatus === "assignment") && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+          <div>
+            <label style={s.label}>تاريخ البداية</label>
+            <input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} style={s.input} />
+          </div>
+          <div>
+            <label style={s.label}>تاريخ الانتهاء</label>
+            <input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} style={s.input} />
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 14 }}>
+        <label style={s.label}>ملاحظات</label>
+        <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="ملاحظات اختيارية" style={{ ...s.input, resize: "vertical" as const }} />
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => submitForm(staffId)} disabled={createStaff.isPending || updateStaff.isPending} style={s.saveBtn}>
+          {(createStaff.isPending || updateStaff.isPending) ? "جارٍ الحفظ..." : "حفظ"}
+        </button>
+        <button onClick={() => { setAdding(false); setEditing(null); setForm({ ...EMPTY_STAFF_FORM }); }} style={s.cancelBtn}>إلغاء</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button
+          onClick={() => { setAdding(v => !v); setEditing(null); setForm({ ...EMPTY_STAFF_FORM }); }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: "none", background: "#1f7a4d", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+        >
+          <Plus size={14} /> إضافة كادر
+        </button>
+
+        {/* Filters */}
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          style={{ fontSize: 12, padding: "6px 10px", borderRadius: 7, border: "1px solid #d8e4d8", background: "#fff", color: "#5a675a", cursor: "pointer" }}>
+          <option value="">كل الحالات</option>
+          <option value="regular_hours">خلال الدوام الرسمي</option>
+          <option value="secondment">انتداب</option>
+          <option value="assignment">تكليف</option>
+        </select>
+        <input value={filterLocation} onChange={e => setFilterLocation(e.target.value)} placeholder="فلتر موقع العمل..."
+          style={{ fontSize: 12, padding: "6px 10px", borderRadius: 7, border: "1px solid #d8e4d8", outline: "none", fontFamily: "inherit" }} />
+        <input value={filterDept} onChange={e => setFilterDept(e.target.value)} placeholder="فلتر القسم/الاقتصاد..."
+          style={{ fontSize: 12, padding: "6px 10px", borderRadius: 7, border: "1px solid #d8e4d8", outline: "none", fontFamily: "inherit" }} />
+
+        <div style={{ flex: 1 }} />
+        <button onClick={exportExcel} disabled={exporting}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid #c8dcc8", background: "#fff", color: "#1f7a4d", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+          <Download size={13} /> {exporting ? "جارٍ التصدير..." : "تصدير Excel"}
+        </button>
+      </div>
+
+      {adding && <StaffForm />}
+
+      {/* Staff list */}
+      {filtered.length === 0 && !adding ? (
+        <div style={{ textAlign: "center", padding: 48, color: "#8a978a", background: "#f7f9f6", borderRadius: 12, border: "1.5px dashed #e6ece4" }}>
+          <div style={{ fontSize: 14, marginBottom: 6 }}>لا يوجد كوادر مضافون بعد</div>
+          <div style={{ fontSize: 12.5 }}>اضغط "إضافة كادر" لإضافة أول عضو في الفريق</div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtered.map((member: any) => {
+            const statusInfo = EMP_STATUS_LABELS[member.employmentStatus] ?? { label: member.employmentStatus, color: "#5a675a", bg: "#f4f6f2" };
+            const duration = [member.startDate, member.endDate].filter(Boolean).join(" — ");
+            return (
+              <div key={member.id} style={{ background: "#f7f9f6", borderRadius: 12, border: "1px solid #e6ece4", overflow: "hidden" }}>
+                {editing === member.id ? (
+                  <div style={{ padding: 14 }}>
+                    <StaffForm staffId={member.id} />
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 16px" }}>
+                    {/* Avatar / Initial */}
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#1f7a4d", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
+                      {(member.name?.[0] ?? "؟")}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: "#1c261c" }}>{member.name}</span>
+                        <span style={{ fontSize: 11.5, color: "#5a675a" }}>{member.role}</span>
+                        {member.specialty && <span style={{ fontSize: 11, color: "#8a978a" }}>· {member.specialty}</span>}
+                        <span style={{ fontSize: 11, padding: "2px 9px", borderRadius: 10, fontWeight: 600, background: statusInfo.bg, color: statusInfo.color }}>
+                          {statusInfo.label}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", gap: 16, marginTop: 5, flexWrap: "wrap" }}>
+                        {member.workLocation && (
+                          <span style={{ fontSize: 12, color: "#5a675a", display: "flex", alignItems: "center", gap: 4 }}>
+                            📍 {member.workLocation}
+                          </span>
+                        )}
+                        {member.department && (
+                          <span style={{ fontSize: 12, color: "#5a675a", display: "flex", alignItems: "center", gap: 4 }}>
+                            🏢 {member.department}
+                          </span>
+                        )}
+                        {duration && (
+                          <span style={{ fontSize: 12, color: "#5a675a", display: "flex", alignItems: "center", gap: 4 }}>
+                            📅 {duration}
+                          </span>
+                        )}
+                        {member.email && (
+                          <a href={`mailto:${member.email}`} style={{ fontSize: 12, color: "#1a6dc2", textDecoration: "none" }}>
+                            ✉️ {member.email}
+                          </a>
+                        )}
+                        {member.phone && (
+                          <a href={`tel:${member.phone}`} style={{ fontSize: 12, color: "#1a6dc2", textDecoration: "none" }}>
+                            📞 {member.phone}
+                          </a>
+                        )}
+                      </div>
+                      {member.notes && (
+                        <div style={{ fontSize: 11.5, color: "#8a978a", marginTop: 4 }}>{member.notes}</div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => startEdit(member)}
+                        style={{ border: "1px solid #e6ece4", background: "#fff", borderRadius: 7, padding: "5px 8px", cursor: "pointer", color: "#5a675a", display: "flex", alignItems: "center" }}>
+                        <Edit2 size={12} />
+                      </button>
+                      <button onClick={() => deleteStaff.mutate(member.id)}
+                        style={{ border: "1px solid #fbeeea", background: "#fbeeea", borderRadius: 7, padding: "5px 8px", cursor: "pointer", color: "#c0492f", display: "flex", alignItems: "center" }}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Summary stats */}
+      {staff.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 4 }}>
+          {(["regular_hours", "secondment", "assignment"] as const).map(st => {
+            const info = EMP_STATUS_LABELS[st];
+            const count = staff.filter((m: any) => m.employmentStatus === st).length;
+            return (
+              <div key={st} style={{ background: info.bg, borderRadius: 10, padding: "12px 16px", borderRight: `3px solid ${info.color}` }}>
+                <div style={{ fontSize: 11, color: info.color, fontWeight: 700 }}>{info.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#1c261c", marginTop: 2 }}>{count}</div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

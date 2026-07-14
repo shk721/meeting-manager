@@ -121,7 +121,6 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
-}
 
   // Copy static assets (templates) to dist
   const srcTemplates = path.resolve(artifactDir, "src/templates");

@@ -3,10 +3,12 @@ import { db } from "@workspace/db";
 import {
   plansTable, planPhasesTable, planWorksstreamsTable,
   tasksTable, decisionsTable, deliverablesTable, meetingsTable,
+  planStaffTable, usersTable,
 } from "@workspace/db/schema";
-import { eq, sql, desc, inArray } from "drizzle-orm";
+import { eq, sql, desc, inArray, and } from "drizzle-orm";
 import { z } from "zod";
 import { auditLog } from "../lib/audit-log";
+import * as XLSX from "xlsx";
 
 const router: IRouter = Router();
 
@@ -359,6 +361,126 @@ router.delete("/plan-workstreams/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   await db.delete(planWorksstreamsTable).where(eq(planWorksstreamsTable.id, id));
   res.json({ deleted: true });
+});
+
+// ─── Plan Staff (الكوادر البشرية) ──────────────────────────────────────────
+
+const staffSchema = z.object({
+  userId:           z.number().int().nullable().optional(),
+  externalName:     z.string().max(200).nullable().optional(),
+  externalEmail:    z.string().email().nullable().optional(),
+  externalPhone:    z.string().max(30).nullable().optional(),
+  role:             z.string().max(100).default("عضو"),
+  specialty:        z.string().max(200).nullable().optional(),
+  employmentStatus: z.enum(["secondment", "assignment", "regular_hours"]).default("regular_hours"),
+  workLocation:     z.string().max(200).nullable().optional(),
+  department:       z.string().max(200).nullable().optional(),
+  startDate:        z.string().nullable().optional(),
+  endDate:          z.string().nullable().optional(),
+  notes:            z.string().nullable().optional(),
+});
+
+async function enrichStaffRow(row: typeof planStaffTable.$inferSelect) {
+  let userName: string | null = null;
+  let userEmail: string | null = null;
+  let userPhone: string | null = null;
+  if (row.userId) {
+    const [u] = await db.select({ fullName: usersTable.fullName, email: usersTable.email, phone: usersTable.phone })
+      .from(usersTable).where(eq(usersTable.id, row.userId));
+    if (u) { userName = u.fullName; userEmail = u.email; userPhone = u.phone ?? null; }
+  }
+  const name  = row.externalName  ?? userName  ?? "—";
+  const email = row.externalEmail ?? userEmail ?? null;
+  const phone = row.externalPhone ?? userPhone ?? null;
+  return { ...row, name, email, phone };
+}
+
+router.get("/plans/:id/staff", async (req, res): Promise<void> => {
+  const planId = Number(req.params.id);
+  const rows = await db.select().from(planStaffTable).where(eq(planStaffTable.planId, planId));
+  const enriched = await Promise.all(rows.map(enrichStaffRow));
+  res.json(enriched);
+});
+
+router.post("/plans/:id/staff", async (req, res): Promise<void> => {
+  const planId = Number(req.params.id);
+  const body = staffSchema.parse(req.body);
+  const [row] = await db.insert(planStaffTable).values({ ...body, planId }).returning();
+  res.status(201).json(await enrichStaffRow(row));
+});
+
+router.patch("/plans/:id/staff/:staffId", async (req, res): Promise<void> => {
+  const planId   = Number(req.params.id);
+  const staffId  = Number(req.params.staffId);
+  const body = staffSchema.partial().parse(req.body);
+  const [row] = await db.update(planStaffTable)
+    .set(body)
+    .where(and(eq(planStaffTable.id, staffId), eq(planStaffTable.planId, planId)))
+    .returning();
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(await enrichStaffRow(row));
+});
+
+router.delete("/plans/:id/staff/:staffId", async (req, res): Promise<void> => {
+  const planId  = Number(req.params.id);
+  const staffId = Number(req.params.staffId);
+  await db.delete(planStaffTable)
+    .where(and(eq(planStaffTable.id, staffId), eq(planStaffTable.planId, planId)));
+  res.status(204).end();
+});
+
+// ─── Staff Export (Excel) ────────────────────────────────────────────────────
+
+const STATUS_LABELS: Record<string, string> = {
+  secondment:    "انتداب",
+  assignment:    "تكليف",
+  regular_hours: "خلال الدوام الرسمي",
+};
+
+router.get("/plans/:id/staff/export", async (req, res): Promise<void> => {
+  const planId = Number(req.params.id);
+  const { location, department, status } = req.query as Record<string, string | undefined>;
+
+  const [plan] = await db.select({ title: plansTable.title }).from(plansTable).where(eq(plansTable.id, planId));
+
+  let rows = await db.select().from(planStaffTable).where(eq(planStaffTable.planId, planId));
+  if (location)   rows = rows.filter(r => r.workLocation?.includes(location));
+  if (department) rows = rows.filter(r => r.department?.includes(department));
+  if (status)     rows = rows.filter(r => r.employmentStatus === status);
+
+  const enriched = await Promise.all(rows.map(enrichStaffRow));
+
+  const headers = ["الاسم", "الدور", "التخصص", "الحالة الوظيفية", "موقع العمل", "القسم/الاقتصاد", "البريد الإلكتروني", "رقم الجوال", "المدة (من — إلى)", "ملاحظات"];
+  const sheetData = [
+    [`كوادر الخطة: ${plan?.title ?? ""}`],
+    [],
+    headers,
+    ...enriched.map(s => {
+      const duration = [s.startDate, s.endDate].filter(Boolean).join(" — ") || "—";
+      return [
+        s.name,
+        s.role,
+        s.specialty ?? "—",
+        STATUS_LABELS[s.employmentStatus] ?? s.employmentStatus,
+        s.workLocation ?? "—",
+        s.department ?? "—",
+        s.email ?? "—",
+        s.phone ?? "—",
+        duration,
+        s.notes ?? "",
+      ];
+    }),
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  ws["!cols"] = [22, 16, 18, 22, 20, 18, 26, 16, 24, 20].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "الكوادر البشرية");
+
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="plan-staff-${planId}.xlsx"`);
+  res.send(buf);
 });
 
 // ─── Dashboard stats ────────────────────────────────────────────────────────

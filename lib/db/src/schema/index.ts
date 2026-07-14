@@ -20,4 +20,5 @@ export * from "./deliverables";
 export * from "./audit-log";
 export * from "./generated-documents";
 export * from "./topics";
+export * from "./plan-staff";
 // agendaItemCommentsTable is exported from agenda-items above

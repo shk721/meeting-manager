@@ -5,9 +5,6 @@ import {
   meetingAttendeesTable, usersTable, reportSubscriptionsTable,
   plansTable, planPhasesTable, planWorksstreamsTable,
 } from "@workspace/db";
-import { readFileSync } from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import {
   generateMeetingPDF,
   generateWeeklyReportPDF,
@@ -18,6 +15,7 @@ import {
   generatePlanPDF,
   generatePlanExcel,
   generateMinutesDocx,
+  generatePlanDocx,
 } from "../services/export";
 
 const router: IRouter = Router();
@@ -208,43 +206,48 @@ router.get("/export/plan/:id/pdf", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id));
-  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+  try {
+    const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id));
+    if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
 
-  const [phases, rawTasks, rawDecisions] = await Promise.all([
-    db.select().from(planPhasesTable).where(eq(planPhasesTable.planId, id)),
-    db.select().from(tasksTable).where(eq(tasksTable.planId, id)),
-    db.select().from(decisionsTable).where(eq(decisionsTable.planId, id)),
-  ]);
+    const [phases, rawTasks, rawDecisions] = await Promise.all([
+      db.select().from(planPhasesTable).where(eq(planPhasesTable.planId, id)),
+      db.select().from(tasksTable).where(eq(tasksTable.planId, id)),
+      db.select().from(decisionsTable).where(eq(decisionsTable.planId, id)),
+    ]);
 
-  const assigneeIds = [...new Set(rawTasks.map(t => t.assigneeId).filter(Boolean))] as number[];
-  const assignees = assigneeIds.length > 0
-    ? await db.select().from(usersTable).where(inArray(usersTable.id, assigneeIds))
-    : [];
-  const assigneeMap = Object.fromEntries(assignees.map(u => [u.id, u.fullName]));
+    const assigneeIds = [...new Set(rawTasks.map(t => t.assigneeId).filter(Boolean))] as number[];
+    const assignees = assigneeIds.length > 0
+      ? await db.select().from(usersTable).where(inArray(usersTable.id, assigneeIds))
+      : [];
+    const assigneeMap = Object.fromEntries(assignees.map(u => [u.id, u.fullName]));
 
-  const totalPct = rawTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0);
-  const progress = rawTasks.length > 0 ? Math.round(totalPct / rawTasks.length) : 0;
+    const totalPct = rawTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0);
+    const progress = rawTasks.length > 0 ? Math.round(totalPct / rawTasks.length) : 0;
 
-  const pdfBuffer = generatePlanPDF({
-    title: plan.title,
-    description: plan.description ?? null,
-    type: plan.type,
-    status: plan.status,
-    startDate: plan.startDate ?? null,
-    endDate: plan.endDate ?? null,
-    progress,
-    phases: phases.map(ph => ({ title: ph.title, status: ph.status, startDate: ph.startDate ?? null, endDate: ph.endDate ?? null })),
-    tasks: rawTasks.map(t => ({ title: t.title, status: t.status, priority: t.priority, dueDate: t.dueDate ?? null, completionPercent: t.completionPercent, assigneeName: t.assigneeId ? (assigneeMap[t.assigneeId] ?? null) : null })),
-    decisions: rawDecisions.map(d => ({ title: d.title ?? null, content: d.content, status: d.status ?? "approved", createdAt: d.createdAt.toISOString() })),
-  });
+    const pdfBuffer = generatePlanPDF({
+      title: plan.title,
+      description: plan.description ?? null,
+      type: plan.type,
+      status: plan.status,
+      startDate: plan.startDate ?? null,
+      endDate: plan.endDate ?? null,
+      progress,
+      phases: phases.map(ph => ({ title: ph.title, status: ph.status, startDate: ph.startDate ?? null, endDate: ph.endDate ?? null })),
+      tasks: rawTasks.map(t => ({ title: t.title, status: t.status, priority: t.priority, dueDate: t.dueDate ?? null, completionPercent: t.completionPercent, assigneeName: t.assigneeId ? (assigneeMap[t.assigneeId] ?? null) : null })),
+      decisions: rawDecisions.map(d => ({ title: d.title ?? null, content: d.content, status: d.status ?? "approved", createdAt: d.createdAt.toISOString() })),
+    });
 
-  res.set({
-    "Content-Type": "application/pdf",
-    "Content-Disposition": `attachment; filename="plan-${id}.pdf"`,
-    "Content-Length": pdfBuffer.length,
-  });
-  res.send(pdfBuffer);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="plan-${id}.pdf"`,
+      "Content-Length": pdfBuffer.length,
+    });
+    res.send(pdfBuffer);
+  } catch (err: any) {
+    console.error("Plan PDF export error:", err?.message ?? err);
+    res.status(500).json({ error: "فشل تصدير PDF" });
+  }
 });
 
 // GET /export/plan/:id/excel
@@ -291,113 +294,74 @@ router.get("/export/plan/:id/excel", async (req, res): Promise<void> => {
   res.send(buffer);
 });
 
-// GET /export/plan/:id/word — DOCX via docxtemplater
+// GET /export/plan/:id/word — DOCX via docx package
 router.get("/export/plan/:id/word", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id));
-  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
-
-  const [phases, workstreams, rawTasks] = await Promise.all([
-    db.select().from(planPhasesTable).where(eq(planPhasesTable.planId, id)).orderBy(planPhasesTable.orderIndex),
-    db.select().from(planWorksstreamsTable).where(eq(planWorksstreamsTable.planId, id)).orderBy(planWorksstreamsTable.orderIndex),
-    db.select().from(tasksTable).where(eq(tasksTable.planId, id)),
-  ]);
-
-  let ownerName = "";
-  if (plan.ownerId) {
-    const [owner] = await db.select().from(usersTable).where(eq(usersTable.id, plan.ownerId));
-    ownerName = owner?.fullName ?? "";
-  }
-
-  const assigneeIds = [...new Set(rawTasks.map(t => t.assigneeId).filter(Boolean))] as number[];
-  const assigneeMap = assigneeIds.length > 0
-    ? Object.fromEntries(
-        (await db.select().from(usersTable).where(inArray(usersTable.id, assigneeIds))).map(u => [u.id, u.fullName])
-      )
-    : {} as Record<number, string>;
-
-  const totalPct = rawTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0);
-  const overallProgress = rawTasks.length > 0 ? Math.round(totalPct / rawTasks.length) : 0;
-
-  const STATUS_LABELS: Record<string, string> = {
-    draft: "مسودة", active: "نشطة", in_progress: "قيد التنفيذ",
-    on_hold: "معلّقة", overdue: "متأخرة", completed: "مكتملة", pending: "قيد الانتظار",
-  };
-  const TYPE_LABELS: Record<string, string> = { operational: "تشغيلية", readiness: "جاهزية" };
-
-  const data = {
-    plan: {
-      name: plan.title,
-      type: TYPE_LABELS[plan.type] ?? plan.type,
-      status: STATUS_LABELS[plan.status] ?? plan.status,
-      owner: ownerName,
-      entity: "",
-      startDate: plan.startDate ?? "—",
-      endDate: plan.endDate ?? "—",
-      priority: "—",
-      progress: overallProgress,
-      summary: plan.description ?? plan.notes ?? "",
-      phases: phases.map(ph => {
-        const phaseTasks = rawTasks.filter(t => (t as any).phaseId === ph.id);
-        const phPct = phaseTasks.length > 0
-          ? Math.round(phaseTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0) / phaseTasks.length)
-          : 0;
-        return {
-          name: ph.title,
-          startDate: ph.startDate ?? "—",
-          endDate: ph.endDate ?? "—",
-          status: STATUS_LABELS[ph.status] ?? ph.status,
-          progress: phPct,
-        };
-      }),
-      workstreams: workstreams.map(ws => {
-        const wsTasks = rawTasks.filter(t => t.workstreamId === ws.id);
-        const wsPct = wsTasks.length > 0
-          ? Math.round(wsTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0) / wsTasks.length)
-          : 0;
-        return {
-          name: ws.title,
-          progress: wsPct,
-          tasks: wsTasks.map(t => ({
-            title: t.title,
-            assignee: t.assigneeId ? (assigneeMap[t.assigneeId] ?? "—") : "—",
-            status: STATUS_LABELS[t.status] ?? t.status,
-            progress: t.completionPercent ?? 0,
-          })),
-        };
-      }),
-      relatedPlans: [],
-    },
-    export: {
-      date: new Date().toLocaleDateString("ar-SA"),
-    },
-  };
-
   try {
-    // Dynamic import to avoid bundling (externalized in esbuild)
-    const PizZip = (await import("pizzip")).default;
-    const Docxtemplater = (await import("docxtemplater")).default;
+    const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id));
+    if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
 
-    const __dir = path.dirname(fileURLToPath(import.meta.url));
-    const templatePath = path.join(__dir, "templates", "plan-export-template.docx");
-    const templateBuf = readFileSync(templatePath);
+    const [phases, workstreams, rawTasks, rawDecisions] = await Promise.all([
+      db.select().from(planPhasesTable).where(eq(planPhasesTable.planId, id)).orderBy(planPhasesTable.orderIndex),
+      db.select().from(planWorksstreamsTable).where(eq(planWorksstreamsTable.planId, id)).orderBy(planWorksstreamsTable.orderIndex),
+      db.select().from(tasksTable).where(eq(tasksTable.planId, id)),
+      db.select().from(decisionsTable).where(eq(decisionsTable.planId, id)),
+    ]);
 
-    const zip = new PizZip(templateBuf);
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
-    doc.render(data);
-    const outputBuf = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
+    let ownerName = "";
+    if (plan.ownerId) {
+      const [owner] = await db.select().from(usersTable).where(eq(usersTable.id, plan.ownerId));
+      ownerName = owner?.fullName ?? "";
+    }
+
+    const assigneeIds = [...new Set(rawTasks.map(t => t.assigneeId).filter(Boolean))] as number[];
+    const assigneeMap: Record<number, string> = assigneeIds.length > 0
+      ? Object.fromEntries(
+          (await db.select().from(usersTable).where(inArray(usersTable.id, assigneeIds))).map(u => [u.id, u.fullName])
+        )
+      : {};
+
+    const totalPct = rawTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0);
+    const progress = rawTasks.length > 0 ? Math.round(totalPct / rawTasks.length) : 0;
+
+    const buffer = await generatePlanDocx({
+      title: plan.title,
+      description: plan.description ?? null,
+      notes: plan.notes ?? null,
+      type: plan.type,
+      status: plan.status,
+      startDate: plan.startDate ?? null,
+      endDate: plan.endDate ?? null,
+      ownerName,
+      progress,
+      phases: phases.map(ph => ({ title: ph.title, status: ph.status, startDate: ph.startDate ?? null, endDate: ph.endDate ?? null })),
+      workstreams: workstreams.map(ws => ({
+        title: ws.title,
+        tasks: rawTasks.filter(t => t.workstreamId === ws.id).map(t => ({
+          title: t.title, status: t.status,
+          assigneeName: t.assigneeId ? (assigneeMap[t.assigneeId] ?? null) : null,
+          completionPercent: t.completionPercent ?? 0, dueDate: t.dueDate ?? null,
+        })),
+      })),
+      tasks: rawTasks.map(t => ({
+        title: t.title, status: t.status, priority: t.priority,
+        dueDate: t.dueDate ?? null, completionPercent: t.completionPercent ?? 0,
+        assigneeName: t.assigneeId ? (assigneeMap[t.assigneeId] ?? null) : null,
+      })),
+      decisions: rawDecisions.map(d => ({ title: d.title ?? null, content: d.content, status: d.status ?? "approved" })),
+    });
 
     const safeName = plan.title.replace(/[^؀-ۿa-zA-Z0-9]/g, "-").slice(0, 40);
     res.set({
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "Content-Disposition": `attachment; filename="plan-${id}-${safeName}.docx"`,
-      "Content-Length": outputBuf.length,
+      "Content-Length": buffer.length,
     });
-    res.send(outputBuf);
+    res.send(buffer);
   } catch (err: any) {
-    console.error("Word export error:", err?.message ?? err);
+    console.error("Plan Word export error:", err?.message ?? err);
     res.status(500).json({ error: "فشل تصدير Word" });
   }
 });

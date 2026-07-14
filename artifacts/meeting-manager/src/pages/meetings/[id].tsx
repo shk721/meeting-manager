@@ -100,30 +100,44 @@ const AGENDA_STATUS_STYLE: Record<string, { bg: string; color: string; label: st
   cancelled: { bg: "#fbeeea", color: "#c0492f",  label: "ملغى" },
 };
 
+const OUTCOME_OPTIONS = [
+  { value: "pending",   label: "معلّق",        color: "#8a978a" },
+  { value: "discussed", label: "نوقش",         color: "#1f7a4d" },
+  { value: "decided",   label: "قُرِّر",        color: "#1a6dc2" },
+  { value: "deferred",  label: "مؤجَّل",        color: "#a97918" },
+  { value: "cancelled", label: "ملغى",         color: "#c0492f" },
+];
+
+const S: Record<string, React.CSSProperties> = {
+  sectionLabel: { fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 4 },
+  addBtn: { fontSize: 11, padding: "1px 7px", borderRadius: 5, background: "#f0f5f0", color: "#3a6a4a", border: "1px solid #d0ddd0", cursor: "pointer" },
+  miniInput: { flex: 1, fontSize: 12, padding: "3px 7px", borderRadius: 5, border: "1px solid #d0d8d0", outline: "none" },
+  saveBtn: { fontSize: 11, padding: "3px 9px", borderRadius: 5, background: "#1f7a4d", color: "#fff", border: "none", cursor: "pointer" },
+  cancelBtn: { fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "#f0f4f0", color: "#5a675a", border: "none", cursor: "pointer" },
+};
+
 function AgendaItemDetail({ item, onClose }: { item: any; onClose: () => void }) {
   const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["agenda-item-detail", item.id] });
+
+  // comments
   const [newComment, setNewComment] = useState("");
   const [addingComment, setAddingComment] = useState(false);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
 
-  async function generatePdf() {
-    setGeneratingPdf(true);
-    try {
-      const res = await fetch("/api/documents/generate", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entityType: "agenda_item", entityId: item.id }),
-      });
-      if (!res.ok) throw new Error();
-      const { downloadUrl } = await res.json();
-      window.open(downloadUrl, "_blank");
-    } catch {
-      alert("تعذّر توليد التقرير");
-    } finally {
-      setGeneratingPdf(false);
-    }
-  }
+  // outcome + notes editing
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState("");
+
+  // inline add forms
+  const [addingDecision, setAddingDecision] = useState(false);
+  const [decisionContent, setDecisionContent] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [addingDeliverable, setAddingDeliverable] = useState(false);
+  const [deliverableTitle, setDeliverableTitle] = useState("");
+
+  // PDF
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const { data: detail } = useQuery<any>({
     queryKey: ["agenda-item-detail", item.id],
@@ -134,89 +148,183 @@ function AgendaItemDetail({ item, onClose }: { item: any; onClose: () => void })
     },
   });
 
+  const patchItem = useMutation({
+    mutationFn: (body: any) => apiFetch(`/api/agenda-items/${item.id}`, "PATCH", body),
+    onSuccess: invalidate,
+  });
+
   const postComment = useMutation({
     mutationFn: (content: string) => apiFetch(`/api/agenda-items/${item.id}/comments`, "POST", { content }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agenda-item-detail", item.id] }); setNewComment(""); setAddingComment(false); },
+    onSuccess: () => { invalidate(); setNewComment(""); setAddingComment(false); },
   });
 
   const deleteComment = useMutation({
     mutationFn: (commentId: number) => apiFetch(`/api/agenda-items/${item.id}/comments/${commentId}`, "DELETE"),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agenda-item-detail", item.id] }),
+    onSuccess: invalidate,
   });
+
+  const addDecision = useMutation({
+    mutationFn: (content: string) => apiFetch("/api/decisions", "POST", { content, meetingId: item.meetingId, agendaItemId: item.id }),
+    onSuccess: () => { invalidate(); setDecisionContent(""); setAddingDecision(false); },
+  });
+
+  const addTask = useMutation({
+    mutationFn: (title: string) => apiFetch("/api/tasks", "POST", { title, meetingId: item.meetingId, agendaItemId: item.id, status: "open", priority: "medium" }),
+    onSuccess: () => { invalidate(); setTaskTitle(""); setAddingTask(false); },
+  });
+
+  const addDeliverable = useMutation({
+    mutationFn: (title: string) => apiFetch("/api/deliverables", "POST", { title, agendaItemId: item.id, status: "pending" }),
+    onSuccess: () => { invalidate(); setDeliverableTitle(""); setAddingDeliverable(false); },
+  });
+
+  async function generatePdf() {
+    setGeneratingPdf(true);
+    try {
+      const res = await fetch("/api/documents/generate", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "agenda_item", entityId: item.id }),
+      });
+      if (!res.ok) throw new Error();
+      const { downloadUrl } = await res.json();
+      window.open(downloadUrl, "_blank");
+    } catch { alert("تعذّر توليد التقرير"); }
+    finally { setGeneratingPdf(false); }
+  }
 
   const decisions: any[] = detail?.decisions ?? [];
   const tasks: any[] = detail?.tasks ?? [];
   const deliverables: any[] = detail?.deliverables ?? [];
   const comments: any[] = detail?.comments ?? [];
-
-  const OUTCOME_LABELS: Record<string, string> = {
-    pending: "معلّق", discussed: "نوقش", decided: "قُرِّر", deferred: "مؤجل", cancelled: "ملغى",
-  };
-  const OUTCOME_COLORS: Record<string, string> = {
-    pending: "#8a978a", discussed: "#1f7a4d", decided: "#1a6dc2", deferred: "#a97918", cancelled: "#c0492f",
-  };
+  const outcomeStatus: string = detail?.outcomeStatus ?? item.outcomeStatus ?? "pending";
+  const currentOutcome = OUTCOME_OPTIONS.find(o => o.value === outcomeStatus) ?? OUTCOME_OPTIONS[0];
 
   return (
-    <div style={{ borderTop: "1px solid #e6ece4", marginTop: 4 }}>
-      {/* شريط الإجراءات */}
-      <div style={{ display: "flex", justifyContent: "flex-end", padding: "6px 12px 0" }}>
-        <button
-          onClick={generatingPdf ? undefined : generatePdf}
-          disabled={generatingPdf}
-          style={{ fontSize: 11, padding: "3px 10px", borderRadius: 6, background: generatingPdf ? "#c8d8c8" : "#1f7a4d", color: "#fff", border: "none", cursor: generatingPdf ? "default" : "pointer", fontWeight: 600 }}
+    <div style={{ borderTop: "1px solid #e6ece4" }}>
+
+      {/* ── شريط الإجراءات ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "#f8faf8", borderBottom: "1px solid #eef2ee" }}>
+        {/* outcomeStatus */}
+        <span style={{ fontSize: 11, color: "#8a978a" }}>نتيجة المناقشة:</span>
+        <select
+          value={outcomeStatus}
+          onChange={e => patchItem.mutate({ outcomeStatus: e.target.value })}
+          style={{ fontSize: 11, padding: "2px 6px", borderRadius: 5, border: "1px solid #c8d8c0", background: "#fff", color: currentOutcome.color, fontWeight: 600, cursor: "pointer" }}
         >
-          {generatingPdf ? "جارٍ التوليد..." : "📄 توليد PDF"}
-        </button>
+          {OUTCOME_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={generatingPdf ? undefined : generatePdf} disabled={generatingPdf}
+          style={{ fontSize: 11, padding: "3px 10px", borderRadius: 6, background: generatingPdf ? "#c8d8c8" : "#1f7a4d", color: "#fff", border: "none", cursor: generatingPdf ? "default" : "pointer", fontWeight: 600 }}
+        >{generatingPdf ? "جارٍ التوليد..." : "📄 توليد PDF"}</button>
       </div>
 
-      {/* ملاحظات النقاش */}
-      {(detail?.discussionNotes || detail?.notes) && (
-        <div style={{ padding: "8px 12px", background: "#f8faf8", fontSize: 13, color: "#3a4a3a" }}>
-          {detail.discussionNotes || detail.notes}
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 16, padding: "10px 12px", flexWrap: "wrap" }}>
-        {/* القرارات */}
-        {decisions.length > 0 && (
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 4 }}>القرارات ({decisions.length})</div>
-            {decisions.map((d: any) => (
-              <div key={d.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c", borderBottom: "1px solid #f0f4f0" }}>
-                {d.title || d.content.slice(0, 60)}
-                {d.content.length > 60 && "…"}
-              </div>
-            ))}
+      {/* ── ملاحظات النقاش ── */}
+      <div style={{ padding: "8px 12px", borderBottom: "1px solid #f0f4f0" }}>
+        {editingNotes ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <textarea
+              autoFocus
+              value={notesValue}
+              onChange={e => setNotesValue(e.target.value)}
+              rows={3}
+              placeholder="ملاحظات النقاش..."
+              style={{ fontSize: 12, padding: "6px 8px", borderRadius: 6, border: "1px solid #c8d8c0", resize: "vertical", outline: "none", fontFamily: "inherit" }}
+            />
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => { patchItem.mutate({ discussionNotes: notesValue }); setEditingNotes(false); }} style={S.saveBtn}>حفظ</button>
+              <button onClick={() => setEditingNotes(false)} style={S.cancelBtn}>إلغاء</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <span style={{ fontSize: 12, color: detail?.discussionNotes ? "#3a4a3a" : "#b0bdb0", flex: 1 }}>
+              {detail?.discussionNotes || "لا توجد ملاحظات نقاش بعد"}
+            </span>
+            <button
+              onClick={() => { setNotesValue(detail?.discussionNotes ?? ""); setEditingNotes(true); }}
+              style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "none", border: "1px solid #d0ddd0", color: "#7a8a7a", cursor: "pointer", flexShrink: 0 }}
+            >✏️ تعديل</button>
           </div>
         )}
+      </div>
+
+      {/* ── الأقسام: قرارات / مهام / مخرجات ── */}
+      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #f0f4f0" }}>
+
+        {/* القرارات */}
+        <div style={{ flex: 1, padding: "8px 12px", borderLeft: "1px solid #f0f4f0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <span style={S.sectionLabel}>القرارات {decisions.length > 0 && `(${decisions.length})`}</span>
+            <button onClick={() => setAddingDecision(v => !v)} style={S.addBtn}>+ إضافة</button>
+          </div>
+          {decisions.map((d: any) => (
+            <div key={d.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c", borderBottom: "1px solid #f6f8f6" }}>
+              {d.title || (d.content.length > 55 ? d.content.slice(0, 55) + "…" : d.content)}
+            </div>
+          ))}
+          {addingDecision && (
+            <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+              <input autoFocus value={decisionContent} onChange={e => setDecisionContent(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && decisionContent.trim()) addDecision.mutate(decisionContent.trim()); if (e.key === "Escape") { setAddingDecision(false); setDecisionContent(""); } }}
+                placeholder="نص القرار..." style={S.miniInput} />
+              <button onClick={() => decisionContent.trim() && addDecision.mutate(decisionContent.trim())} disabled={!decisionContent.trim() || addDecision.isPending} style={S.saveBtn}>+</button>
+              <button onClick={() => { setAddingDecision(false); setDecisionContent(""); }} style={S.cancelBtn}>×</button>
+            </div>
+          )}
+        </div>
 
         {/* المهام */}
-        {tasks.length > 0 && (
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 4 }}>المهام ({tasks.length})</div>
-            {tasks.map((t: any) => (
-              <div key={t.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c", display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.status === "completed" ? "#1f7a4d" : "#e0a020", flexShrink: 0 }} />
-                {t.title}
-              </div>
-            ))}
+        <div style={{ flex: 1, padding: "8px 12px", borderLeft: "1px solid #f0f4f0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <span style={S.sectionLabel}>المهام {tasks.length > 0 && `(${tasks.length})`}</span>
+            <button onClick={() => setAddingTask(v => !v)} style={S.addBtn}>+ إضافة</button>
           </div>
-        )}
+          {tasks.map((t: any) => (
+            <div key={t.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c", display: "flex", gap: 5, alignItems: "center" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.status === "completed" ? "#1f7a4d" : "#e0a020", flexShrink: 0 }} />
+              {t.title}
+            </div>
+          ))}
+          {addingTask && (
+            <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+              <input autoFocus value={taskTitle} onChange={e => setTaskTitle(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && taskTitle.trim()) addTask.mutate(taskTitle.trim()); if (e.key === "Escape") { setAddingTask(false); setTaskTitle(""); } }}
+                placeholder="عنوان المهمة..." style={S.miniInput} />
+              <button onClick={() => taskTitle.trim() && addTask.mutate(taskTitle.trim())} disabled={!taskTitle.trim() || addTask.isPending} style={S.saveBtn}>+</button>
+              <button onClick={() => { setAddingTask(false); setTaskTitle(""); }} style={S.cancelBtn}>×</button>
+            </div>
+          )}
+        </div>
 
         {/* المخرجات */}
-        {deliverables.length > 0 && (
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 4 }}>المخرجات ({deliverables.length})</div>
-            {deliverables.map((d: any) => (
-              <div key={d.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c" }}>
-                {d.title} <span style={{ color: "#8a978a" }}>({d.progressPercent}%)</span>
-              </div>
-            ))}
+        <div style={{ flex: 1, padding: "8px 12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <span style={S.sectionLabel}>المخرجات {deliverables.length > 0 && `(${deliverables.length})`}</span>
+            <button onClick={() => setAddingDeliverable(v => !v)} style={S.addBtn}>+ إضافة</button>
           </div>
-        )}
+          {deliverables.map((d: any) => (
+            <div key={d.id} style={{ fontSize: 12, padding: "3px 0", color: "#1c261c" }}>
+              {d.title} <span style={{ color: "#8a978a" }}>({d.progressPercent ?? 0}%)</span>
+            </div>
+          ))}
+          {addingDeliverable && (
+            <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+              <input autoFocus value={deliverableTitle} onChange={e => setDeliverableTitle(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && deliverableTitle.trim()) addDeliverable.mutate(deliverableTitle.trim()); if (e.key === "Escape") { setAddingDeliverable(false); setDeliverableTitle(""); } }}
+                placeholder="عنوان المخرج..." style={S.miniInput} />
+              <button onClick={() => deliverableTitle.trim() && addDeliverable.mutate(deliverableTitle.trim())} disabled={!deliverableTitle.trim() || addDeliverable.isPending} style={S.saveBtn}>+</button>
+              <button onClick={() => { setAddingDeliverable(false); setDeliverableTitle(""); }} style={S.cancelBtn}>×</button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* التعليقات */}
+      {/* ── التعليقات ── */}
       <div style={{ padding: "6px 12px 10px" }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#5a675a", marginBottom: 6 }}>
           التعليقات {comments.length > 0 && `(${comments.length})`}
@@ -230,18 +338,13 @@ function AgendaItemDetail({ item, onClose }: { item: any; onClose: () => void })
                 {new Date(c.createdAt).toLocaleString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
-            <button
-              onClick={() => deleteComment.mutate(c.id)}
-              className="opacity-0 group-hover:opacity-100"
-              style={{ border: "none", background: "none", color: "#c0492f", cursor: "pointer", fontSize: 14, lineHeight: 1, flexShrink: 0 }}
-            >×</button>
+            <button onClick={() => deleteComment.mutate(c.id)} className="opacity-0 group-hover:opacity-100"
+              style={{ border: "none", background: "none", color: "#c0492f", cursor: "pointer", fontSize: 14, lineHeight: 1, flexShrink: 0 }}>×</button>
           </div>
         ))}
         {addingComment ? (
           <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-            <input
-              autoFocus
-              value={newComment}
+            <input autoFocus value={newComment}
               onChange={e => setNewComment(e.target.value)}
               onKeyDown={e => {
                 if (e.key === "Enter" && newComment.trim()) postComment.mutate(newComment.trim());
@@ -250,13 +353,10 @@ function AgendaItemDetail({ item, onClose }: { item: any; onClose: () => void })
               placeholder="أضف تعليقاً..."
               style={{ flex: 1, fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid #d0d8d0", outline: "none" }}
             />
-            <button
-              onClick={() => { if (newComment.trim()) postComment.mutate(newComment.trim()); }}
+            <button onClick={() => { if (newComment.trim()) postComment.mutate(newComment.trim()); }}
               disabled={!newComment.trim() || postComment.isPending}
-              style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, background: "#1f7a4d", color: "#fff", border: "none", cursor: "pointer" }}
-            >إرسال</button>
-            <button
-              onClick={() => { setAddingComment(false); setNewComment(""); }}
+              style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, background: "#1f7a4d", color: "#fff", border: "none", cursor: "pointer" }}>إرسال</button>
+            <button onClick={() => { setAddingComment(false); setNewComment(""); }}
               style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, background: "#f0f4f0", color: "#5a675a", border: "none", cursor: "pointer" }}
             >إلغاء</button>
           </div>

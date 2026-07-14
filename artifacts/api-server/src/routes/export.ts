@@ -326,7 +326,7 @@ router.get("/export/plan/:id/word", async (req, res): Promise<void> => {
     const totalPct = rawTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0);
     const progress = rawTasks.length > 0 ? Math.round(totalPct / rawTasks.length) : 0;
 
-    const buffer = await generatePlanDocx({
+    const buffer = generatePlanDocx({
       title: plan.title,
       description: plan.description ?? null,
       notes: plan.notes ?? null,
@@ -355,8 +355,8 @@ router.get("/export/plan/:id/word", async (req, res): Promise<void> => {
 
     const safeName = plan.title.replace(/[^؀-ۿa-zA-Z0-9]/g, "-").slice(0, 40);
     res.set({
-      "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="plan-${id}-${safeName}.docx"`,
+      "Content-Type": "application/msword",
+      "Content-Disposition": `attachment; filename="plan-${id}-${safeName}.doc"`,
       "Content-Length": buffer.length,
     });
     res.send(buffer);

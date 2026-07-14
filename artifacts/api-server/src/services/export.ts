@@ -367,101 +367,99 @@ const STATUS_LABELS_AR: Record<string, string> = {
   cancelled: "ملغاة", approved: "معتمد",
 };
 
-export async function generatePlanDocx(data: PlanDocxData): Promise<Buffer> {
-  const p = (text: string, opts?: { bold?: boolean; size?: number; indent?: boolean }) =>
-    new Paragraph({
-      bidirectional: true,
-      alignment: AlignmentType.RIGHT,
-      spacing: { after: 80 },
-      indent: opts?.indent ? { right: 360 } : undefined,
-      children: [
-        new TextRun({ text, bold: opts?.bold ?? false, size: opts?.size ?? 22, rightToLeft: true, font: "Arial" }),
-      ],
-    });
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
-  const heading = (text: string) =>
-    new Paragraph({
-      bidirectional: true,
-      alignment: AlignmentType.RIGHT,
-      spacing: { before: 280, after: 120 },
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "1f7a4d", space: 4 } },
-      children: [new TextRun({ text, bold: true, size: 28, color: "1f7a4d", rightToLeft: true, font: "Arial" })],
-    });
-
-  const blank = () => new Paragraph({ children: [new TextRun({ text: "" })] });
-
-  const children: Paragraph[] = [];
-
-  // ── Title ──
-  children.push(
-    new Paragraph({
-      bidirectional: true,
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 160 },
-      children: [new TextRun({ text: data.title, bold: true, size: 44, rightToLeft: true, font: "Arial" })],
-    })
-  );
-
-  // ── Meta ──
+export function generatePlanDocx(data: PlanDocxData): Buffer {
   const typeLabel = data.type === "readiness" ? "جاهزية" : "تشغيلية";
   const statusLabel = STATUS_LABELS_AR[data.status] ?? data.status;
-  children.push(p(`النوع: ${typeLabel}   |   الحالة: ${statusLabel}   |   التقدم: ${data.progress}%`, { size: 22 }));
-  if (data.ownerName) children.push(p(`المسؤول: ${data.ownerName}`, { size: 22 }));
-  if (data.startDate || data.endDate) children.push(p(`الفترة: ${data.startDate ?? "—"}  ←  ${data.endDate ?? "—"}`, { size: 22 }));
-  children.push(blank());
 
-  // ── Description ──
+  const metaRows = [
+    `<tr><th>النوع</th><td>${escHtml(typeLabel)}</td></tr>`,
+    `<tr><th>الحالة</th><td>${escHtml(statusLabel)}</td></tr>`,
+    `<tr><th>التقدم</th><td>${data.progress}%</td></tr>`,
+    data.ownerName ? `<tr><th>المسؤول</th><td>${escHtml(data.ownerName)}</td></tr>` : "",
+    data.startDate ? `<tr><th>تاريخ البداية</th><td>${escHtml(data.startDate)}</td></tr>` : "",
+    data.endDate ? `<tr><th>تاريخ النهاية</th><td>${escHtml(data.endDate)}</td></tr>` : "",
+  ].filter(Boolean).join("\n");
+
   const summary = data.description ?? data.notes;
-  if (summary) {
-    children.push(heading("الوصف"));
-    for (const line of summary.split("\n").filter(Boolean)) children.push(p(line));
-    children.push(blank());
-  }
+  const descSection = summary
+    ? `<h2>الوصف</h2><p>${escHtml(summary).replace(/\n/g, "<br>")}</p>`
+    : "";
 
-  // ── Phases ──
-  if (data.phases.length > 0) {
-    children.push(heading("المراحل"));
-    data.phases.forEach((ph, i) => {
-      const dates = [ph.startDate, ph.endDate].filter(Boolean).join(" — ");
-      children.push(p(`${i + 1}. ${ph.title}   [${STATUS_LABELS_AR[ph.status] ?? ph.status}]${dates ? "   |   " + dates : ""}`, { bold: false }));
-    });
-    children.push(blank());
-  }
+  const phasesSection = data.phases.length > 0 ? `
+    <h2>المراحل</h2>
+    <table>
+      <thead><tr><th>المرحلة</th><th>الحالة</th><th>البداية</th><th>النهاية</th></tr></thead>
+      <tbody>
+        ${data.phases.map(ph => `<tr>
+          <td>${escHtml(ph.title)}</td>
+          <td>${escHtml(STATUS_LABELS_AR[ph.status] ?? ph.status)}</td>
+          <td>${escHtml(ph.startDate ?? "—")}</td>
+          <td>${escHtml(ph.endDate ?? "—")}</td>
+        </tr>`).join("\n")}
+      </tbody>
+    </table>` : "";
 
-  // ── Tasks ──
-  if (data.tasks.length > 0) {
-    children.push(heading("المهام"));
-    data.tasks.forEach((t, i) => {
-      const assignee = t.assigneeName ? `   |   المكلّف: ${t.assigneeName}` : "";
-      const due = t.dueDate ? `   |   الاستحقاق: ${t.dueDate}` : "";
-      const pct = t.completionPercent > 0 ? `   |   الإنجاز: ${t.completionPercent}%` : "";
-      children.push(p(`${i + 1}. [${STATUS_LABELS_AR[t.status] ?? t.status}] ${t.title}${pct}${assignee}${due}`));
-    });
-    children.push(blank());
-  }
+  const tasksSection = data.tasks.length > 0 ? `
+    <h2>المهام</h2>
+    <table>
+      <thead><tr><th>المهمة</th><th>الحالة</th><th>الإنجاز</th><th>المكلّف</th><th>الاستحقاق</th></tr></thead>
+      <tbody>
+        ${data.tasks.map(t => `<tr>
+          <td>${escHtml(t.title)}</td>
+          <td>${escHtml(STATUS_LABELS_AR[t.status] ?? t.status)}</td>
+          <td>${t.completionPercent}%</td>
+          <td>${escHtml(t.assigneeName ?? "—")}</td>
+          <td>${escHtml(t.dueDate ?? "—")}</td>
+        </tr>`).join("\n")}
+      </tbody>
+    </table>` : "";
 
-  // ── Decisions ──
-  if (data.decisions.length > 0) {
-    children.push(heading("القرارات"));
-    data.decisions.forEach((d, i) => {
-      const label = d.title ?? d.content.slice(0, 100);
-      children.push(p(`${i + 1}. [${STATUS_LABELS_AR[d.status] ?? d.status}] ${label}`));
-    });
-    children.push(blank());
-  }
+  const decisionsSection = data.decisions.length > 0 ? `
+    <h2>القرارات</h2>
+    <ol>
+      ${data.decisions.map(d => {
+        const label = d.title ?? d.content.slice(0, 120);
+        return `<li>[${escHtml(STATUS_LABELS_AR[d.status] ?? d.status)}] ${escHtml(label)}</li>`;
+      }).join("\n")}
+    </ol>` : "";
 
-  // ── Footer ──
-  children.push(
-    new Paragraph({
-      bidirectional: true,
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 400 },
-      children: [new TextRun({ text: "وثيقة مولَّدة تلقائياً — منصة المتابعة والتنفيذ المؤسسي", size: 18, color: "a3b0a3", rightToLeft: true, font: "Arial" })],
-    })
-  );
+  const html = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>${escHtml(data.title)}</title>
+<style>
+  body { font-family: Arial, "Geeza Pro", sans-serif; direction: rtl; margin: 40px 50px; font-size: 12pt; color: #222; }
+  h1 { font-size: 22pt; text-align: center; color: #1f7a4d; margin-bottom: 4px; }
+  .subtitle { text-align: center; color: #666; font-size: 10pt; margin-bottom: 24px; }
+  h2 { font-size: 14pt; color: #1f7a4d; border-bottom: 2px solid #1f7a4d; padding-bottom: 3px; margin-top: 24px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11pt; }
+  th { background: #e8f2ea; color: #1f7a4d; padding: 7px 10px; border: 1px solid #b8d4bc; text-align: right; font-weight: bold; }
+  td { padding: 6px 10px; border: 1px solid #ccc; }
+  .meta-table th { width: 120px; }
+  ol, ul { padding-right: 20px; padding-left: 0; }
+  li { margin-bottom: 6px; }
+  .footer { text-align: center; color: #aaa; font-size: 9pt; margin-top: 48px; border-top: 1px solid #eee; padding-top: 8px; }
+</style>
+</head>
+<body>
+<h1>${escHtml(data.title)}</h1>
+<p class="subtitle">وثيقة مولَّدة تلقائياً — ${new Date().toLocaleDateString("ar-SA")}</p>
+<h2>معلومات الخطة</h2>
+<table class="meta-table"><tbody>${metaRows}</tbody></table>
+${descSection}
+${phasesSection}
+${tasksSection}
+${decisionsSection}
+<p class="footer">منصة المتابعة والتنفيذ المؤسسي</p>
+</body>
+</html>`;
 
-  const doc = new Document({ sections: [{ children }] });
-  return Packer.toBuffer(doc);
+  return Buffer.from(html, "utf-8");
 }
 
 // ─── Word (docx) export for meeting minutes ───────────────────────────────────

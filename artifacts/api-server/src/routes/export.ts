@@ -3,8 +3,11 @@ import { eq, inArray, and } from "drizzle-orm";
 import {
   db, meetingsTable, minutesTable, tasksTable, decisionsTable,
   meetingAttendeesTable, usersTable, reportSubscriptionsTable,
-  plansTable, planPhasesTable,
+  plansTable, planPhasesTable, planWorksstreamsTable,
 } from "@workspace/db";
+import { readFileSync } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   generateMeetingPDF,
   generateWeeklyReportPDF,
@@ -286,6 +289,117 @@ router.get("/export/plan/:id/excel", async (req, res): Promise<void> => {
     "Content-Length": buffer.length,
   });
   res.send(buffer);
+});
+
+// GET /export/plan/:id/word — DOCX via docxtemplater
+router.get("/export/plan/:id/word", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [plan] = await db.select().from(plansTable).where(eq(plansTable.id, id));
+  if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
+
+  const [phases, workstreams, rawTasks] = await Promise.all([
+    db.select().from(planPhasesTable).where(eq(planPhasesTable.planId, id)).orderBy(planPhasesTable.orderIndex),
+    db.select().from(planWorksstreamsTable).where(eq(planWorksstreamsTable.planId, id)).orderBy(planWorksstreamsTable.orderIndex),
+    db.select().from(tasksTable).where(eq(tasksTable.planId, id)),
+  ]);
+
+  let ownerName = "";
+  if (plan.ownerId) {
+    const [owner] = await db.select().from(usersTable).where(eq(usersTable.id, plan.ownerId));
+    ownerName = owner?.fullName ?? "";
+  }
+
+  const assigneeIds = [...new Set(rawTasks.map(t => t.assigneeId).filter(Boolean))] as number[];
+  const assigneeMap = assigneeIds.length > 0
+    ? Object.fromEntries(
+        (await db.select().from(usersTable).where(inArray(usersTable.id, assigneeIds))).map(u => [u.id, u.fullName])
+      )
+    : {} as Record<number, string>;
+
+  const totalPct = rawTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0);
+  const overallProgress = rawTasks.length > 0 ? Math.round(totalPct / rawTasks.length) : 0;
+
+  const STATUS_LABELS: Record<string, string> = {
+    draft: "مسودة", active: "نشطة", in_progress: "قيد التنفيذ",
+    on_hold: "معلّقة", overdue: "متأخرة", completed: "مكتملة", pending: "قيد الانتظار",
+  };
+  const TYPE_LABELS: Record<string, string> = { operational: "تشغيلية", readiness: "جاهزية" };
+
+  const data = {
+    plan: {
+      name: plan.title,
+      type: TYPE_LABELS[plan.type] ?? plan.type,
+      status: STATUS_LABELS[plan.status] ?? plan.status,
+      owner: ownerName,
+      entity: "",
+      startDate: plan.startDate ?? "—",
+      endDate: plan.endDate ?? "—",
+      priority: "—",
+      progress: overallProgress,
+      summary: plan.description ?? plan.notes ?? "",
+      phases: phases.map(ph => {
+        const phaseTasks = rawTasks.filter(t => (t as any).phaseId === ph.id);
+        const phPct = phaseTasks.length > 0
+          ? Math.round(phaseTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0) / phaseTasks.length)
+          : 0;
+        return {
+          name: ph.title,
+          startDate: ph.startDate ?? "—",
+          endDate: ph.endDate ?? "—",
+          status: STATUS_LABELS[ph.status] ?? ph.status,
+          progress: phPct,
+        };
+      }),
+      workstreams: workstreams.map(ws => {
+        const wsTasks = rawTasks.filter(t => t.workstreamId === ws.id);
+        const wsPct = wsTasks.length > 0
+          ? Math.round(wsTasks.reduce((s, t) => s + (t.completionPercent ?? 0), 0) / wsTasks.length)
+          : 0;
+        return {
+          name: ws.title,
+          progress: wsPct,
+          tasks: wsTasks.map(t => ({
+            title: t.title,
+            assignee: t.assigneeId ? (assigneeMap[t.assigneeId] ?? "—") : "—",
+            status: STATUS_LABELS[t.status] ?? t.status,
+            progress: t.completionPercent ?? 0,
+          })),
+        };
+      }),
+      relatedPlans: [],
+    },
+    export: {
+      date: new Date().toLocaleDateString("ar-SA"),
+    },
+  };
+
+  try {
+    // Dynamic import to avoid bundling (externalized in esbuild)
+    const PizZip = (await import("pizzip")).default;
+    const Docxtemplater = (await import("docxtemplater")).default;
+
+    const __dir = path.dirname(fileURLToPath(import.meta.url));
+    const templatePath = path.join(__dir, "templates", "plan-export-template.docx");
+    const templateBuf = readFileSync(templatePath);
+
+    const zip = new PizZip(templateBuf);
+    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+    doc.render(data);
+    const outputBuf = doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
+
+    const safeName = plan.title.replace(/[^؀-ۿa-zA-Z0-9]/g, "-").slice(0, 40);
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Disposition": `attachment; filename="plan-${id}-${safeName}.docx"`,
+      "Content-Length": outputBuf.length,
+    });
+    res.send(outputBuf);
+  } catch (err: any) {
+    console.error("Word export error:", err?.message ?? err);
+    res.status(500).json({ error: "فشل تصدير Word" });
+  }
 });
 
 // POST /export/subscribe

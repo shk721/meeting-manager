@@ -6,7 +6,8 @@ cmds = [
   "pnpm --filter @workspace/meeting-manager run build",
   "BASE_PATH=/dt/ pnpm --filter @workspace/dt-dashboard run build",
   "BASE_PATH=/committees/ pnpm --filter @workspace/committees run build",
-  "pnpm --filter @workspace/api-server run build"
+  "pnpm --filter @workspace/api-server run build",
+  "pnpm exec playwright install --with-deps chromium"
 ]
 
 [start]

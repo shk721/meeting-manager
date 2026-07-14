@@ -353,10 +353,11 @@ router.get("/export/plan/:id/word", async (req, res): Promise<void> => {
       decisions: rawDecisions.map(d => ({ title: d.title ?? null, content: d.content, status: d.status ?? "approved" })),
     });
 
-    const safeName = plan.title.replace(/[^؀-ۿa-zA-Z0-9]/g, "-").slice(0, 40);
+    // HTTP headers only allow ASCII; use RFC 5987 filename* for the Arabic title
+    const utf8Name = encodeURIComponent(`${plan.title}-${id}.doc`);
     res.set({
       "Content-Type": "application/msword",
-      "Content-Disposition": `attachment; filename="plan-${id}-${safeName}.doc"`,
+      "Content-Disposition": `attachment; filename="plan-${id}.doc"; filename*=UTF-8''${utf8Name}`,
       "Content-Length": buffer.length,
     });
     res.send(buffer);

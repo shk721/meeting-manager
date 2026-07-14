@@ -615,6 +615,14 @@ export default function PlanDetail({ id, tab }: { id: string; tab?: string }) {
       >
         <Download size={12} /> Excel
       </a>
+      <a
+        href={`/api/export/plan/${planId}/word`}
+        target="_blank"
+        rel="noreferrer"
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, border: "1px solid #d0e4f5", background: "#f0f7ff", fontSize: 11.5, color: "#1a6dc2", textDecoration: "none" }}
+      >
+        <Download size={12} /> Word
+      </a>
     </>
   );
 

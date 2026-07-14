@@ -368,7 +368,29 @@ const STATUS_LABELS_AR: Record<string, string> = {
 };
 
 export async function generatePlanDocx(data: PlanDocxData): Promise<Buffer> {
-  const children: (Paragraph | Table)[] = [];
+  const p = (text: string, opts?: { bold?: boolean; size?: number; indent?: boolean }) =>
+    new Paragraph({
+      bidirectional: true,
+      alignment: AlignmentType.RIGHT,
+      spacing: { after: 80 },
+      indent: opts?.indent ? { right: 360 } : undefined,
+      children: [
+        new TextRun({ text, bold: opts?.bold ?? false, size: opts?.size ?? 22, rightToLeft: true, font: "Arial" }),
+      ],
+    });
+
+  const heading = (text: string) =>
+    new Paragraph({
+      bidirectional: true,
+      alignment: AlignmentType.RIGHT,
+      spacing: { before: 280, after: 120 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "1f7a4d", space: 4 } },
+      children: [new TextRun({ text, bold: true, size: 28, color: "1f7a4d", rightToLeft: true, font: "Arial" })],
+    });
+
+  const blank = () => new Paragraph({ children: [new TextRun({ text: "" })] });
+
+  const children: Paragraph[] = [];
 
   // ── Title ──
   children.push(
@@ -380,96 +402,52 @@ export async function generatePlanDocx(data: PlanDocxData): Promise<Buffer> {
     })
   );
 
-  // ── Meta row ──
+  // ── Meta ──
   const typeLabel = data.type === "readiness" ? "جاهزية" : "تشغيلية";
   const statusLabel = STATUS_LABELS_AR[data.status] ?? data.status;
-  const metaParts = [
-    `النوع: ${typeLabel}`,
-    `الحالة: ${statusLabel}`,
-    `التقدم: ${data.progress}%`,
-    data.ownerName ? `المسؤول: ${data.ownerName}` : null,
-    data.startDate ? `البداية: ${data.startDate}` : null,
-    data.endDate ? `النهاية: ${data.endDate}` : null,
-  ].filter(Boolean).join("   |   ");
-  children.push(rtlPara(metaParts, { size: 22 }));
-  children.push(new Paragraph({ children: [new TextRun("")] }));
+  children.push(p(`النوع: ${typeLabel}   |   الحالة: ${statusLabel}   |   التقدم: ${data.progress}%`, { size: 22 }));
+  if (data.ownerName) children.push(p(`المسؤول: ${data.ownerName}`, { size: 22 }));
+  if (data.startDate || data.endDate) children.push(p(`الفترة: ${data.startDate ?? "—"}  ←  ${data.endDate ?? "—"}`, { size: 22 }));
+  children.push(blank());
 
-  // ── Description / Notes ──
+  // ── Description ──
   const summary = data.description ?? data.notes;
   if (summary) {
-    children.push(sectionHeader("الوصف"));
-    for (const line of summary.split("\n").filter(Boolean)) {
-      children.push(bodyPara(line));
-    }
-    children.push(new Paragraph({ children: [new TextRun("")] }));
+    children.push(heading("الوصف"));
+    for (const line of summary.split("\n").filter(Boolean)) children.push(p(line));
+    children.push(blank());
   }
 
-  // ── Phases table ──
+  // ── Phases ──
   if (data.phases.length > 0) {
-    children.push(sectionHeader("المراحل"));
-    const phaseHeaderRow = new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "المرحلة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 50, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الحالة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 20, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "البداية", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 15, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "النهاية", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 15, type: WidthType.PERCENTAGE } }),
-      ],
+    children.push(heading("المراحل"));
+    data.phases.forEach((ph, i) => {
+      const dates = [ph.startDate, ph.endDate].filter(Boolean).join(" — ");
+      children.push(p(`${i + 1}. ${ph.title}   [${STATUS_LABELS_AR[ph.status] ?? ph.status}]${dates ? "   |   " + dates : ""}`, { bold: false }));
     });
-    const phaseRows = data.phases.map(ph => new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ph.title, size: 20, rightToLeft: true, font: "Arial" })] })] }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: STATUS_LABELS_AR[ph.status] ?? ph.status, size: 20, rightToLeft: true, font: "Arial" })] })] }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: ph.startDate ?? "—", size: 20, font: "Arial" })] })] }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: ph.endDate ?? "—", size: 20, font: "Arial" })] })] }),
-      ],
-    }));
-    children.push(new Table({ rows: [phaseHeaderRow, ...phaseRows], width: { size: 100, type: WidthType.PERCENTAGE } }));
-    children.push(new Paragraph({ children: [new TextRun("")] }));
+    children.push(blank());
   }
 
-  // ── Tasks table ──
+  // ── Tasks ──
   if (data.tasks.length > 0) {
-    children.push(sectionHeader("المهام"));
-    const taskHeaderRow = new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "المهمة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 40, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الحالة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 15, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الإنجاز", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 10, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "المكلّف", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 20, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الاستحقاق", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 15, type: WidthType.PERCENTAGE } }),
-      ],
+    children.push(heading("المهام"));
+    data.tasks.forEach((t, i) => {
+      const assignee = t.assigneeName ? `   |   المكلّف: ${t.assigneeName}` : "";
+      const due = t.dueDate ? `   |   الاستحقاق: ${t.dueDate}` : "";
+      const pct = t.completionPercent > 0 ? `   |   الإنجاز: ${t.completionPercent}%` : "";
+      children.push(p(`${i + 1}. [${STATUS_LABELS_AR[t.status] ?? t.status}] ${t.title}${pct}${assignee}${due}`));
     });
-    const taskRows = data.tasks.map(t => new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.title, size: 20, rightToLeft: true, font: "Arial" })] })] }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: STATUS_LABELS_AR[t.status] ?? t.status, size: 20, rightToLeft: true, font: "Arial" })] })] }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${t.completionPercent}%`, size: 20, font: "Arial" })] })] }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.assigneeName ?? "—", size: 20, rightToLeft: true, font: "Arial" })] })] }),
-        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: t.dueDate ?? "—", size: 20, font: "Arial" })] })] }),
-      ],
-    }));
-    children.push(new Table({ rows: [taskHeaderRow, ...taskRows], width: { size: 100, type: WidthType.PERCENTAGE } }));
-    children.push(new Paragraph({ children: [new TextRun("")] }));
+    children.push(blank());
   }
 
   // ── Decisions ──
   if (data.decisions.length > 0) {
-    children.push(sectionHeader("القرارات"));
+    children.push(heading("القرارات"));
     data.decisions.forEach((d, i) => {
-      const label = d.title ?? d.content.slice(0, 80);
-      children.push(
-        new Paragraph({
-          bidirectional: true,
-          alignment: AlignmentType.RIGHT,
-          spacing: { after: 80 },
-          children: [
-            new TextRun({ text: `${i + 1}. `, bold: true, size: 22, rightToLeft: true, font: "Arial" }),
-            new TextRun({ text: `[${STATUS_LABELS_AR[d.status] ?? d.status}] ${label}`, size: 22, rightToLeft: true, font: "Arial" }),
-          ],
-        })
-      );
+      const label = d.title ?? d.content.slice(0, 100);
+      children.push(p(`${i + 1}. [${STATUS_LABELS_AR[d.status] ?? d.status}] ${label}`));
     });
-    children.push(new Paragraph({ children: [new TextRun("")] }));
+    children.push(blank());
   }
 
   // ── Footer ──
@@ -482,9 +460,7 @@ export async function generatePlanDocx(data: PlanDocxData): Promise<Buffer> {
     })
   );
 
-  const doc = new Document({
-    sections: [{ properties: { bidi: true } as any, children }],
-  });
+  const doc = new Document({ sections: [{ children }] });
   return Packer.toBuffer(doc);
 }
 

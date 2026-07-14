@@ -338,6 +338,156 @@ export function generatePlanExcel(plan: PlanData): Buffer {
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
+// ─── Word (docx) export for plans ────────────────────────────────────────────
+
+interface PlanWorkstream {
+  title: string;
+  tasks: Array<{ title: string; status: string; assigneeName?: string | null; completionPercent: number; dueDate?: string | null }>;
+}
+
+export interface PlanDocxData {
+  title: string;
+  description?: string | null;
+  notes?: string | null;
+  type: string;
+  status: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  ownerName?: string;
+  progress: number;
+  phases: Array<{ title: string; status: string; startDate?: string | null; endDate?: string | null }>;
+  workstreams: PlanWorkstream[];
+  tasks: Array<{ title: string; status: string; priority: string; dueDate?: string | null; completionPercent: number; assigneeName?: string | null }>;
+  decisions: Array<{ title?: string | null; content: string; status: string }>;
+}
+
+const STATUS_LABELS_AR: Record<string, string> = {
+  draft: "مسودة", active: "نشطة", in_progress: "قيد التنفيذ",
+  on_hold: "معلّقة", overdue: "متأخرة", completed: "مكتملة", pending: "قيد الانتظار",
+  cancelled: "ملغاة", approved: "معتمد",
+};
+
+export async function generatePlanDocx(data: PlanDocxData): Promise<Buffer> {
+  const children: (Paragraph | Table)[] = [];
+
+  // ── Title ──
+  children.push(
+    new Paragraph({
+      bidirectional: true,
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 160 },
+      children: [new TextRun({ text: data.title, bold: true, size: 44, rightToLeft: true, font: "Arial" })],
+    })
+  );
+
+  // ── Meta row ──
+  const typeLabel = data.type === "readiness" ? "جاهزية" : "تشغيلية";
+  const statusLabel = STATUS_LABELS_AR[data.status] ?? data.status;
+  const metaParts = [
+    `النوع: ${typeLabel}`,
+    `الحالة: ${statusLabel}`,
+    `التقدم: ${data.progress}%`,
+    data.ownerName ? `المسؤول: ${data.ownerName}` : null,
+    data.startDate ? `البداية: ${data.startDate}` : null,
+    data.endDate ? `النهاية: ${data.endDate}` : null,
+  ].filter(Boolean).join("   |   ");
+  children.push(rtlPara(metaParts, { size: 22 }));
+  children.push(new Paragraph({ children: [new TextRun("")] }));
+
+  // ── Description / Notes ──
+  const summary = data.description ?? data.notes;
+  if (summary) {
+    children.push(sectionHeader("الوصف"));
+    for (const line of summary.split("\n").filter(Boolean)) {
+      children.push(bodyPara(line));
+    }
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Phases table ──
+  if (data.phases.length > 0) {
+    children.push(sectionHeader("المراحل"));
+    const phaseHeaderRow = new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "المرحلة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 50, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الحالة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 20, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "البداية", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 15, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "النهاية", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 15, type: WidthType.PERCENTAGE } }),
+      ],
+    });
+    const phaseRows = data.phases.map(ph => new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ph.title, size: 20, rightToLeft: true, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: STATUS_LABELS_AR[ph.status] ?? ph.status, size: 20, rightToLeft: true, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: ph.startDate ?? "—", size: 20, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: ph.endDate ?? "—", size: 20, font: "Arial" })] })] }),
+      ],
+    }));
+    children.push(new Table({ rows: [phaseHeaderRow, ...phaseRows], width: { size: 100, type: WidthType.PERCENTAGE } }));
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Tasks table ──
+  if (data.tasks.length > 0) {
+    children.push(sectionHeader("المهام"));
+    const taskHeaderRow = new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "المهمة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 40, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الحالة", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 15, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الإنجاز", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 10, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "المكلّف", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 20, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: "الاستحقاق", bold: true, size: 20, rightToLeft: true, font: "Arial" })] })], shading: { type: ShadingType.SOLID, color: "e8f2ea" }, width: { size: 15, type: WidthType.PERCENTAGE } }),
+      ],
+    });
+    const taskRows = data.tasks.map(t => new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.title, size: 20, rightToLeft: true, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: STATUS_LABELS_AR[t.status] ?? t.status, size: 20, rightToLeft: true, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: `${t.completionPercent}%`, size: 20, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.assigneeName ?? "—", size: 20, rightToLeft: true, font: "Arial" })] })] }),
+        new TableCell({ children: [new Paragraph({ bidirectional: true, alignment: AlignmentType.CENTER, children: [new TextRun({ text: t.dueDate ?? "—", size: 20, font: "Arial" })] })] }),
+      ],
+    }));
+    children.push(new Table({ rows: [taskHeaderRow, ...taskRows], width: { size: 100, type: WidthType.PERCENTAGE } }));
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Decisions ──
+  if (data.decisions.length > 0) {
+    children.push(sectionHeader("القرارات"));
+    data.decisions.forEach((d, i) => {
+      const label = d.title ?? d.content.slice(0, 80);
+      children.push(
+        new Paragraph({
+          bidirectional: true,
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 80 },
+          children: [
+            new TextRun({ text: `${i + 1}. `, bold: true, size: 22, rightToLeft: true, font: "Arial" }),
+            new TextRun({ text: `[${STATUS_LABELS_AR[d.status] ?? d.status}] ${label}`, size: 22, rightToLeft: true, font: "Arial" }),
+          ],
+        })
+      );
+    });
+    children.push(new Paragraph({ children: [new TextRun("")] }));
+  }
+
+  // ── Footer ──
+  children.push(
+    new Paragraph({
+      bidirectional: true,
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 400 },
+      children: [new TextRun({ text: "وثيقة مولَّدة تلقائياً — منصة المتابعة والتنفيذ المؤسسي", size: 18, color: "a3b0a3", rightToLeft: true, font: "Arial" })],
+    })
+  );
+
+  const doc = new Document({
+    sections: [{ properties: { bidi: true } as any, children }],
+  });
+  return Packer.toBuffer(doc);
+}
+
 // ─── Word (docx) export for meeting minutes ───────────────────────────────────
 
 function rtlPara(text: string, opts?: { bold?: boolean; size?: number }): Paragraph {
@@ -492,7 +642,7 @@ export async function generateMinutesDocx(
   );
 
   const doc = new Document({
-    sections: [{ properties: { bidi: true }, children }],
+    sections: [{ properties: { bidi: true } as any, children }],
   });
 
   return Packer.toBuffer(doc);

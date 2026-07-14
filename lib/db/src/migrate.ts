@@ -9,17 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = path.join(__dirname, "migrations");
 
 async function baseline(): Promise<void> {
-  // If users table already exists but __drizzle_migrations does not, we're transitioning
-  // from push-force. Insert all current migration hashes as "already applied" so drizzle
-  // won't try to re-create tables that already exist.
-  const { rows: migrationsTableExists } = await pool.query<{ exists: boolean }>(`
-    SELECT EXISTS (
-      SELECT FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'
-    ) AS exists
-  `);
-  if (migrationsTableExists[0]?.exists) return;
-
+  // Skip baseline entirely on fresh installs — drizzle migrate() handles everything.
   const { rows: usersExists } = await pool.query<{ exists: boolean }>(`
     SELECT EXISTS (
       SELECT FROM information_schema.tables
@@ -28,24 +18,22 @@ async function baseline(): Promise<void> {
   `);
   if (!usersExists[0]?.exists) return;
 
-  console.log("Baseline: existing schema detected — marking all migrations as applied.");
-
+  // Ensure the migrations table exists (safe on re-runs).
   await pool.query(`
-    CREATE TABLE "__drizzle_migrations" (
+    CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
       id SERIAL PRIMARY KEY,
       hash text NOT NULL,
       created_at bigint
     )
   `);
 
-  // Read migration tags from journal and compute SQL content hash (sha256) for each.
-  // Only baseline a migration if its sentinel table/column already exists in the DB —
-  // this ensures new migrations (whose effects are not yet in the DB) run normally.
+  // Sentinels: SQL that returns rows only when a migration's effects are already in the DB.
+  // Migrations whose sentinel returns no rows are skipped so drizzle runs them normally.
   const SENTINELS: Record<string, string> = {
-    "0000_cute_nick_fury":    "SELECT 1 FROM information_schema.tables WHERE table_name = 'users' AND table_schema = 'public'",
-    "0001_ancient_hercules":  "SELECT 1 FROM information_schema.tables WHERE table_name = 'topics' AND table_schema = 'public'",
-    "0002_busy_barracuda":    "SELECT 1 FROM information_schema.tables WHERE table_name = 'agenda_item_comments' AND table_schema = 'public'",
-    "0003_plan_staff":        "SELECT 1 FROM information_schema.tables WHERE table_name = 'plan_staff' AND table_schema = 'public'",
+    "0000_cute_nick_fury":   "SELECT 1 FROM information_schema.tables WHERE table_name = 'users' AND table_schema = 'public'",
+    "0001_ancient_hercules": "SELECT 1 FROM information_schema.tables WHERE table_name = 'topics' AND table_schema = 'public'",
+    "0002_busy_barracuda":   "SELECT 1 FROM information_schema.tables WHERE table_name = 'agenda_item_comments' AND table_schema = 'public'",
+    "0003_plan_staff":       "SELECT 1 FROM information_schema.tables WHERE table_name = 'plan_staff' AND table_schema = 'public'",
   };
 
   const { createHash } = await import("crypto");
@@ -58,28 +46,43 @@ async function baseline(): Promise<void> {
   }
 
   for (const entry of journal.entries) {
+    const sqlPath = path.join(migrationsFolder, `${entry.tag}.sql`);
+    let sql: string;
+    try {
+      sql = await readFile(sqlPath, "utf-8");
+    } catch {
+      continue;
+    }
+    const hash = createHash("sha256").update(sql).digest("hex");
+
+    // Skip if this exact hash is already recorded (idempotent re-runs).
+    const { rows: hashExists } = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM "__drizzle_migrations" WHERE hash = $1) AS exists`,
+      [hash],
+    );
+    if (hashExists[0]?.exists) {
+      console.log(`Baseline: ${entry.tag} already recorded.`);
+      continue;
+    }
+
+    // Only mark as applied when the migration's effects are confirmed in the DB.
     const sentinel = SENTINELS[entry.tag];
     if (sentinel) {
       const { rows } = await pool.query(sentinel);
       if (rows.length === 0) {
-        console.log(`Baseline: skipping ${entry.tag} — table not yet in DB, will migrate.`);
+        console.log(`Baseline: skipping ${entry.tag} — not yet applied, will migrate normally.`);
         continue;
       }
     }
-    const sqlPath = path.join(migrationsFolder, `${entry.tag}.sql`);
-    try {
-      const sql = await readFile(sqlPath, "utf-8");
-      const hash = createHash("sha256").update(sql).digest("hex");
-      await pool.query(
-        `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES ($1, $2)
-         ON CONFLICT DO NOTHING`,
-        [hash, entry.when],
-      );
-      console.log(`Baseline: marked ${entry.tag} as applied.`);
-    } catch {
-      // skip missing SQL files
-    }
+
+    await pool.query(
+      `INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+      [hash, entry.when],
+    );
+    console.log(`Baseline: marked ${entry.tag} as applied.`);
   }
+
+  console.log("Baseline complete.");
 }
 
 async function runMigrate(): Promise<void> {

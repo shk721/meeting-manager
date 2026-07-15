@@ -6,11 +6,15 @@ import { getPlanReportData } from "../services/document-engine/data-providers/pl
 import { getGovernanceReportData } from "../services/document-engine/data-providers/governance";
 import { getAgendaItemReportData } from "../services/document-engine/data-providers/agenda-item";
 import { getParticipantListData, type ParticipantFilters } from "../services/document-engine/data-providers/participant-list";
+import { getMeetingParticipantListData } from "../services/document-engine/data-providers/meeting-participant-list";
+import { getGovernanceParticipantListData } from "../services/document-engine/data-providers/governance-participant-list";
 import { generateMeetingReportHtml } from "../services/document-engine/html-templates/meeting-report";
 import { generatePlanReportHtml } from "../services/document-engine/html-templates/plan-report";
 import { generateGovernanceReportHtml } from "../services/document-engine/html-templates/governance-report";
 import { generateAgendaItemReportHtml } from "../services/document-engine/html-templates/agenda-item-report";
 import { generateParticipantListHtml } from "../services/document-engine/html-templates/participant-list-report";
+import { generateMeetingParticipantListHtml } from "../services/document-engine/html-templates/meeting-participant-list-report";
+import { generateGovernanceParticipantListHtml } from "../services/document-engine/html-templates/governance-participant-list-report";
 import { renderHtmlToPdf } from "../services/document-engine/pdf-renderer";
 import fs from "fs/promises";
 
@@ -66,8 +70,18 @@ router.post("/documents/generate", async (req, res): Promise<void> => {
         filters?.department ? `· ${filters.department}` : "",
       ].filter(Boolean).join(" ");
       title = `قائمة مشاركي الخطة — ${data.plan.title}${filterSuffix ? ` ${filterSuffix}` : ""}`;
+    } else if (entityType === "meeting_participant_list") {
+      const data = await getMeetingParticipantListData(id);
+      if (!data) { res.status(404).json({ error: "Meeting not found" }); return; }
+      html = generateMeetingParticipantListHtml(data);
+      title = `قائمة مشاركي الاجتماع — ${data.meeting.title}`;
+    } else if (entityType === "governance_participant_list") {
+      const data = await getGovernanceParticipantListData(id);
+      if (!data) { res.status(404).json({ error: "Governance context not found" }); return; }
+      html = generateGovernanceParticipantListHtml(data);
+      title = `قائمة أعضاء الهيئة — ${data.context.name}`;
     } else {
-      res.status(400).json({ error: "entityType must be meeting | plan | governance | agenda_item | participant_list" });
+      res.status(400).json({ error: "entityType must be meeting | plan | governance | agenda_item | participant_list | meeting_participant_list | governance_participant_list" });
       return;
     }
 

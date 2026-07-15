@@ -87,6 +87,38 @@ function GovernanceReportButton({ contextId }: { contextId: number }) {
   );
 }
 
+function GovernanceParticipantListButton({ contextId }: { contextId: number }) {
+  const [busy, setBusy] = useState(false);
+  async function generate(e: React.MouseEvent) {
+    e.stopPropagation();
+    setBusy(true);
+    try {
+      const res = await fetch("/api/documents/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "governance_participant_list", entityId: contextId }),
+      });
+      if (!res.ok) throw new Error("فشل التوليد");
+      const { downloadUrl } = await res.json();
+      window.open(downloadUrl, "_blank");
+    } catch {
+      alert("تعذّر توليد القائمة. حاول مرة أخرى.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      onClick={generate}
+      disabled={busy}
+      style={{ border: "1px solid #1f7a4d", background: "#fff", color: "#1f7a4d", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: busy ? "not-allowed" : "pointer" }}
+    >
+      {busy ? "جارٍ..." : "قائمة الأعضاء PDF"}
+    </button>
+  );
+}
+
 export default function GovernancePage() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -305,6 +337,7 @@ export default function GovernancePage() {
                   {ctx.status === "active" ? "تعطيل" : "تفعيل"}
                 </button>
                 <GovernanceReportButton contextId={ctx.id} />
+                <GovernanceParticipantListButton contextId={ctx.id} />
                 <button
                   onClick={e => { e.stopPropagation(); if (confirm("هل تريد حذف هذا السياق؟")) deleteCtx.mutate(ctx.id); }}
                   style={{ border: "none", background: "none", color: "#c0492f", cursor: "pointer", fontSize: 18, padding: "0 2px" }}

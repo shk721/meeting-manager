@@ -9,6 +9,7 @@ import { eq, sql, desc, inArray, and } from "drizzle-orm";
 import { z } from "zod";
 import { auditLog } from "../lib/audit-log";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 const router: IRouter = Router();
 
@@ -450,36 +451,116 @@ router.get("/plans/:id/staff/export", async (req, res): Promise<void> => {
 
   const enriched = await Promise.all(rows.map(enrichStaffRow));
 
-  const headers = ["الاسم", "الدور", "التخصص", "الحالة الوظيفية", "موقع العمل", "القسم/الاقتصاد", "البريد الإلكتروني", "رقم الجوال", "المدة (من — إلى)", "ملاحظات"];
-  const sheetData = [
-    [`كوادر الخطة: ${plan?.title ?? ""}`],
-    [],
-    headers,
-    ...enriched.map(s => {
-      const duration = [s.startDate, s.endDate].filter(Boolean).join(" — ") || "—";
-      return [
-        s.name,
-        s.role,
-        s.specialty ?? "—",
-        STATUS_LABELS[s.employmentStatus] ?? s.employmentStatus,
-        s.workLocation ?? "—",
-        s.department ?? "—",
-        s.email ?? "—",
-        s.phone ?? "—",
-        duration,
-        s.notes ?? "",
-      ];
-    }),
+  // ── Build formatted RTL workbook with ExcelJS ──────────────────────────────
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "منصة إدارة الاجتماعات";
+  wb.created = new Date();
+
+  const ws = wb.addWorksheet("الكوادر البشرية", {
+    views: [{ rightToLeft: true }],
+    pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1 },
+  });
+
+  const COLS = [
+    { header: "الاسم",             key: "name",     width: 24 },
+    { header: "الدور",             key: "role",     width: 18 },
+    { header: "التخصص",           key: "spec",     width: 20 },
+    { header: "الحالة الوظيفية",  key: "empSt",    width: 24 },
+    { header: "موقع العمل",       key: "loc",      width: 22 },
+    { header: "القسم / الإدارة",  key: "dept",     width: 22 },
+    { header: "البريد الإلكتروني",key: "email",    width: 28 },
+    { header: "رقم الجوال",       key: "phone",    width: 18 },
+    { header: "المدة",            key: "dur",      width: 26 },
+    { header: "ملاحظات",          key: "notes",    width: 22 },
   ];
 
-  const ws = XLSX.utils.aoa_to_sheet(sheetData);
-  ws["!cols"] = [22, 16, 18, 22, 20, 18, 26, 16, 24, 20].map(w => ({ wch: w }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "الكوادر البشرية");
+  ws.columns = COLS.map(c => ({ key: c.key, width: c.width }));
 
-  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+  // Title row (row 1) — merged across all columns, dark-green bg, white bold
+  ws.mergeCells(1, 1, 1, COLS.length);
+  const titleCell = ws.getCell("A1");
+  titleCell.value = `كوادر الخطة: ${plan?.title ?? ""}`;
+  titleCell.font   = { name: "Arial", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
+  titleCell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F7A4D" } };
+  titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+  ws.getRow(1).height = 36;
+
+  // Subtitle row (row 2) — generated-at + count, light-green bg
+  ws.mergeCells(2, 1, 2, COLS.length);
+  const subCell = ws.getCell("A2");
+  subCell.value = `إجمالي الكوادر: ${enriched.length}  |  تاريخ التصدير: ${new Date().toLocaleDateString("ar-SA")}`;
+  subCell.font      = { name: "Arial", size: 10, color: { argb: "FF1F7A4D" } };
+  subCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F2EA" } };
+  subCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+  ws.getRow(2).height = 22;
+
+  // Empty spacer row 3
+  ws.getRow(3).height = 6;
+
+  // Header row (row 4) — medium-green bg, bold white, borders
+  const headerRow = ws.getRow(4);
+  COLS.forEach((col, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value     = col.header;
+    cell.font      = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2D9C62" } };
+    cell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", wrapText: false };
+    cell.border    = {
+      top:    { style: "thin", color: { argb: "FF1F7A4D" } },
+      bottom: { style: "thin", color: { argb: "FF1F7A4D" } },
+      left:   { style: "thin", color: { argb: "FF1F7A4D" } },
+      right:  { style: "thin", color: { argb: "FF1F7A4D" } },
+    };
+  });
+  headerRow.height = 28;
+
+  // Data rows starting at row 5
+  enriched.forEach((s, idx) => {
+    const duration = [s.startDate, s.endDate].filter(Boolean).join(" — ") || "—";
+    const isEven   = idx % 2 === 1;
+    const rowBg    = isEven ? "FFF7F9F6" : "FFFFFFFF";
+    const values   = [
+      s.name,
+      s.role,
+      s.specialty ?? "—",
+      STATUS_LABELS[s.employmentStatus] ?? s.employmentStatus,
+      s.workLocation ?? "—",
+      s.department ?? "—",
+      s.email ?? "—",
+      s.phone ?? "—",
+      duration,
+      s.notes ?? "",
+    ];
+
+    const dataRow = ws.addRow(values);
+    dataRow.height = 22;
+    dataRow.eachCell({ includeEmpty: true }, (cell) => {
+      cell.font      = { name: "Arial", size: 10 };
+      cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+      cell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl" };
+      cell.border    = {
+        top:    { style: "hair",  color: { argb: "FFCCCCCC" } },
+        bottom: { style: "hair",  color: { argb: "FFCCCCCC" } },
+        left:   { style: "thin",  color: { argb: "FFB8D4BC" } },
+        right:  { style: "thin",  color: { argb: "FFB8D4BC" } },
+      };
+    });
+  });
+
+  // Footer row
+  const footerRowNum = 5 + enriched.length;
+  ws.mergeCells(footerRowNum, 1, footerRowNum, COLS.length);
+  const footerCell = ws.getCell(`A${footerRowNum}`);
+  footerCell.value     = "منصة إدارة الاجتماعات والتخطيط — سري وللاستخدام الداخلي فقط";
+  footerCell.font      = { name: "Arial", size: 9, italic: true, color: { argb: "FF8A978A" } };
+  footerCell.alignment = { horizontal: "center", readingOrder: "rtl" };
+  footerCell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F2EA" } };
+  ws.getRow(footerRowNum).height = 18;
+
+  const buf = await wb.xlsx.writeBuffer() as Buffer;
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", `attachment; filename="plan-staff-${planId}.xlsx"`);
+  const safeName = encodeURIComponent(`كوادر-الخطة-${planId}`);
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${safeName}.xlsx`);
   res.send(buf);
 });
 

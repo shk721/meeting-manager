@@ -167,6 +167,7 @@ function StaffTab({ planId }: { planId: number }) {
   const [filterLocation, setFilterLocation] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const { data: staff = [] } = useQuery<any[]>({
     queryKey: ["plan-staff", planId],
@@ -229,6 +230,30 @@ function StaffTab({ planId }: { planId: number }) {
       workLocation: s.workLocation ?? "", department: s.department ?? "",
       startDate: s.startDate ?? "", endDate: s.endDate ?? "", notes: s.notes ?? "",
     });
+  }
+
+  async function generateParticipantPdf() {
+    setGeneratingPdf(true);
+    try {
+      const res = await fetch("/api/documents/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entityType: "participant_list",
+          entityId: planId,
+          filters: {
+            ...(filterStatus   ? { status:     filterStatus }   : {}),
+            ...(filterLocation ? { location:   filterLocation } : {}),
+            ...(filterDept     ? { department: filterDept }     : {}),
+          },
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const { downloadUrl } = await res.json();
+      window.open(downloadUrl, "_blank");
+    } catch { alert("تعذّر توليد قائمة PDF. حاول مرة أخرى."); }
+    finally { setGeneratingPdf(false); }
   }
 
   async function exportExcel() {
@@ -382,6 +407,10 @@ function StaffTab({ planId }: { planId: number }) {
           style={{ fontSize: 12, padding: "6px 10px", borderRadius: 7, border: "1px solid #d8e4d8", outline: "none", fontFamily: "inherit" }} />
 
         <div style={{ flex: 1 }} />
+        <button onClick={generateParticipantPdf} disabled={generatingPdf}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "none", background: generatingPdf ? "#e8f2ea" : "#1f7a4d", color: generatingPdf ? "#1f7a4d" : "#fff", fontSize: 12.5, fontWeight: 600, cursor: generatingPdf ? "not-allowed" : "pointer" }}>
+          <Download size={13} /> {generatingPdf ? "جارٍ التوليد..." : "قائمة PDF"}
+        </button>
         <button onClick={exportExcel} disabled={exporting}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid #c8dcc8", background: "#fff", color: "#1f7a4d", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
           <Download size={13} /> {exporting ? "جارٍ التصدير..." : "تصدير Excel"}

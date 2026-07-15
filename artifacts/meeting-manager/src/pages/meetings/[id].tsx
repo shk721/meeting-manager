@@ -594,6 +594,9 @@ export default function MeetingDetail({ id, tab }: { id: string; tab?: string })
   // Recurring
   const [recurringOpen, setRecurringOpen] = useState(false);
 
+  // Attendees PDF
+  const [generatingAttendeesPdf, setGeneratingAttendeesPdf] = useState(false);
+
   const refresh = () => queryClient.invalidateQueries({ queryKey: getGetMeetingQueryKey(meetingId) });
 
   const patchMeeting = async (data: any) => {
@@ -622,6 +625,22 @@ export default function MeetingDetail({ id, tab }: { id: string; tab?: string })
       await apiFetch(`/api/meetings/${meetingId}/attendees/${userId}`, "DELETE");
       refresh();
     } catch (e: any) { setApiError(e.message); }
+  };
+
+  const generateAttendeesPdf = async () => {
+    setGeneratingAttendeesPdf(true);
+    try {
+      const res = await fetch("/api/documents/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "meeting_participant_list", entityId: meetingId }),
+      });
+      if (!res.ok) throw new Error();
+      const { downloadUrl } = await res.json();
+      window.open(downloadUrl, "_blank");
+    } catch { setApiError("تعذّر توليد قائمة PDF. حاول مرة أخرى."); }
+    finally { setGeneratingAttendeesPdf(false); }
   };
 
   const handleCreateDecision = async () => {
@@ -825,6 +844,18 @@ export default function MeetingDetail({ id, tab }: { id: string; tab?: string })
               {isAddingAttendee ? <Spinner className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
             </Button>
           </div>
+          {hasAttendees && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={generateAttendeesPdf}
+              disabled={generatingAttendeesPdf}
+              className="w-full mt-2 h-7 text-xs border-green-700 text-green-700 hover:bg-green-50"
+            >
+              <Download className="h-3 w-3 ml-1" />
+              {generatingAttendeesPdf ? "جارٍ التوليد…" : "قائمة المشاركين PDF"}
+            </Button>
+          )}
         </CardContent>
       </Card>
 

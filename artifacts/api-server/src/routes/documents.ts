@@ -5,10 +5,16 @@ import { getMeetingReportData } from "../services/document-engine/data-providers
 import { getPlanReportData } from "../services/document-engine/data-providers/plan";
 import { getGovernanceReportData } from "../services/document-engine/data-providers/governance";
 import { getAgendaItemReportData } from "../services/document-engine/data-providers/agenda-item";
+import { getParticipantListData, type ParticipantFilters } from "../services/document-engine/data-providers/participant-list";
+import { getMeetingParticipantListData } from "../services/document-engine/data-providers/meeting-participant-list";
+import { getGovernanceParticipantListData } from "../services/document-engine/data-providers/governance-participant-list";
 import { generateMeetingReportHtml } from "../services/document-engine/html-templates/meeting-report";
 import { generatePlanReportHtml } from "../services/document-engine/html-templates/plan-report";
 import { generateGovernanceReportHtml } from "../services/document-engine/html-templates/governance-report";
 import { generateAgendaItemReportHtml } from "../services/document-engine/html-templates/agenda-item-report";
+import { generateParticipantListHtml } from "../services/document-engine/html-templates/participant-list-report";
+import { generateMeetingParticipantListHtml } from "../services/document-engine/html-templates/meeting-participant-list-report";
+import { generateGovernanceParticipantListHtml } from "../services/document-engine/html-templates/governance-participant-list-report";
 import { renderHtmlToPdf } from "../services/document-engine/pdf-renderer";
 import fs from "fs/promises";
 
@@ -17,7 +23,11 @@ const router: IRouter = Router();
 // POST /api/documents/generate
 router.post("/documents/generate", async (req, res): Promise<void> => {
   const userId = req.session.userId;
-  const { entityType, entityId } = req.body as { entityType: string; entityId: number };
+  const { entityType, entityId, filters } = req.body as {
+    entityType: string;
+    entityId: number;
+    filters?: ParticipantFilters;
+  };
 
   if (!entityType || !entityId || isNaN(Number(entityId))) {
     res.status(400).json({ error: "entityType and entityId are required" });
@@ -50,8 +60,28 @@ router.post("/documents/generate", async (req, res): Promise<void> => {
       if (!data) { res.status(404).json({ error: "Agenda item not found" }); return; }
       html = generateAgendaItemReportHtml(data);
       title = `تقرير بند أجندة — ${data.item.title}`;
+    } else if (entityType === "participant_list") {
+      const data = await getParticipantListData(id, filters ?? {});
+      if (!data) { res.status(404).json({ error: "Plan not found" }); return; }
+      html = generateParticipantListHtml(data);
+      const filterSuffix = [
+        filters?.status     ? `· ${filters.status}` : "",
+        filters?.location   ? `· ${filters.location}` : "",
+        filters?.department ? `· ${filters.department}` : "",
+      ].filter(Boolean).join(" ");
+      title = `قائمة مشاركي الخطة — ${data.plan.title}${filterSuffix ? ` ${filterSuffix}` : ""}`;
+    } else if (entityType === "meeting_participant_list") {
+      const data = await getMeetingParticipantListData(id);
+      if (!data) { res.status(404).json({ error: "Meeting not found" }); return; }
+      html = generateMeetingParticipantListHtml(data);
+      title = `قائمة مشاركي الاجتماع — ${data.meeting.title}`;
+    } else if (entityType === "governance_participant_list") {
+      const data = await getGovernanceParticipantListData(id);
+      if (!data) { res.status(404).json({ error: "Governance context not found" }); return; }
+      html = generateGovernanceParticipantListHtml(data);
+      title = `قائمة أعضاء الهيئة — ${data.context.name}`;
     } else {
-      res.status(400).json({ error: "entityType must be meeting | plan | governance | agenda_item" });
+      res.status(400).json({ error: "entityType must be meeting | plan | governance | agenda_item | participant_list | meeting_participant_list | governance_participant_list" });
       return;
     }
 

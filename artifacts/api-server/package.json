@@ -26,6 +26,7 @@
     "docx": "^9.5.0",
     "docxtemplater": "^3.69.0",
     "drizzle-orm": "catalog:",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.19.0",

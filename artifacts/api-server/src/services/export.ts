@@ -293,13 +293,22 @@ export function generatePlanPDF(plan: PlanData): Buffer {
   return Buffer.concat(chunks);
 }
 
+const EXCEL_STATUS_AR: Record<string, string> = {
+  draft: "مسودة", active: "نشطة", in_progress: "قيد التنفيذ",
+  on_hold: "معلّقة", overdue: "متأخرة", completed: "مكتملة", pending: "قيد الانتظار",
+  cancelled: "ملغاة", approved: "معتمد", rejected: "مرفوض", deferred: "مؤجّل",
+};
+const EXCEL_PRIORITY_AR: Record<string, string> = {
+  critical: "حرج", high: "عالٍ", medium: "متوسط", low: "منخفض",
+};
+
 export function generatePlanExcel(plan: PlanData): Buffer {
   const wb = XLSX.utils.book_new();
 
   const overview = [
     { الحقل: "العنوان", القيمة: plan.title },
     { الحقل: "النوع", القيمة: plan.type === "readiness" ? "جاهزية" : "تشغيلية" },
-    { الحقل: "الحالة", القيمة: plan.status },
+    { الحقل: "الحالة", القيمة: EXCEL_STATUS_AR[plan.status] ?? plan.status },
     { الحقل: "التقدم", القيمة: `${plan.progress}%` },
     { الحقل: "تاريخ البداية", القيمة: plan.startDate ?? "" },
     { الحقل: "تاريخ النهاية", القيمة: plan.endDate ?? "" },
@@ -310,7 +319,7 @@ export function generatePlanExcel(plan: PlanData): Buffer {
   const phasesData = plan.phases.map((ph, i) => ({
     "#": i + 1,
     العنوان: ph.title,
-    الحالة: ph.status,
+    الحالة: EXCEL_STATUS_AR[ph.status] ?? ph.status,
     "تاريخ البداية": ph.startDate ?? "",
     "تاريخ النهاية": ph.endDate ?? "",
   }));
@@ -319,8 +328,8 @@ export function generatePlanExcel(plan: PlanData): Buffer {
   const tasksData = plan.tasks.map((t, i) => ({
     "#": i + 1,
     العنوان: t.title,
-    الحالة: t.status,
-    الأولوية: t.priority,
+    الحالة: EXCEL_STATUS_AR[t.status] ?? t.status,
+    الأولوية: EXCEL_PRIORITY_AR[t.priority] ?? t.priority,
     "تاريخ الاستحقاق": t.dueDate ?? "",
     "الإنجاز%": t.completionPercent,
     المكلّف: t.assigneeName ?? "",
@@ -330,7 +339,7 @@ export function generatePlanExcel(plan: PlanData): Buffer {
   const decisionsData = plan.decisions.map((d, i) => ({
     "#": i + 1,
     العنوان: d.title ?? d.content.slice(0, 80),
-    الحالة: d.status,
+    الحالة: EXCEL_STATUS_AR[d.status] ?? d.status,
     التاريخ: d.createdAt.slice(0, 10),
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(decisionsData.length ? decisionsData : [{}]), "القرارات");

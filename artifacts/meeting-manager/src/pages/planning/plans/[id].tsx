@@ -1016,6 +1016,9 @@ export default function PlanDetail({ id, tab }: { id: string; tab?: string }) {
         </div>
       )}
 
+      {/* ─── Staff ─── */}
+      {activeTab === "staff" && <StaffTab planId={planId} />}
+
       {/* ─── Documents ─── */}
       {activeTab === "documents" && (
         <DocumentsTab entityType="plan" entityId={planId} />

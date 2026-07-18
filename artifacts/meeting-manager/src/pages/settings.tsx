@@ -123,7 +123,7 @@ export default function SettingsPage() {
                   <div style={{ fontWeight: 700, fontSize: 16, color: "#1c261c" }}>{user?.fullName}</div>
                   <div style={{ fontSize: 12.5, color: "#8a978a", marginTop: 2 }}>@{user?.username}</div>
                   <div style={{ fontSize: 11.5, marginTop: 4, padding: "2px 10px", background: "#e8f2ea", color: "#1f7a4d", borderRadius: 10, display: "inline-block" }}>
-                    {{ admin: "مدير النظام", manager: "مدير", member: "عضو", viewer: "مشاهد" }[user?.role ?? ""] ?? user?.role}
+                    {{ admin: "مدير النظام", manager: "مدير", member: "عضو", viewer: "مشاهد" }[user?.role as string] ?? user?.role}
                   </div>
                 </div>
               </div>
@@ -221,7 +221,7 @@ export default function SettingsPage() {
                       <div style={{ fontSize: 12, color: "#8a978a" }}>@{u.username}</div>
                     </div>
                     <span style={{ fontSize: 11.5, padding: "2px 10px", borderRadius: 10, background: u.role === "admin" ? "#fbeeea" : u.role === "manager" ? "#fbf1dd" : "#e8f2ea", color: u.role === "admin" ? "#c0492f" : u.role === "manager" ? "#a97918" : "#1f7a4d" }}>
-                      {{ admin: "مدير النظام", manager: "مدير", member: "عضو", viewer: "مشاهد" }[u.role] ?? u.role}
+                      {{ admin: "مدير النظام", manager: "مدير", member: "عضو", viewer: "مشاهد" }[u.role as string] ?? u.role}
                     </span>
                   </div>
                 ))

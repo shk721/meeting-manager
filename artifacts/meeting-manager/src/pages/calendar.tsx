@@ -158,26 +158,28 @@ export default function CalendarPage() {
                   modifiers={{ hasEvents: daysWithEvents }}
                   modifiersClassNames={{ hasEvents: "has-events" }}
                   components={{
-                    DayContent: ({ date }) => {
-                      const dateStr = format(date, "yyyy-MM-dd");
+                    DayButton: ({ day, ...btnProps }) => {
+                      const dateStr = format(day.date, "yyyy-MM-dd");
                       const dayEvents = eventsByDate[dateStr] ?? [];
                       return (
-                        <div className="relative flex flex-col items-center">
-                          <span>{date.getDate()}</span>
-                          {dayEvents.length > 0 && (
-                            <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
-                              {dayEvents.slice(0, 3).map(e => (
-                                <span
-                                  key={e.id}
-                                  className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[e.status] ?? "bg-gray-400"}`}
-                                />
-                              ))}
-                              {dayEvents.length > 3 && (
-                                <span className="text-[9px] text-muted-foreground">+{dayEvents.length - 3}</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        <button {...btnProps}>
+                          <div className="relative flex flex-col items-center">
+                            <span>{day.date.getDate()}</span>
+                            {dayEvents.length > 0 && (
+                              <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
+                                {dayEvents.slice(0, 3).map(e => (
+                                  <span
+                                    key={e.id}
+                                    className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[e.status] ?? "bg-gray-400"}`}
+                                  />
+                                ))}
+                                {dayEvents.length > 3 && (
+                                  <span className="text-[9px] text-muted-foreground">+{dayEvents.length - 3}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </button>
                       );
                     },
                   }}

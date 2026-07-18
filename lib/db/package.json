@@ -14,6 +14,7 @@
     "./analytics-queries": "./src/analytics-queries.ts"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",

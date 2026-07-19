@@ -320,39 +320,39 @@ export default function TransactionsPage() {
           )}
         </div>
         <div className="grid grid-cols-4 gap-3">
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <Select value={filterStatus || "all"} onValueChange={v => setFilterStatus(v === "all" ? "" : v)}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="الحالة" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">الكل</SelectItem>
+              <SelectItem value="all">الكل</SelectItem>
               {PLATFORM_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterAction} onValueChange={setFilterAction}>
+          <Select value={filterAction || "all"} onValueChange={v => setFilterAction(v === "all" ? "" : v)}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="تصنيف الإجراء" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">الكل</SelectItem>
+              <SelectItem value="all">الكل</SelectItem>
               {ACTION_REQUIRED.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
+          <Select value={filterPriority || "all"} onValueChange={v => setFilterPriority(v === "all" ? "" : v)}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="الأولوية" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">الكل</SelectItem>
+              <SelectItem value="all">الكل</SelectItem>
               {PRIORITIES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterType} onValueChange={setFilterType}>
+          <Select value={filterType || "all"} onValueChange={v => setFilterType(v === "all" ? "" : v)}>
             <SelectTrigger className="text-sm">
               <SelectValue placeholder="النوع" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">الكل</SelectItem>
+              <SelectItem value="all">الكل</SelectItem>
               {TRANSACTION_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>

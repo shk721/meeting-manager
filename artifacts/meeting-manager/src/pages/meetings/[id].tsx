@@ -21,7 +21,7 @@ import {
 import {
   Calendar, Clock, MapPin, Users, Target, FileText,
   Briefcase, Plus, Send, Play, CheckCircle2,
-  Edit, AlertCircle, RefreshCw, Download,
+  Edit, AlertCircle, RefreshCw, Download, History,
 } from "lucide-react";
 import { RecurringMeetingDialog } from "@/components/RecurringMeetingDialog";
 import { ReminderSettings } from "@/components/ReminderSettings";
@@ -555,6 +555,119 @@ function DocumentsTab({ entityType, entityId }: { entityType: string; entityId: 
   );
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  create: "إنشاء",
+  update: "تعديل",
+  delete: "حذف",
+  status_change: "تغيير الحالة",
+  member_add: "إضافة عضو",
+  member_remove: "إزالة عضو",
+  assignment: "تكليف",
+};
+
+const ACTION_COLORS: Record<string, string> = {
+  create: "#1f7a4d",
+  update: "#1a6dc2",
+  delete: "#c0492f",
+  status_change: "#a97918",
+  member_add: "#1f7a4d",
+  member_remove: "#c0492f",
+  assignment: "#7a4d9a",
+};
+
+function AuditLogTab({ entityType, entityId }: { entityType: string; entityId: number }) {
+  const { data: logs = [], isLoading } = useQuery<any[]>({
+    queryKey: ["audit-log", entityType, entityId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/audit-log?entityType=${entityType}&entityId=${entityId}&limit=100`,
+        { credentials: "include" },
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <History className="h-4 w-4" />
+          سجل التغييرات
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Spinner className="h-5 w-5" /></div>
+        ) : logs.length === 0 ? (
+          <div className="text-center py-8">
+            <History className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">لا توجد سجلات تغيير بعد</p>
+          </div>
+        ) : (
+          <div className="relative">
+            <div className="absolute right-[11px] top-0 bottom-0 w-px bg-muted-foreground/15" />
+            <div className="space-y-0">
+              {logs.map((log: any, idx: number) => {
+                const color = ACTION_COLORS[log.action] ?? "#5a675a";
+                const label = ACTION_LABELS[log.action] ?? log.action;
+                const changes = log.changes as Record<string, [any, any]> | null;
+                return (
+                  <div key={log.id} className="relative flex gap-3 pb-4">
+                    <div
+                      className="relative z-10 w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                      style={{ background: color + "1a", border: `2px solid ${color}` }}
+                    >
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, display: "block" }} />
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-semibold" style={{ color }}>
+                            {label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            بواسطة {log.actor?.fullName ?? "نظام"}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {new Date(log.createdAt).toLocaleString("ar-SA", {
+                            year: "numeric", month: "short", day: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      {log.context && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{log.context}</p>
+                      )}
+                      {changes && Object.keys(changes).length > 0 && (
+                        <div className="mt-1.5 space-y-1">
+                          {Object.entries(changes).map(([field, [oldVal, newVal]]) => (
+                            <div key={field} className="flex items-center gap-1.5 text-[11px]">
+                              <span className="text-muted-foreground">{field}:</span>
+                              {oldVal !== null && oldVal !== undefined && (
+                                <>
+                                  <span className="line-through text-muted-foreground/60">{String(oldVal)}</span>
+                                  <span className="text-muted-foreground/40">←</span>
+                                </>
+                              )}
+                              <span className="font-medium">{String(newVal ?? "—")}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function MeetingDetail({ id, tab }: { id: string; tab?: string }) {
   const meetingId = parseInt(id, 10);
   const queryClient = useQueryClient();
@@ -758,6 +871,7 @@ export default function MeetingDetail({ id, tab }: { id: string; tab?: string })
     { id: "tasks", label: "المهام", badge: tasks.length },
     { id: "minutes", label: "المحضر" },
     { id: "documents", label: "الوثائق" },
+    { id: "log", label: "السجل" },
   ];
 
   const statusInfo = statusMap[m.status];
@@ -1138,6 +1252,11 @@ export default function MeetingDetail({ id, tab }: { id: string; tab?: string })
         {/* Documents tab */}
         {activeTab === "documents" && (
           <DocumentsTab entityType="meeting" entityId={meetingId} />
+        )}
+
+        {/* Audit log tab */}
+        {activeTab === "log" && (
+          <AuditLogTab entityType="meeting" entityId={meetingId} />
         )}
       </WorkspaceLayout>
 

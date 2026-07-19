@@ -31,6 +31,7 @@ import agendaItemsRouter from "./agenda-items";
 import deliverablesRouter from "./deliverables";
 import documentsRouter from "./documents";
 import auditLogRouter from "./audit-log";
+import transactionsRouter from "./transactions";
 import { requireAuth } from "../middleware/require-auth";
 
 const router: IRouter = Router();
@@ -68,5 +69,6 @@ router.use(agendaItemsRouter);
 router.use(deliverablesRouter);
 router.use(documentsRouter);
 router.use(auditLogRouter);
+router.use(transactionsRouter);
 
 export default router;

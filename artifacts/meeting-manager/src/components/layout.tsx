@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CheckSquare, LogOut,
   UserCog, CalendarDays, Calendar, ExternalLink,
   LayoutGrid, BarChart2, Search, Menu,
-  TrendingUp, List, ClipboardList, Settings, Building2, Shield, Cpu, FileText,
+  TrendingUp, List, ClipboardList, Settings, Building2, Shield, Cpu, FileText, Inbox,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -27,6 +27,7 @@ function getNavItems(role: string) {
       { title: "إدارة المستخدمين", href: "/users", icon: UserCog },
       { title: "المنظمات", href: "/organizations", icon: Building2 },
       { title: "الحوكمة", href: "/governance", icon: Shield },
+      { title: "سجل المعاملات", href: "/transactions", icon: Inbox },
       { title: "التمكين الرقمي", href: "/digital-transformation", icon: Cpu },
       { title: "التقارير", href: "/reports", icon: FileText },
     ];
@@ -38,6 +39,7 @@ function getNavItems(role: string) {
       { title: "الاجتماعات", href: "/meetings", icon: CalendarDays },
       { title: "المهام", href: "/tasks", icon: CheckSquare },
       { title: "الحوكمة", href: "/governance", icon: Shield },
+      { title: "سجل المعاملات", href: "/transactions", icon: Inbox },
       { title: "التمكين الرقمي", href: "/digital-transformation", icon: Cpu },
       { title: "التقارير", href: "/reports", icon: FileText },
     ];
